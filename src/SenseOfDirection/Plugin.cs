@@ -2,6 +2,7 @@ using BepInEx;
 using HarmonyLib;
 using SenseOfDirection.CampfireIndicator;
 using SenseOfDirection.Indicators;
+using SenseOfDirection.ItemPings;
 using SenseOfDirection.Labels;
 using SenseOfDirection.Pings;
 using UnityEngine;
@@ -26,6 +27,9 @@ namespace SenseOfDirection
 
         internal PluginConfig Cfg { get; private set; }
 
+        /// <summary>Exposes the protected BepInEx `Logger` to other classes (e.g. ItemPingDetector's debug-only unmatched-object dump).</summary>
+        internal BepInEx.Logging.ManualLogSource Log => Logger;
+
         private Harmony _harmony;
 
         private void Awake()
@@ -45,6 +49,10 @@ namespace SenseOfDirection
 
             // Same no-op-when-disabled pattern - internally checks EnablePingAudioBoost.
             _ = PingAudioTuner.Instance;
+
+            // Temporary dev/QA aid (see ZombieDebugEsp's own doc comment) -
+            // same no-op-when-disabled pattern, internally checks EnableZombieDebugEsp.
+            _ = ZombieDebugEsp.Instance;
 
             if (Cfg.EnableIndicatorTestHarness.Value)
             {

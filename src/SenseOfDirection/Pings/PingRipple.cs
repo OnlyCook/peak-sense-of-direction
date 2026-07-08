@@ -31,6 +31,20 @@ namespace SenseOfDirection.Pings
         private Transform _pingTransform;
         private float _elapsed;
 
+        /// <summary>
+        /// Last observed <c>_pingTransform.localScale.x</c>, kept even after
+        /// that transform is gone. Re-pinging the same spot makes
+        /// <c>PointPingerPatches</c> immediately <c>DestroyImmediate</c> the
+        /// *previous* ping marker (only one tracked per <c>PointPinger</c> at
+        /// a time) - this ripple is free-standing, not destroyed with it, so
+        /// it was left reading a destroyed transform and falling back to a
+        /// hardcoded <c>1f</c> mid-fade, which (especially up close, where the
+        /// real distance-relative scale is well under 1) showed up as the
+        /// ripple suddenly jumping/growing right as its source ping vanished.
+        /// Freezing at the last real value instead removes that discontinuity.
+        /// </summary>
+        private float _lastKnownPingScale = 1f;
+
         public static void Spawn(Vector3 worldPosition, Color color, Transform pingTransform)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -61,8 +75,11 @@ namespace SenseOfDirection.Pings
             _elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(_elapsed / Duration);
 
-            float pingScale = _pingTransform != null ? _pingTransform.localScale.x : 1f;
-            float radius = Mathf.Lerp(StartRadius, BaseMaxRadius, t) * pingScale;
+            if (_pingTransform != null)
+            {
+                _lastKnownPingScale = _pingTransform.localScale.x;
+            }
+            float radius = Mathf.Lerp(StartRadius, BaseMaxRadius, t) * _lastKnownPingScale;
             transform.localScale = Vector3.one * (radius * 2f);
 
             Color c = _color;

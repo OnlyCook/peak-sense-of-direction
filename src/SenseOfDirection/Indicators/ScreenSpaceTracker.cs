@@ -46,9 +46,22 @@ namespace SenseOfDirection.Indicators
 
             if (!behindCamera && withinBounds)
             {
+                // Clamped to the same inset-by-margin bounds as the off-screen
+                // case below, even though this point is technically on-screen -
+                // a raw viewport projection can still land right at the pixel
+                // edge, close enough that a wide label (e.g. an item ping's
+                // name text) centered on it gets visually clipped by the
+                // actual screen border. Only nudges points already within
+                // edgeMarginPixels of the border; harmless everywhere else.
+                Vector2 position = ViewportToCanvas(viewport, canvasSize);
+                float halfWidth = Mathf.Max(canvasSize.x * 0.5f - edgeMarginPixels, 1f);
+                float halfHeight = Mathf.Max(canvasSize.y * 0.5f - edgeMarginPixels, 1f);
+                position.x = Mathf.Clamp(position.x, -halfWidth, halfWidth);
+                position.y = Mathf.Clamp(position.y, -halfHeight, halfHeight);
+
                 return new IndicatorState
                 {
-                    CanvasPosition = ViewportToCanvas(viewport, canvasSize),
+                    CanvasPosition = position,
                     IsOffScreen = false,
                     ArrowAngleDegrees = 0f,
                 };

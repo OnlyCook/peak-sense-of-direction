@@ -44,8 +44,24 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> PingAntiSpamResetSeconds;
         public readonly ConfigEntry<bool> EnableGhostPing;
 
+        public readonly ConfigEntry<bool> EnableItemPings;
+        public readonly ConfigEntry<float> ItemPingDetectionRadiusMeters;
+        public readonly ConfigEntry<float> LuggagePingDetectionRadiusMeters;
+        public readonly ConfigEntry<float> ItemPingDurationSeconds;
+        public readonly ConfigEntry<bool> ShowItemPingName;
+        public readonly ConfigEntry<bool> ShowItemPingDistance;
+        public readonly ConfigEntry<bool> EnableItemPingOffScreenIndicator;
+        public readonly ConfigEntry<bool> EnableItemPingGrouping;
+        public readonly ConfigEntry<bool> EnableItemPingHitAssist;
+        public readonly ConfigEntry<float> ItemPingHitboxRadiusMeters;
+        public readonly ConfigEntry<bool> EnableItemPingRayAssist;
+        public readonly ConfigEntry<float> ItemPingRayAssistRadiusMeters;
+        public readonly ConfigEntry<bool> EnableCreaturePings;
+
         public readonly ConfigEntry<bool> EnableDebugLogging;
         public readonly ConfigEntry<bool> EnableIndicatorTestHarness;
+        public readonly ConfigEntry<bool> EnableZombieDebugEsp;
+        public readonly ConfigEntry<KeyCode> SpawnDebugZombieKey;
 
         public PluginConfig(ConfigFile config)
         {
@@ -225,6 +241,95 @@ namespace SenseOfDirection
                 "Let dead players keep pinging as ghosts (vanilla blocks pinging once " +
                 "dead), colored using their own character color same as when alive.");
 
+            EnableItemPings = config.Bind(
+                "Item-Pings", "enable-item-pings", true,
+                "Highlight nearby items/luggage when you ping near them, with a name " +
+                "and distance label - a native replacement for the (now confirmed " +
+                "broken against the current game version) memiczny-PingItems mod.");
+
+            ItemPingDetectionRadiusMeters = config.Bind(
+                "Item-Pings", "item-ping-detection-radius-meters", 2f,
+                new ConfigDescription(
+                    "How close a ping needs to land to an item for it to get " +
+                    "highlighted.",
+                    new AcceptableValueRange<float>(0.5f, 10f)));
+
+            LuggagePingDetectionRadiusMeters = config.Bind(
+                "Item-Pings", "luggage-ping-detection-radius-meters", 3.5f,
+                new ConfigDescription(
+                    "Same as item-ping-detection-radius-meters, but for luggage - " +
+                    "larger by default since luggage is a bigger target.",
+                    new AcceptableValueRange<float>(0.5f, 15f)));
+
+            ItemPingDurationSeconds = config.Bind(
+                "Item-Pings", "item-ping-duration-seconds", 6f,
+                new ConfigDescription(
+                    "How long an item/luggage highlight stays visible before fading " +
+                    "out (ends early regardless if the item is picked up or the " +
+                    "luggage is opened).",
+                    new AcceptableValueRange<float>(2f, 20f)));
+
+            ShowItemPingName = config.Bind(
+                "Item-Pings", "show-item-ping-name", true,
+                "Show the item/luggage's name above its highlight.");
+
+            ShowItemPingDistance = config.Bind(
+                "Item-Pings", "show-item-ping-distance", true,
+                "Show a distance sub-line under the item/luggage highlight.");
+
+            EnableItemPingOffScreenIndicator = config.Bind(
+                "Item-Pings", "enable-item-ping-offscreen-indicator", true,
+                "Show an edge-of-screen arrow pointing toward a highlighted item/" +
+                "luggage when it's off-screen, same mechanism as the ping indicator.");
+
+            EnableItemPingGrouping = config.Bind(
+                "Item-Pings", "enable-item-ping-grouping", true,
+                "Group multiple nearby items of the same kind into a single " +
+                "highlight showing a count (e.g. \"3x Coconut\") instead of one " +
+                "highlight per item.");
+
+            EnableItemPingHitAssist = config.Bind(
+                "Item-Pings", "enable-item-ping-hit-assist", true,
+                "Widen the ping's own aim raycast so it can land directly on an " +
+                "item/luggage's own collider (not just terrain/ground), instead of " +
+                "phasing through to whatever's behind it - fixes hard-to-ping items " +
+                "like a coconut up a tree or a small dropped item. Off falls back to " +
+                "vanilla's own terrain-only ping raycast.");
+
+            ItemPingHitboxRadiusMeters = config.Bind(
+                "Item-Pings", "item-ping-hitbox-radius-meters", 0.35f,
+                new ConfigDescription(
+                    "Only used when enable-item-ping-hit-assist is on. Treats the " +
+                    "ping raycast as a sphere of this radius instead of an " +
+                    "infinitely-thin line, so aiming near (not pixel-perfect on) an " +
+                    "item's collider still hits it. 0 disables the sphere and uses a " +
+                    "plain raycast (still widened to hit items, just no forgiveness).",
+                    new AcceptableValueRange<float>(0f, 1.5f)));
+
+            EnableItemPingRayAssist = config.Bind(
+                "Item-Pings", "enable-item-ping-ray-assist", true,
+                "Also count an item/luggage as pinged if it's close enough to your " +
+                "aim line, independent of physics entirely. Needed for items that " +
+                "aren't pushable/hittable until first picked up (an unpicked coconut " +
+                "on a tree, berries on a bush, something freshly spawned from opened " +
+                "luggage) - their collider is disabled until then, so no physics " +
+                "raycast (not even item-ping-hit-assist's) can ever land on them.");
+
+            ItemPingRayAssistRadiusMeters = config.Bind(
+                "Item-Pings", "item-ping-ray-assist-radius-meters", 0.6f,
+                new ConfigDescription(
+                    "Only used when enable-item-ping-ray-assist is on. How far off " +
+                    "your exact aim line an item/luggage can be and still count as " +
+                    "pinged.",
+                    new AcceptableValueRange<float>(0f, 2f)));
+
+            EnableCreaturePings = config.Bind(
+                "Item-Pings", "enable-creature-pings", true,
+                "Also highlight creatures (beetles, spiders, capybaras, and most " +
+                "other mobs) when pinged, same as items/luggage. Off leaves creature " +
+                "pings behaving like vanilla (item/luggage highlighting is " +
+                "unaffected).");
+
             // Bound last so Debug is the last tab/section in ModConfig-style
             // settings UIs (section order follows bind order) - dev/QA
             // settings belong at the end, not ahead of anything user-facing.
@@ -237,6 +342,21 @@ namespace SenseOfDirection
                 "Spawn a handful of fixed dummy world points around the camera to " +
                 "visually verify the edge-of-screen indicator framework. Dev/QA " +
                 "tool only - leave off for normal play.");
+
+            EnableZombieDebugEsp = config.Bind(
+                "Debug", "enable-zombie-debug-esp", false,
+                "Temporary dev/QA aid: always-visible edge-of-screen label for every " +
+                "naturally-spawned zombie in the level, through walls, to speed up " +
+                "testing zombie-ping detection without hunting a whole level for a " +
+                "rare spawn. Not a real feature - leave off for normal play.");
+
+            SpawnDebugZombieKey = config.Bind(
+                "Debug", "spawn-debug-zombie-key", KeyCode.F9,
+                "Temporary dev/QA aid: press to spawn a real, independent " +
+                "MushroomZombie a few meters in front of you for testing, without " +
+                "waiting on a rare natural spawn and without any effect on your own " +
+                "character. Only checked while enable-zombie-debug-esp is on. Not a " +
+                "real feature.");
         }
     }
 }

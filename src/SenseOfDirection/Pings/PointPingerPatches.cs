@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using BepInEx.Logging;
 using HarmonyLib;
 using pworld.Scripts.Extensions;
+using SenseOfDirection.ItemPings;
 using UnityEngine;
 
 namespace SenseOfDirection.Pings
@@ -46,8 +47,11 @@ namespace SenseOfDirection.Pings
 
         private static readonly Dictionary<Character, SpamState> SpamStates = new Dictionary<Character, SpamState>();
 
+        private static ManualLogSource _log;
+
         public static void Apply(Harmony harmony, ManualLogSource log)
         {
+            _log = log;
             try
             {
                 var receivePointRpc = AccessTools.Method(typeof(PointPinger), "ReceivePoint_Rpc");
@@ -62,12 +66,77 @@ namespace SenseOfDirection.Pings
                 var pingAwake = AccessTools.Method(typeof(PointPing), "Awake");
                 harmony.Patch(pingAwake, postfix: new HarmonyMethod(typeof(PointPingerPatches), nameof(PingAwakePostfix)));
 
-                log.LogInfo("PointPingerPatches: patched PointPinger.ReceivePoint_Rpc/canPing, PointPing.Go/Awake.");
+                var tryGetPingHit = AccessTools.Method(typeof(PointPinger), "TryGetPingHit");
+                harmony.Patch(tryGetPingHit, prefix: new HarmonyMethod(typeof(PointPingerPatches), nameof(TryGetPingHitPrefix)));
+
+                log.LogInfo("PointPingerPatches: patched PointPinger.ReceivePoint_Rpc/canPing/TryGetPingHit, PointPing.Go/Awake.");
             }
             catch (Exception e)
             {
                 log.LogError($"PointPingerPatches.Apply failed (non-fatal, ping enhancements won't work): {e}");
             }
+        }
+
+        /// <summary>
+        /// Widens vanilla's own ping raycast (plain <c>Raycast</c> against
+        /// <c>TerrainMap</c> only, RESEARCH.md Q6) to also hit the "Default"
+        /// layer items/luggage sit on (<c>AllPhysicalExceptCharacter</c>),
+        /// optionally as a <c>SphereCast</c> instead of a plain raycast for a
+        /// forgiving "hitbox" so aiming near an item - not pixel-perfect on
+        /// its exact collider - still pings it directly instead of the ping
+        /// phasing through to whatever terrain/foliage is behind it (the
+        /// maintainer's top complaint about the first pass of this feature:
+        /// a coconut up a tree, or small items like an energy drink, were
+        /// nearly impossible to actually land a ping point on). This is the
+        /// same underlying technique <c>memiczny-PingItems</c> used (an IL
+        /// transpiler swapping the same layer-mask constant, confirmed via
+        /// its decompiled `PointPingerPatch.UpdateTranspiler`) before it
+        /// broke for unrelated reasons - reimplemented here as a plain
+        /// Harmony prefix instead of an index-based transpiler, consistent
+        /// with this file's existing preference for prefixes (RESEARCH.md
+        /// Q9). Falls back to vanilla's own raycast (<c>return true</c>) if
+        /// disabled, if <c>Camera.main</c> isn't available yet, or on any
+        /// exception - this fully replaces the original body when it does
+        /// run, so (like <see cref="ReceivePointRpcPrefix"/>) any uncaught
+        /// exception here would otherwise break pinging outright rather than
+        /// just one visual enhancement.
+        /// </summary>
+        private static bool TryGetPingHitPrefix(out RaycastHit hit, ref bool __result)
+        {
+            try
+            {
+                PluginConfig cfg = Plugin.Instance.Cfg;
+                if (cfg.EnableItemPingHitAssist.Value)
+                {
+                    Camera camera = Camera.main;
+                    if (camera != null)
+                    {
+                        Ray ray = camera.ScreenPointToRay(Input.mousePosition);
+                        LayerMask mask = HelperFunctions.AllPhysicalExceptCharacter;
+                        float sphereRadiusUnits = cfg.ItemPingHitboxRadiusMeters.Value / CharacterStats.unitsToMeters;
+                        // QueryTriggerInteraction.Collide, not the default
+                        // (global-setting-dependent) behavior: several
+                        // creature hitboxes (e.g. Spider's own catch volume)
+                        // are trigger colliders, not solid ones, and Unity's
+                        // physics queries ignore triggers by default - a
+                        // trigger-only hitbox was otherwise invisible to this
+                        // raycast/spherecast no matter how wide the layer
+                        // mask or how forgiving the sphere radius.
+                        bool didHit = sphereRadiusUnits > 0f
+                            ? Physics.SphereCast(ray, sphereRadiusUnits, out hit, 1000f, mask, QueryTriggerInteraction.Collide)
+                            : Physics.Raycast(ray, out hit, 1000f, mask, QueryTriggerInteraction.Collide);
+                        __result = didHit;
+                        return false;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _log?.LogError($"TryGetPingHitPrefix failed, falling back to vanilla ping raycast: {e}");
+            }
+
+            hit = default;
+            return true;
         }
 
         /// <summary>
@@ -169,7 +238,32 @@ namespace SenseOfDirection.Pings
             }
         }
 
+        /// <summary>
+        /// Wrapped in try/catch, unlike the rest of this file's patches -
+        /// this one fully replaces vanilla's method body (returns false), so
+        /// unlike a postfix/non-replacing prefix, any uncaught exception here
+        /// would propagate out of a live `[PunRPC]` callback instead of just
+        /// failing one cosmetic add-on. An RPC method throwing partway
+        /// through is exactly the kind of failure that can look like
+        /// "pinging stopped working entirely" rather than "one visual
+        /// enhancement is missing" - so on any exception, log it once and
+        /// fall back to letting vanilla's own body run (`return true`)
+        /// instead of leaving the ping silently dropped.
+        /// </summary>
         private static bool ReceivePointRpcPrefix(PointPinger __instance, Vector3 point, Vector3 hitNormal)
+        {
+            try
+            {
+                return ReceivePointRpcPrefixImpl(__instance, point, hitNormal);
+            }
+            catch (Exception e)
+            {
+                _log?.LogError($"PointPingerPatches.ReceivePointRpcPrefix failed, falling back to vanilla for this ping: {e}");
+                return true;
+            }
+        }
+
+        private static bool ReceivePointRpcPrefixImpl(PointPinger __instance, Vector3 point, Vector3 hitNormal)
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
             Character character = __instance.character;
@@ -227,9 +321,16 @@ namespace SenseOfDirection.Pings
                 PingRipple.Spawn(point, pingColor, spawnedPing.transform);
             }
 
+            // Detect/highlight items first so the generic ping's own distance
+            // label can be suppressed when it did - showing both is redundant
+            // (they'd sit right on top of each other) and the item's own
+            // label is the more useful of the two.
+            int itemPingCount = cfg.EnableItemPings.Value ? ItemPingSpawner.SpawnFor(point, pingColor, character) : 0;
+
             if (cfg.EnablePingOffScreenIndicator.Value || cfg.ShowPingDistanceLabel.Value)
             {
-                PingWidgetLink.Attach(spawned, pingColor, cfg.EnablePingOffScreenIndicator.Value, cfg.ShowPingDistanceLabel.Value);
+                bool showPingDistance = cfg.ShowPingDistanceLabel.Value && itemPingCount == 0;
+                PingWidgetLink.Attach(spawned, pingColor, cfg.EnablePingOffScreenIndicator.Value, showPingDistance);
             }
 
             UnityEngine.Object.Destroy(spawned, 2f);
