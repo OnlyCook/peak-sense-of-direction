@@ -1,0 +1,6 @@
+# dont include research / decompilation notes
+*.zip
+.compatibility/
+scratch/
+RESEARCH.md
+ROADMAP.md
