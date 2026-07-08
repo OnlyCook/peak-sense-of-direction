@@ -1,0 +1,33 @@
+<Project>
+
+  <!--
+    Machine-specific paths to the game assemblies and BepInEx core.
+    Defaults below match the developer's Linux + Steam + r2modman layout.
+    To override without editing this file, create "Directory.Build.props.local"
+    next to it (git-ignored) and set the properties there, OR pass them on the
+    command line:  dotnet build -p:GameManagedDir=/path -p:BepInExCoreDir=/path
+  -->
+  <PropertyGroup>
+    <GameManagedDir Condition="'$(GameManagedDir)' == ''">$(HOME)/.local/share/Steam/steamapps/common/PEAK/PEAK_Data/Managed</GameManagedDir>
+    <BepInExCoreDir Condition="'$(BepInExCoreDir)' == ''">$(HOME)/.config/r2modmanPlus-local/PEAK/profiles/Default/BepInEx/core</BepInExCoreDir>
+
+    <!-- Where "dotnet build -p:DeployToProfile=true" copies the built DLL for in-game testing. -->
+    <ProfilePluginsDir Condition="'$(ProfilePluginsDir)' == ''">$(HOME)/.config/r2modmanPlus-local/PEAK/profiles/Default/BepInEx/plugins</ProfilePluginsDir>
+
+    <!--
+      r2modman tracks this mod as an "installed" mod once published, so launching a
+      profile via r2modman's "Start modded" button resyncs the profile's plugins
+      folder from its cache entry, silently clobbering whatever was just copied into
+      ProfilePluginsDir above. Deploying here too means that resync picks up the dev
+      build instead of fighting it (see peak-checkpoint-save's own Directory.Build.props
+      for the same rationale).
+      NOTE: $(Version) isn't set yet this early (Directory.Build.props is imported
+      before the main .csproj body), so the version segment is appended in the
+      .csproj itself, right after <Version> is declared.
+    -->
+    <R2ModManCacheRoot Condition="'$(R2ModManCacheRoot)' == ''">$(HOME)/.config/r2modmanPlus-local/PEAK/cache/OnlyCook-SenseOfDirection</R2ModManCacheRoot>
+  </PropertyGroup>
+
+  <Import Project="Directory.Build.props.local" Condition="Exists('Directory.Build.props.local')" />
+
+</Project>

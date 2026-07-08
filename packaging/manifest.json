@@ -1,0 +1,9 @@
+{
+    "name": "Sense_of_Direction",
+    "version_number": "0.1.0",
+    "website_url": "https://github.com/OnlyCook/peak-sense-of-direction",
+    "description": "Client-sided edge-of-screen player labels, bigger/louder pings, and ghost free-cam",
+    "dependencies": [
+        "BepInEx-BepInExPack_PEAK-5.4.2403"
+    ]
+}
