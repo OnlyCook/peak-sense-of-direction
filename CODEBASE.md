@@ -122,11 +122,76 @@ order):
   `CampfireIconSprite` discovery alongside the existing font/host-star
   lookups — same lazy-retry-until-found approach.
 
+### `Pings/` (Phase 5, done; playtest fixes applied same session)
+
+- `PointPingerPatches.cs` — the whole mechanic's single Harmony patch set
+  (RESEARCH.md Q6-Q9): a prefix on `PointPinger.ReceivePoint_Rpc` that fully
+  replaces vanilla's own body (returns false) rather than running alongside
+  it, since the harsh distance-based visibility early-exit vanilla uses lives
+  inside that method with no prefix-only way to skip past it — reimplements
+  the same spawn logic (raycast-independent here, point/normal already come
+  in as RPC args) with our own anti-spam gate, optional visibility-cutoff
+  bypass (`remove-visibility-cutoff`, on by default), ripple spawn, and
+  indicator-widget attach. A prefix on the private `canPing` property getter
+  lets dead players keep pinging as ghosts (`enable-ghost-ping`) by reading
+  the also-private `inCooldown` property via `Traverse` instead of an
+  index-based IL transpiler (Q9's fragility warning) — note this only takes
+  effect for players who themselves have the mod, since the pinging client
+  decides whether its own `canPing` bypasses the dead-check at all. A
+  postfix on `PointPing.Go()` overwrites vanilla's own hard-clamped
+  (`minMaxScale`, 0.2-3.0) `transform.localScale` with an uncapped recompute
+  of the same frustum-relative formula times our multiplier, every frame -
+  the clamp itself was why a ping's apparent screen size used to shrink past
+  a certain distance; multiplying the already-clamped value (an earlier
+  version of this patch) didn't fix that. A postfix on `PointPing.Awake()`
+  overrides the shared `pingSound` SFX_Instance asset's `settings.range`
+  (vanilla default 150) and feeds `PingClips` (a static `HashSet<AudioClip>`)
+  for `PingAudioTuner` to consume. Anti-spam (`ShouldAcceptPing`) is a
+  per-`Character` gradual/self-decaying ramp, skipped entirely for
+  `Character.localCharacter` (only ever throttles *incoming* pings from
+  other players, never the local player's own).
+- `PingAudioTuner.cs` — a small always-running `MonoBehaviour` singleton
+  (same registration pattern as `CampfireIndicatorController`) that polls
+  `SFX_Player.instance.sources` (public fields, no reflection needed) every
+  frame and forces `AudioRolloffMode.Linear` plus a configurable
+  min/max distance onto whichever pooled `AudioSource` is currently playing
+  a clip from `PointPingerPatches.PingClips`. Needed because boosting
+  `SFX_Instance.settings.range` alone only pushes back
+  `SFX_Player.PlaySFX`'s "don't even start playing" distance gate, not the
+  actual rolloff curve baked onto the pooled source templates (not visible
+  in the decompiled IL - RESEARCH.md Q6).
+- `PingRipple.cs` — the "3D ripple" effect: an expanding translucent sphere
+  (`GameObject.CreatePrimitive(PrimitiveType.Sphere)`, unlit alpha-blended
+  material, color = pinging player's `PlayerColor`) rather than a flat 2D
+  ring (the original version, which went near-invisible viewed edge-on).
+  Free-standing (not ping-parented) but tracks the spawned `PointPing`'s own
+  `transform.localScale` every frame so its size stays consistent relative
+  to the ping marker itself at any distance, same reasoning as the Go()
+  scale fix above. Grows + fades over ~1s then self-destroys.
+- `PingWidget.cs` / `PingWidgetLink.cs` / `PingWidgetFadeOut.cs` — the
+  ping's screen-space indicator: an optional distance sub-line plus the one
+  widget type in the mod that actually uses `IndicatorAnchor.ArrowWidget`
+  (labels and the campfire indicator both deliberately don't - see their own
+  doc comments). No on-screen marker/dot (an earlier version had one - it
+  just obstructed the already-visible 3D ping and was mistaken for an
+  always-on arrow). `PingWidgetLink` is a `MonoBehaviour` attached directly
+  onto the spawned `PointPing` GameObject so the widget's lifetime is tied
+  1:1 to the ping's own; `OnDestroy` starts `PingWidgetFadeOut` (a 0.35s
+  alpha fade via `CanvasGroup`, appearing stays instant) rather than
+  snapping the widget away immediately.
+- Ghost color: no separate ghost-body color source needed - `PlayerGhost`'s
+  own `CustomizeGhost` reads the same `Customization.skins[skinIndex].color`
+  array `CharacterCustomization.PlayerColor` does (confirmed in the
+  decompile), so the existing `PlayerColor` read works unchanged whether the
+  pinging character is alive or a ghost.
+- **Not done this phase, explicitly deferred (RESEARCH.md Q8 calls this a
+  "sub-task, not a blocker"):** `memiczny-PingItems` item-ping compatibility
+  (a soft-dependency shim registering its `PingHighlighter` instances into
+  the same indicator system) and live-tuning the audio rolloff shape against
+  an actual running `AudioSource`.
+
 ### Not yet built
 
-- Phase 5: Mechanic 2 (better pings) — Harmony patches on
-  `PointPinger.Update`/`ReceivePoint_Rpc` (see `RESEARCH.md` Q6-Q9), likely
-  `PingPatch.cs`.
 - Phase 6: Mechanic 3 (ghost free-cam) — likely a small patch/reflection
   helper toggling `MainCameraMovement.isGodCam` (see `RESEARCH.md` Q10).
 

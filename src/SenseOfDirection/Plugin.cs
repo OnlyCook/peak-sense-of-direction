@@ -3,6 +3,7 @@ using HarmonyLib;
 using SenseOfDirection.CampfireIndicator;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
+using SenseOfDirection.Pings;
 using UnityEngine;
 
 namespace SenseOfDirection
@@ -14,9 +15,9 @@ namespace SenseOfDirection
     /// distance, richer), and a ghost free-cam mode. See ROADMAP.md for the full
     /// feature spec and phased implementation plan.
     ///
-    /// Phase 4 (this state): Mechanic 1 (player labels) plus the campfire
-    /// indicator bonus are wired up on top of the Phase 2 indicator
-    /// framework. Mechanic 2/3 still unimplemented.
+    /// Phase 5 (this state): Mechanic 1 (player labels) plus the campfire
+    /// indicator bonus, and Mechanic 2 (better pings) are wired up on top of
+    /// the Phase 2 indicator framework. Mechanic 3 still unimplemented.
     /// </summary>
     [BepInPlugin(PluginInfo.Guid, PluginInfo.Name, PluginInfo.Version)]
     public class Plugin : BaseUnityPlugin
@@ -35,11 +36,15 @@ namespace SenseOfDirection
 
             PlayerLabelPatches.Apply(_harmony, Logger);
             VanillaLabelSuppressionPatch.Apply(_harmony, Logger);
+            PointPingerPatches.Apply(_harmony, Logger);
 
             // Always instantiated - internally no-ops per-frame when
             // EnableCampfireIndicator is off, same pattern as
             // PlayerLabelController's own EnablePlayerLabels check.
             _ = CampfireIndicatorController.Instance;
+
+            // Same no-op-when-disabled pattern - internally checks EnablePingAudioBoost.
+            _ = PingAudioTuner.Instance;
 
             if (Cfg.EnableIndicatorTestHarness.Value)
             {

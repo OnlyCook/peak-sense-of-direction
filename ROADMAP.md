@@ -9,15 +9,16 @@
 > MIT licensed.** No paid/monetized component of any kind.
 
 **Status:** Phase 1 (scaffold), Phase 2 (screen-space indicator framework),
-Phase 3 (Mechanic 1 player labels), and Phase 4 (campfire indicator bonus)
-complete — see "Handoff notes" at the bottom of this file. Full technical
-findings (with file:line references into the decompiled game/mods) are in
-`RESEARCH.md` (gitignored, local-only). This file has been updated with the
-corrected understanding from that research (a few original assumptions
-below turned out to be imprecise — noted inline as "research correction"),
-but stays high-level; deep technical detail lives in `RESEARCH.md`.
+Phase 3 (Mechanic 1 player labels), Phase 4 (campfire indicator bonus), and
+Phase 5 (Mechanic 2 better pings) complete — see "Handoff notes" at the
+bottom of this file. Full technical findings (with file:line references
+into the decompiled game/mods) are in `RESEARCH.md` (gitignored,
+local-only). This file has been updated with the corrected understanding
+from that research (a few original assumptions below turned out to be
+imprecise — noted inline as "research correction"), but stays high-level;
+deep technical detail lives in `RESEARCH.md`.
 
-**Last updated:** 2026-07-08 (session 2, post-Phase 4).
+**Last updated:** 2026-07-08 (session 2, post-Phase 5).
 
 ## Design premise (why this mod, why client-sided)
 
@@ -452,5 +453,124 @@ confirmed the above worked:**
 
 Still not yet re-verified in-game after this round of fixes.
 
-Next step is **Phase 5: Mechanic 2 (better pings)**. `RESEARCH.md` Q6-Q9
-have the exact game classes/fields to hook for that.
+Phase 5 (Mechanic 2, better pings) is also done — see `CODEBASE.md`'s
+`Pings/` section for the file breakdown. Built as a single Harmony patch set
+on `PointPinger`/`PointPing` per `RESEARCH.md` Q6-Q9's finding that scaling,
+ripple, the visibility-cutoff fix, anti-spam, and ghost-pinging all revolve
+around the same patch surface: `ReceivePoint_Rpc` is fully replaced (prefix
+returns false, reimplementing vanilla's own spawn logic) rather than run
+alongside vanilla, since the harsh "don't even spawn the ping past ~40-50m"
+early-exit lives inside that method body with no way to skip past it from a
+plain prefix/postfix pair. All six roadmap sub-features (scale multiplier,
+ripple, audio-falloff reduction, off-screen indicator + distance label,
+anti-spam cooldown, ghost pinging) are independently toggleable under a new
+`Pings` config section, plus `remove-visibility-cutoff` (on by default,
+since it's the prerequisite fix the other settings build on).
+
+**In-game playtest (2026-07-08) turned up six fixes, all applied:**
+- The always-visible on-screen "Dot" marker (a plain colored square) was
+  removed from `PingWidget` entirely — the real 3D ping is already visible
+  on-screen, so a 2D UI square drawn on top of it just obstructed the view.
+  The off-screen arrow itself was already correctly gated to only show once
+  a ping actually leaves the screen (`IndicatorManager`'s existing
+  `state.IsOffScreen` check) — the dot was the actual culprit being
+  mistaken for an always-on arrow.
+- `PingRipple` was a flat 2D ring laid on the hit-normal plane, which
+  degenerates to a near-invisible sliver when viewed close to edge-on
+  (common on steep terrain) — rewritten as an actual expanding translucent
+  sphere (`GameObject.CreatePrimitive(PrimitiveType.Sphere)`, unlit
+  alpha-blended material), which reads correctly as "3D" from any angle.
+  It now also tracks the spawned `PointPing`'s own `transform.localScale`
+  every frame (rather than a fixed world-unit max radius) so the ripple
+  stays sized consistently relative to the ping marker itself, same
+  reasoning as the scale fix below.
+- Anti-spam was incorrectly throttling the local player's own pings too
+  (since `ReceivePoint_Rpc` fires on every client including the sender,
+  per RESEARCH.md Q6) — `PointPingerPatches.ShouldAcceptPing` now always
+  accepts when the pinging character is `Character.localCharacter`.
+  Redesigned from a single flat cooldown into a gradual, self-decaying
+  ramp for other players: occasional pings are never delayed; only pinging
+  faster than `ping-anti-spam-rapid-interval-seconds` repeatedly ramps the
+  required gap up (`ping-anti-spam-cooldown-step-seconds` per rapid ping,
+  capped at `ping-anti-spam-max-cooldown-seconds`), and a quiet period of
+  `ping-anti-spam-reset-seconds` clears it back to normal.
+- Ping scale: the original fix only multiplied vanilla's *already-clamped*
+  `PointPing.Go()` output by our multiplier, so the underlying
+  `minMaxScale` (0.2-3.0) clamp - the actual reason a ping's apparent
+  on-screen size used to shrink past a certain distance - was still in
+  effect underneath. `GoPostfix` now recomputes the same frustum-relative
+  formula uncapped and overwrites `transform.localScale` outright, so a
+  ping now keeps a constant apparent screen size at any distance,
+  scaled by the configured multiplier.
+- Audio boost wasn't actually reducing perceived falloff past ~40m, because
+  boosting `SFX_Instance.settings.range` only pushes back
+  `SFX_Player.PlaySFX`'s hard "don't even start playing" distance check -
+  it doesn't touch the pooled `AudioSource`'s own rolloff curve, which is
+  whatever vanilla ships and falls off far more steeply. New
+  `PingAudioTuner` (polls `SFX_Player.instance.sources`, public fields, no
+  reflection needed) forces `AudioRolloffMode.Linear` plus a configurable
+  `minDistance`/`maxDistance` (new `ping-audio-min-distance-meters`
+  setting, default 10m per the maintainer's "sounds normal up close"
+  calibration anchor) onto whichever pooled source is currently playing a
+  ping clip.
+- Ping labels used to vanish the instant their ping was destroyed - new
+  `PingWidgetFadeOut` fades the widget out over 0.35s instead (appearing
+  stays instant, matching the maintainer's ask that only disappearing
+  should animate).
+
+**Second round of in-game feedback (still 2026-07-08), two more fixes:**
+- Default scale multiplier was too aggressive (3x made pings absurdly
+  large - "pinging the whole island") - default changed to 1x (matches
+  vanilla's own uncapped size, i.e. purely "not shrinking at distance" with
+  no extra embiggening), and the config range tightened from 1-8x to a
+  saner 0.5-3x.
+- Audio boost's `AudioRolloffMode.Linear` barely seemed to quiet down for
+  most of its range and then vanished abruptly near maxDistance (~240m at
+  default 600m range) - this is a known Linear-rolloff characteristic:
+  Linear is linear in raw amplitude, but human hearing perceives loudness
+  roughly logarithmically, so a linear amplitude falloff *sounds* like "loud
+  the whole time, then a cliff" rather than a smooth fade. Switched
+  `PingAudioTuner` to `AudioRolloffMode.Logarithmic`, which tracks perceived
+  loudness much more naturally. Also added a distance-driven
+  `AudioLowPassFilter` (cutoff frequency lowered the further away, 22kHz at
+  `ping-audio-min-distance-meters` down to 700Hz at
+  `ping-audio-range-meters`) per the maintainer's own "muffle it to sound
+  further away" suggestion - real distant sounds lose high frequencies, not
+  just volume, so this reads as "far away" far more convincingly than
+  volume/rolloff curve tuning alone. The filter is added/removed on the
+  pooled `AudioSource` on demand (tracked via a two-frame active-set diff in
+  `PingAudioTuner`) since that AudioSource is shared by every sound in the
+  game, not just pings - it must not stay muffled for whatever plays through
+  it next once the ping itself stops.
+
+**Third round (still 2026-07-08):** close-range volume was a tad too loud
+with audio boost on - new `ping-audio-volume-multiplier` setting (default
+0.85) trims the ping sound's own base volume down when boost is enabled.
+Applied in `PingAwakePostfix` relative to the real vanilla volume (cached
+per-`SFX_Instance` the first time it's seen, same pattern as the existing
+`.settings.range` handling), not a guessed constant, so toggling boost off
+mid-session correctly restores the untouched original.
+
+**Still not resolvable from static analysis alone, flagged for further
+live tuning:** exact low-pass cutoff range (700Hz-22kHz) and anti-spam
+threshold balance are first-pass numbers, not vanilla-derived - adjust to
+taste.
+
+**Known limitation, not a bug:** ghost pings (RESEARCH.md Q9) are a
+client-side visual/behavior change - other players only see the
+enhanced/bypassed ghost ping if *they* also have Sense of Direction
+installed, since the pinging client is the one whose Harmony patch decides
+whether `canPing` bypasses the dead-check at all. Not currently a fixable
+gap for a client-sided mod (would need the ping's origin client to already
+be running the mod), noted here rather than as an open bug.
+
+**Explicitly deferred, not a blocker per RESEARCH.md Q8:** the
+`memiczny-PingItems` item-ping compatibility shim (soft-dependency
+reflection registering its `PingHighlighter` instances into the same
+indicator system) was not built this phase — Sense of Direction's ping
+enhancements still apply automatically to PingItems' *own* ground-ripple
+pass-through (same `ReceivePoint_Rpc` call), just not to its separate
+item-highlight overlays. Worth revisiting in Phase 7 (compatibility pass).
+
+Next step is **Phase 6: Mechanic 3 (ghost free-cam)**. `RESEARCH.md` Q10
+has the exact game classes/fields to hook for that.
