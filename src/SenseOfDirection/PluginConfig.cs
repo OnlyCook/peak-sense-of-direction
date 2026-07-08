@@ -14,9 +14,6 @@ namespace SenseOfDirection
         public readonly ConfigEntry<KeyCode> UiToggleKey;
         public readonly ConfigEntry<bool> EnablePlayerLabels;
 
-        public readonly ConfigEntry<bool> EnableDebugLogging;
-        public readonly ConfigEntry<bool> EnableIndicatorTestHarness;
-
         public readonly ConfigEntry<float> NameFontSize;
         public readonly ConfigEntry<float> DistanceFontSize;
         public readonly ConfigEntry<LabelDisplayMode> DisplayMode;
@@ -26,6 +23,12 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> ShowStatusBadges;
         public readonly ConfigEntry<bool> UseCharacterColor;
         public readonly ConfigEntry<bool> ReplaceVanillaLabels;
+
+        public readonly ConfigEntry<bool> EnableCampfireIndicator;
+        public readonly ConfigEntry<bool> ShowCampfireDistance;
+
+        public readonly ConfigEntry<bool> EnableDebugLogging;
+        public readonly ConfigEntry<bool> EnableIndicatorTestHarness;
 
         public PluginConfig(ConfigFile config)
         {
@@ -43,16 +46,6 @@ namespace SenseOfDirection
                 "General", "enable-player-labels", true,
                 "Master switch for Sense of Direction's player labels. Off hides them " +
                 "entirely (vanilla's own name labels are unaffected either way).");
-
-            EnableDebugLogging = config.Bind(
-                "Debug", "enable-debug-logging", false,
-                "Log extra diagnostic detail to the BepInEx console/log file.");
-
-            EnableIndicatorTestHarness = config.Bind(
-                "Debug", "enable-indicator-test-harness", false,
-                "Spawn a handful of fixed dummy world points around the camera to " +
-                "visually verify the edge-of-screen indicator framework. Dev/QA " +
-                "tool only - leave off for normal play.");
 
             NameFontSize = config.Bind(
                 "Player-Labels", "name-font-size", 28f,
@@ -102,6 +95,29 @@ namespace SenseOfDirection
                 "Hide the game's own close-range player name labels entirely, so " +
                 "Sense of Direction's labels are the only ones ever shown. Off by " +
                 "default - normally the two systems hand off to each other instead.");
+
+            EnableCampfireIndicator = config.Bind(
+                "Campfire", "enable-campfire-indicator", false,
+                "Show an always-on edge-of-screen indicator pointing at the current " +
+                "segment's campfire (the one you're trying to reach next), so you " +
+                "always know which way to go. Off by default.");
+
+            ShowCampfireDistance = config.Bind(
+                "Campfire", "show-campfire-distance", true,
+                "Show the distance sub-line under the campfire indicator.");
+
+            // Bound last so Debug is the last tab/section in ModConfig-style
+            // settings UIs (section order follows bind order) - dev/QA
+            // settings belong at the end, not ahead of anything user-facing.
+            EnableDebugLogging = config.Bind(
+                "Debug", "enable-debug-logging", false,
+                "Log extra diagnostic detail to the BepInEx console/log file.");
+
+            EnableIndicatorTestHarness = config.Bind(
+                "Debug", "enable-indicator-test-harness", false,
+                "Spawn a handful of fixed dummy world points around the camera to " +
+                "visually verify the edge-of-screen indicator framework. Dev/QA " +
+                "tool only - leave off for normal play.");
         }
     }
 }

@@ -9,15 +9,15 @@
 > MIT licensed.** No paid/monetized component of any kind.
 
 **Status:** Phase 1 (scaffold), Phase 2 (screen-space indicator framework),
-and Phase 3 (Mechanic 1 player labels) complete — see "Handoff notes" at the
-bottom of this file. Full technical findings (with file:line references
-into the decompiled game/mods) are in `RESEARCH.md` (gitignored,
-local-only). This file has been updated with the corrected understanding
-from that research (a few original assumptions below turned out to be
-imprecise — noted inline as "research correction"), but stays high-level;
-deep technical detail lives in `RESEARCH.md`.
+Phase 3 (Mechanic 1 player labels), and Phase 4 (campfire indicator bonus)
+complete — see "Handoff notes" at the bottom of this file. Full technical
+findings (with file:line references into the decompiled game/mods) are in
+`RESEARCH.md` (gitignored, local-only). This file has been updated with the
+corrected understanding from that research (a few original assumptions
+below turned out to be imprecise — noted inline as "research correction"),
+but stays high-level; deep technical detail lives in `RESEARCH.md`.
 
-**Last updated:** 2026-07-08 (session 2, post-Phase 3).
+**Last updated:** 2026-07-08 (session 2, post-Phase 4).
 
 ## Design premise (why this mod, why client-sided)
 
@@ -408,10 +408,49 @@ rebind + hold timings) under the `Player-Labels` config section.
 maintainer needs to confirm in a real PEAK session that labels appear
 correctly for other players (font/outline material discovery succeeds,
 crown/dead/unconscious icons look right, Toggle/AlwaysOn/Hold modes behave
-as expected, off-screen labels clamp+arrow correctly) before Phase 4 builds
-on top of this.
+as expected, off-screen labels clamp+arrow correctly).
 
-Next step is **Phase 4: campfire indicator** (small addition — same
-`IndicatorAnchor` mechanism, pointed at a fixed world point instead of a
-`Character`), then **Phase 5: Mechanic 2 (better pings)**.
-`RESEARCH.md` Q6-Q9 have the exact game classes/fields to hook for that.
+Phase 4 (campfire indicator) is also done, built on top of Phase 2's
+indicator framework: `CampfireIndicator/CampfireIndicatorController.cs`
+re-resolves `MapHandler.CurrentCampfire` every frame (no Harmony hook on
+`GoToSegment` needed — this is simpler and self-correcting) and registers/
+re-registers an `IndicatorAnchor` for it, so the indicator automatically
+points at whichever campfire is next as the player advances segments. Two
+new `Campfire` config settings: `enable-campfire-indicator` (master switch,
+**default off** per maintainer preference) and `show-campfire-distance`.
+
+**In-game playtest (2026-07-08) turned up three fixes, all applied:**
+- Distance text wasn't using the native game font — `CampfireWidget.Refresh`
+  now applies `Labels.NativeAssets.Font`/`OutlineMaterial` exactly like
+  `PlayerLabel.Refresh` does.
+- Default changed from on to off (see above).
+- The icon was a plain orange square, and an off-screen arrow was showing —
+  backwards from the intended design (the arrow was meant to be reserved for
+  Mechanic 2's ping indicator, same as `PlayerLabel` already does for
+  itself). Fixed: `CampfireWidget` no longer has an arrow at all (just
+  clamps to the edge like a player label), and the icon now uses the game's
+  real HUD campfire sprite (`StaminaBar.campfire`, discovered the same way
+  `peak-checkpoint-save`'s `SavePicker` F7-menu title icon does it) via a new
+  `NativeAssets.CampfireIconSprite` lookup, rather than a placeholder square.
+
+**Second round of fixes (still same 2026-07-08 session), after playtest
+confirmed the above worked:**
+- `Debug` config section now bound last in `PluginConfig.cs` (was between
+  `General` and `Player-Labels`) so it's the last tab in ModConfig-style
+  settings UIs, not sandwiched ahead of user-facing settings.
+- Campfire icon now has a black outline matching the host crown badge's
+  look. The crown gets its outline for free (baked into that native sprite's
+  own art); the HUD campfire sprite (`StaminaBar.campfire`) has none, so
+  `CampfireIndicator/CampfireWidget.cs` fakes one the classic UI way: eight
+  copies of the same sprite tinted solid black, offset by 1px in every
+  direction and drawn behind the real icon - the sprite's own alpha shape
+  does the rest, giving a stroke that follows its silhouette (Unity's
+  built-in `UI.Outline` component was considered and rejected: for a
+  `Simple`-mode `Image` it duplicates the quad's four corner vertices, not
+  the sprite shape, so it would've just drawn an offset rectangle instead of
+  a real outline).
+
+Still not yet re-verified in-game after this round of fixes.
+
+Next step is **Phase 5: Mechanic 2 (better pings)**. `RESEARCH.md` Q6-Q9
+have the exact game classes/fields to hook for that.

@@ -22,6 +22,14 @@ namespace SenseOfDirection.Labels
 
         public static Sprite HostStarSprite { get; private set; }
 
+        /// <summary>
+        /// The game's own HUD campfire icon (StaminaBar.campfire - the small
+        /// icon shown while the no-hunger buff is active), reused the same
+        /// way `~/Projects/GitHub/peak-checkpoint-save`'s SavePicker title
+        /// row grabs it for its F7 menu - no bundled asset needed.
+        /// </summary>
+        public static Sprite CampfireIconSprite { get; private set; }
+
         private static bool _foundDefaultTextColor;
 
         /// <summary>Call periodically (e.g. once per frame) until this returns true.</summary>
@@ -35,7 +43,12 @@ namespace SenseOfDirection.Labels
             {
                 TryFindPlayerNameAssets();
             }
-            return Font != null && OutlineMaterial != null && HostStarSprite != null && _foundDefaultTextColor;
+            if (CampfireIconSprite == null)
+            {
+                TryFindCampfireIcon();
+            }
+            return Font != null && OutlineMaterial != null && HostStarSprite != null
+                   && _foundDefaultTextColor && CampfireIconSprite != null;
         }
 
         private static void TryFindFont()
@@ -75,6 +88,18 @@ namespace SenseOfDirection.Labels
                 {
                     return;
                 }
+            }
+        }
+
+        private static void TryFindCampfireIcon()
+        {
+            var bar = Object.FindObjectOfType<StaminaBar>();
+            var icon = bar != null && bar.campfire != null
+                ? bar.campfire.GetComponentInChildren<Image>(includeInactive: true) ?? bar.campfire.GetComponent<Image>()
+                : null;
+            if (icon != null && icon.sprite != null)
+            {
+                CampfireIconSprite = icon.sprite;
             }
         }
     }

@@ -102,10 +102,28 @@ order):
   default): prefixes `UIPlayerNames.UpdateName` to force every native label
   slot inactive when the setting is on.
 
+### `CampfireIndicator/` (Phase 4, done)
+
+- `CampfireWidget.cs` — the on-screen widget: the game's own HUD campfire
+  icon (`Labels.NativeAssets.CampfireIconSprite`, pulled from
+  `StaminaBar.campfire` the same way `peak-checkpoint-save`'s `SavePicker`
+  F7-menu title icon does) plus an optional distance sub-line in the native
+  font/outline material. No off-screen arrow — reserved for Mechanic 2's
+  ping indicator, same reservation `PlayerLabel` already follows; this
+  widget just clamps quietly to the edge.
+- `CampfireIndicatorController.cs` — singleton `MonoBehaviour` that
+  re-resolves `MapHandler.CurrentCampfire` every `Update` (cheap, no Harmony
+  hook on `GoToSegment` needed) and re-registers the `IndicatorAnchor`
+  whenever it changes, so the indicator automatically follows segment
+  advancement. Always instantiated from `Plugin.Awake`; no-ops per-frame when
+  `Campfire/enable-campfire-indicator` is off (default off), same pattern as
+  `PlayerLabelController`'s own master-switch check.
+- `Labels/NativeAssets.cs` extended (not a new file) with
+  `CampfireIconSprite` discovery alongside the existing font/host-star
+  lookups — same lazy-retry-until-found approach.
+
 ### Not yet built
 
-- Phase 4: campfire indicator — same `IndicatorAnchor` mechanism as player
-  labels, pointed at a fixed world point instead of a moving `Character`.
 - Phase 5: Mechanic 2 (better pings) — Harmony patches on
   `PointPinger.Update`/`ReceivePoint_Rpc` (see `RESEARCH.md` Q6-Q9), likely
   `PingPatch.cs`.
