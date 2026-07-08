@@ -122,11 +122,287 @@ order):
   `CampfireIconSprite` discovery alongside the existing font/host-star
   lookups — same lazy-retry-until-found approach.
 
+### `Pings/` (Phase 5, done; playtest fixes applied same session)
+
+- `PointPingerPatches.cs` — the whole mechanic's single Harmony patch set
+  (RESEARCH.md Q6-Q9): a prefix on `PointPinger.ReceivePoint_Rpc` that fully
+  replaces vanilla's own body (returns false) rather than running alongside
+  it, since the harsh distance-based visibility early-exit vanilla uses lives
+  inside that method with no prefix-only way to skip past it — reimplements
+  the same spawn logic (raycast-independent here, point/normal already come
+  in as RPC args) with our own anti-spam gate, optional visibility-cutoff
+  bypass (`remove-visibility-cutoff`, on by default), ripple spawn, and
+  indicator-widget attach. A prefix on the private `canPing` property getter
+  lets dead players keep pinging as ghosts (`enable-ghost-ping`) by reading
+  the also-private `inCooldown` property via `Traverse` instead of an
+  index-based IL transpiler (Q9's fragility warning) — note this only takes
+  effect for players who themselves have the mod, since the pinging client
+  decides whether its own `canPing` bypasses the dead-check at all. A
+  postfix on `PointPing.Go()` overwrites vanilla's own hard-clamped
+  (`minMaxScale`, 0.2-3.0) `transform.localScale` with an uncapped recompute
+  of the same frustum-relative formula times our multiplier, every frame -
+  the clamp itself was why a ping's apparent screen size used to shrink past
+  a certain distance; multiplying the already-clamped value (an earlier
+  version of this patch) didn't fix that. A postfix on `PointPing.Awake()`
+  overrides the shared `pingSound` SFX_Instance asset's `settings.range`
+  (vanilla default 150) and feeds `PingClips` (a static `HashSet<AudioClip>`)
+  for `PingAudioTuner` to consume. Anti-spam (`ShouldAcceptPing`) is a
+  per-`Character` gradual/self-decaying ramp, skipped entirely for
+  `Character.localCharacter` (only ever throttles *incoming* pings from
+  other players, never the local player's own).
+- `PingAudioTuner.cs` — a small always-running `MonoBehaviour` singleton
+  (same registration pattern as `CampfireIndicatorController`) that polls
+  `SFX_Player.instance.sources` (public fields, no reflection needed) every
+  frame and forces `AudioRolloffMode.Linear` plus a configurable
+  min/max distance onto whichever pooled `AudioSource` is currently playing
+  a clip from `PointPingerPatches.PingClips`. Needed because boosting
+  `SFX_Instance.settings.range` alone only pushes back
+  `SFX_Player.PlaySFX`'s "don't even start playing" distance gate, not the
+  actual rolloff curve baked onto the pooled source templates (not visible
+  in the decompiled IL - RESEARCH.md Q6).
+- `PingRipple.cs` — the "3D ripple" effect: an expanding translucent sphere
+  (`GameObject.CreatePrimitive(PrimitiveType.Sphere)`, unlit alpha-blended
+  material, color = pinging player's `PlayerColor`) rather than a flat 2D
+  ring (the original version, which went near-invisible viewed edge-on).
+  Free-standing (not ping-parented) but tracks the spawned `PointPing`'s own
+  `transform.localScale` every frame so its size stays consistent relative
+  to the ping marker itself at any distance, same reasoning as the Go()
+  scale fix above. Grows + fades over ~1s then self-destroys.
+- `PingWidget.cs` / `PingWidgetLink.cs` / `PingWidgetFadeOut.cs` — the
+  ping's screen-space indicator: an optional distance sub-line plus the one
+  widget type in the mod that actually uses `IndicatorAnchor.ArrowWidget`
+  (labels and the campfire indicator both deliberately don't - see their own
+  doc comments). No on-screen marker/dot (an earlier version had one - it
+  just obstructed the already-visible 3D ping and was mistaken for an
+  always-on arrow). `PingWidgetLink` is a `MonoBehaviour` attached directly
+  onto the spawned `PointPing` GameObject so the widget's lifetime is tied
+  1:1 to the ping's own; `OnDestroy` starts `PingWidgetFadeOut` (a 0.35s
+  alpha fade via `CanvasGroup`, appearing stays instant) rather than
+  snapping the widget away immediately.
+- Ghost color: no separate ghost-body color source needed - `PlayerGhost`'s
+  own `CustomizeGhost` reads the same `Customization.skins[skinIndex].color`
+  array `CharacterCustomization.PlayerColor` does (confirmed in the
+  decompile), so the existing `PlayerColor` read works unchanged whether the
+  pinging character is alive or a ghost.
+- **Not done this phase:** live-tuning the audio rolloff shape against an
+  actual running `AudioSource`. (Item-ping compatibility, originally listed
+  here as deferred, was superseded - see `ItemPings/` below.)
+
+### `ItemPings/` (Phase 5b, done — native item/luggage ping highlighting)
+
+Native replacement for the `.compatibility/memiczny-PingItems-1.6.2.zip`
+dependency, which turned out to be broken against the current game build on
+its own (see ROADMAP.md's Phase 5b writeup) - reimplements the *effect*
+(highlight nearby items/luggage when a ping lands near them) from scratch
+per RESEARCH.md Q8's reimplement-don't-copy rule (that mod ships no LICENSE).
+Hooked into `Pings/PointPingerPatches.ReceivePointRpcPrefixImpl` (one call,
+gated on `Item-Pings/enable-item-pings`), so item highlighting piggybacks on
+the same anti-spam/ghost-ping gating the ping itself already went through.
+
+- `ItemPingDetector.cs` — pure detection: given a ping point and separate
+  item/luggage radii (meters, converted to world units via
+  `CharacterStats.unitsToMeters`), finds nearby `Item`s, `Luggage` (off
+  `Luggage.ALL_LUGGAGE`, which already excludes opened luggage on its own),
+  and `SlipperyJellyfish`. Items and jellyfish are both found via a
+  scene-wide `FindObjectsByType` each ping (cheap - runs once per ping, not
+  per-frame) rather than any cached list: the reference mod reads
+  `Item.ALL_ITEMS`, which doesn't exist at all in the current decompile, and
+  its apparent replacement `Item.ALL_ACTIVE_ITEMS` turned out to be the
+  wrong list too on closer inspection - it's a "recently relevant"
+  optimization cache (`ItemOptimizationManager`), not a master list: an item
+  is only added via `WasActive()`, which `Item.OnEnable`/`Start` only call
+  when the item's `Rigidbody` isn't kinematic (so an item still attached to
+  its spawn point - a tree, a bush - is never added at all), and
+  `ItemOptimizationManager.Update` expires *any* item from the list after 30
+  seconds without a fresh `WasActive()` call (so an untouched item goes
+  stale simply from the player being elsewhere for half a minute). Both bugs
+  independently caused real "can't ping this" reports; a direct scene query
+  sidesteps both. Deliberately narrower than the reference mod otherwise: no
+  spatial grid/pooling, no celestial/spore-shroom/capybara adapters, no
+  `MirageLuggage` (no display name of its own), and no giant-urchin support
+  yet (no dedicated class found in the decompile to key off, unlike
+  jellyfish - needs more research).
+- `ItemPingSpawner.cs` — orchestration: converts config radii, calls the
+  detector, groups results by display name when `enable-item-ping-grouping`
+  is on (a flat group-by-name, not the reference mod's iterative cluster
+  search - everything found is already within one ping's detection radius of
+  the same point, so nothing fancier is needed). Keeps a
+  `Dictionary<GameObject, ItemPingHighlight>` registry so re-pinging an
+  already-highlighted item/luggage merges into its existing highlight
+  (`ItemPingHighlight.Refresh` resets the timer and folds in any newly-
+  detected targets) instead of stacking a duplicate label on top of it -
+  registry entries are dropped as soon as a highlight starts fading
+  (`OnFadeStart`), not only once fully destroyed, so a re-ping mid-fade is
+  free to start a fresh highlight rather than trying to revive a dying one.
+  Returns how many targets were highlighted so the caller can suppress its
+  own generic ping distance label when it's redundant with an item's.
+- `ItemPingDetector.LogNearbyUnmatched` — debug-only (only runs with
+  `enable-debug-logging` on): logs every collider name near a ping that
+  isn't already a recognized type, so still-unsupported pingables (giant
+  urchins, spore bombs - no distinct class found for either in the decompile)
+  can be identified by their actual in-scene GameObject name without another
+  decompile pass, then added the same way jellyfish/Mob/Spider/Capybara were.
+- `ItemPingWidget.cs` — the on-screen widget: name label above an optional
+  distance sub-line plus an off-screen arrow, same construction pattern as
+  `Pings/PingWidget.cs` (arrow makes sense here, unlike player labels/the
+  campfire indicator, since this points at a specific pinged object).
+- `ItemPingHighlight.cs` — drives one highlight's lifetime on its own
+  throwaway GameObject (not attached to the item/luggage's own GameObject,
+  so it survives that being deactivated/destroyed - that's exactly the
+  "no longer valid" signal it watches for): live group-center tracking,
+  `item-ping-duration-seconds` countdown (reset by `Refresh` on a merge),
+  early fade-out the instant every target in its group stops being valid.
+  Reuses `Pings/PingWidgetFadeOut` unchanged (it only needs a
+  `CanvasGroup`/`IndicatorAnchor` pair).
+
+**Ray-based item-hitbox assist (physics-independent):**
+`ItemPingDetector.FindNear` also accepts an approximate aim ray
+(pinging character's head → the ping's landed point, reconstructed the same
+way the ping marker's own rotation already is) and counts an item/luggage/
+jellyfish as found if it's close enough to that ray, *regardless* of
+distance to the landed point or of `Physics` entirely. This is the fix for
+items that stay unpingable even with the raycast-based hitbox assist below:
+per the decompile (`Item.SetState`/`SetColliders`), an item still attached to
+its spawn point (an unpicked coconut on a tree, berries on a bush, something
+freshly spawned from opened luggage) has its own collider *disabled* until
+first picked up - the same reason it can't be pushed either - so no
+`Physics` raycast/spherecast, however forgiving, can ever land on one.
+Gated by `enable-item-ping-ray-assist` (`item-ping-ray-assist-radius-meters`
+for the forgiveness radius).
+
+Its `Physics.SphereCast`/`Raycast` calls also now pass `QueryTriggerInteraction.
+Collide` explicitly - several creature hitboxes (e.g. Spider's own catch
+volume) are trigger colliders, which Unity's physics queries ignore by
+default regardless of layer mask/sphere radius, so the ping was passing
+straight through them no matter how the raycast itself was tuned.
+
+**Ping-raycast hitbox assist (physics-based):** `Pings/PointPingerPatches.TryGetPingHitPrefix`
+prefixes the *private* `PointPinger.TryGetPingHit` (the method that computes
+where a ping actually lands, RESEARCH.md Q6) to widen vanilla's `TerrainMap`-
+only raycast to also hit the `Default` layer items/luggage sit on
+(`HelperFunctions.AllPhysicalExceptCharacter`), optionally as a `SphereCast`
+(`item-ping-hitbox-radius-meters`, default 0.35m) rather than a plain ray for
+forgiveness - this is the actual fix for pings phasing through items instead
+of landing on them (a coconut up a tree, a small dropped item), since the
+ping's landing point itself is now often the item's own surface rather than
+whatever terrain/foliage was behind it. Same underlying technique
+`memiczny-PingItems` used via an IL transpiler (its `PointPingerPatch.
+UpdateTranspiler`) before it broke - reimplemented as a plain Harmony prefix
+instead, consistent with this file's existing preference for prefixes over
+index-based IL transpilers (RESEARCH.md Q9).
+
+**`Indicators/ScreenSpaceTracker`** also picked up a fix from this feature's
+playtest: on-screen (not just off-screen) canvas positions are now clamped to
+the same edge-margin-inset bounds, so a wide label (e.g. an item's name)
+centered on a point right at the physical screen edge doesn't get its first
+character clipped by the viewport border.
+
+**Creature pings:** `Mob` (base class for most creatures - confirmed via
+decompile that `Beetle : Mob`) is detected generically, so every Mob-derived
+species is picked up without a per-species list; `Spider` and `Capybara`
+don't inherit `Mob` so are detected explicitly. None of these carry a
+display-name field like `Item`/`Luggage` do, so `Mob` falls back to its
+GameObject name (`(Clone)` suffix stripped) - approximate, but the best
+available without a hardcoded species→name table. Gated by
+`enable-creature-pings` (separate from `enable-item-pings`, so creature
+highlighting can be turned off independently).
+
+**Zombie:** `MushroomZombie` was the right component all along (matching a
+naturally-spawned Roots-biome zombie, not the "revived dead player"
+mechanic) - a multi-round debug-logging investigation initially pointed
+elsewhere (a `Character.isZombie` field also exists on the base `Character`
+class, and an earlier live test found the only `MushroomZombie` in that
+run's scene sitting a consistent 44-56m from the ping point, suggesting a
+wrong-component problem), but a later diagnostic pass conclusively found a
+real `MushroomZombie` only 1.4-2.1m from the ping - right at/just past the
+old item-sized (2m) detection radius - while `Character.isZombie` was 0
+every time. So the actual bug was detection radius, not component choice.
+Matched against `luggageRadiusSq` (3.5m default) like every other creature
+type below, not the tighter item radius - see the reasoning there.
+
+**Name-matched hazards:** several pingables have no dedicated component in
+the decompile at all - same situation the reference mod hit for its own
+"SporeShroom", which it matched by plain GameObject name rather than a
+class. `ItemPingDetector.NamedHazards` is an ordered substring→display-name
+table, identified via `LogNearbyUnmatched` against real maintainer
+playthroughs (a full biome-by-biome sweep, cross-referenced against a
+wiki-sourced checklist the maintainer kept in `not-yet-pingable-entities.md`,
+gitignored/local-only, not shipped): `Forest_SporeFungus` ("Spore Bomb"),
+`Jungle_SporeMushroomExplo` ("Explosive Spore Bomb"), a plain
+`Jungle_SporeMushroom` variant ("Poison Spore Bomb"), `ShakyIcicleIce`
+("Icicle"), `Snow Mount` ("Snow Pile"), `tumbleweed(Clone)` ("Tumbleweed"),
+`Cactus base` ("Cactus"). Matched by substring, not exact equality, and
+checked most-specific-first (`SporeMushroomExplo` before the shorter
+`SporeMushroom`, which would otherwise also match it), so other biomes'
+differently-prefixed prefab variants likely still match. Found via a bounded
+`OverlapSphere` (not a full scene query) since, unlike tree-attached items,
+these sit right on the ground where you'd ping directly at them - no
+ray-assist reach needed.
+
+`Antlion` (a real decompiled class) and `ClimbHandle` (the same component
+for both Pickaxe and (Rusty) Piton, distinguished by its own `isPickaxe`
+flag - hardcoded "Pickaxe"/"Piton" labels rather than its own `GetName()`,
+since that returns the less clean `"PITONPROMPT"` localization key for the
+piton case) are both detected directly, same pattern as Spider/Capybara/
+MushroomZombie.
+
+`LogNearbyUnmatched` now also scans `Renderer`s (bounds-distance check), not
+just `Collider`s via `OverlapSphere` - some still-requested pingables (giant
+urchins, decorative foliage like Poison Ivy/Monstera) may have no physical
+collider at all, so a Collider-only sweep could never have revealed them.
+Poison Ivy (`PoisonIvy`), Monstera, Geyser, and Flash Bulb (`FlashPlant`)
+were found in a follow-up sweep and added to `NamedHazards`.
+
+**Giant Urchin** couldn't be identified by name at all - its hitbox
+GameObject is plainly "Collider" under a generic "Map" root, with nothing
+distinctive anywhere in its own hierarchy. Identified instead by component:
+it carries a `CollisionModifier` (shared with `Antlion`, not distinctive
+alone) whose parent has `DisableBasedOnRunSettings` with a public
+`disableIfSettingDisabled` field naming the exact `RunSettings.SETTINGTYPE`
+it's gated on - reading that field directly gave a conclusive
+`Hazard_Urchins`. Detected via a dedicated loop (not `NamedHazards`, since
+there's no name to match) checking for that exact
+`CollisionModifier`+`DisableBasedOnRunSettings(Hazard_Urchins)` combination.
+The renderer half of `LogNearbyUnmatched`'s sweep is throttled to once every
+`RendererScanCooldownSeconds` (3s) - running a full-scene
+`FindObjectsByType<Renderer>()` on *every* ping while debug logging is on
+was a real, reported stutter during rapid spam-pinging, not just a
+theoretical cost. The log also filters out this mod's own `SoD.`-prefixed
+spawned objects and the local player's own first-person "Hand" model, which
+were cluttering every dump as noise regardless of what was actually pinged.
+
+`MapHandler.CurrentCampfire` is also detected (hardcoded "Campfire"), added
+purely for pinning completeness even though it already has its own
+always-visible edge indicator from Phase 4.
+
+**Known-wrong mapping removed:** an earlier `"Cactus base" -> "Cactus"`
+entry incorrectly matched the big decorative `StickyCactus` structure's
+ground collider - the maintainer actually meant the small pickup-able
+cactus, which is a `CactusBall` `ItemComponent` on a regular `Item` (already
+covered by the Item loop, no dedicated fix needed) confirmed via decompile.
+
+**Two bugs fixed outside `ItemPings/` itself, found via this feature's
+playtest:**
+- `Pings/PingWidgetLink.Update` was re-reading `ShowPingDistanceLabel`
+  directly from config every frame, silently overwriting the one-time
+  `showDistance` value `PointPingerPatches` computes at spawn (which factors
+  in whether an item ping is already showing its own distance) - the
+  generic ping's white distance label was reappearing the very next frame
+  after being suppressed. Fixed by caching the decided value in a field
+  instead of re-reading config in `Update`.
+- `Pings/PingRipple` tracked its source `PointPing`'s `transform.localScale`
+  every frame for its own relative sizing, falling back to a hardcoded `1f`
+  once that transform was gone. Re-pinging the same spot makes
+  `PointPingerPatches` immediately `DestroyImmediate` the *previous* ping
+  marker (only one tracked per `PointPinger` at a time) - since the ripple
+  is free-standing, not destroyed with it, it was left reading a destroyed
+  transform mid-fade and snapping to that `1f` fallback, which (especially
+  up close, where the real distance-relative scale is well under 1) showed
+  up as a sudden jitter/growth spike. Fixed by freezing at the last observed
+  scale instead of falling back to a constant.
+
 ### Not yet built
 
-- Phase 5: Mechanic 2 (better pings) — Harmony patches on
-  `PointPinger.Update`/`ReceivePoint_Rpc` (see `RESEARCH.md` Q6-Q9), likely
-  `PingPatch.cs`.
 - Phase 6: Mechanic 3 (ghost free-cam) — likely a small patch/reflection
   helper toggling `MainCameraMovement.isGodCam` (see `RESEARCH.md` Q10).
 
