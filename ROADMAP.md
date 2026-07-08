@@ -8,14 +8,16 @@
 > can actually help the living instead of going idle. **Fully open source,
 > MIT licensed.** No paid/monetized component of any kind.
 
-**Status:** research pass complete — see `RESEARCH.md` (gitignored,
-local-only) for full technical findings with file:line references into the
-decompiled game/mods. No code written yet. This file has been updated with
-the corrected understanding from that research (a few original assumptions
-below turned out to be imprecise — noted inline as "research correction"),
-but stays high-level; deep technical detail lives in `RESEARCH.md`.
+**Status:** Phase 1 (scaffold), Phase 2 (screen-space indicator framework),
+and Phase 3 (Mechanic 1 player labels) complete — see "Handoff notes" at the
+bottom of this file. Full technical findings (with file:line references
+into the decompiled game/mods) are in `RESEARCH.md` (gitignored,
+local-only). This file has been updated with the corrected understanding
+from that research (a few original assumptions below turned out to be
+imprecise — noted inline as "research correction"), but stays high-level;
+deep technical detail lives in `RESEARCH.md`.
 
-**Last updated:** 2026-07-08 (session 1, post-research).
+**Last updated:** 2026-07-08 (session 2, post-Phase 3).
 
 ## Design premise (why this mod, why client-sided)
 
@@ -372,16 +374,44 @@ end-to-end with no hidden gotchas.
 
 ## Handoff notes for the next session
 
-Research pass is done (session 1) — `RESEARCH.md` has everything found.
-Next step is **Phase 1: project scaffold** — set up the BepInEx plugin
-skeleton mirroring `peak-checkpoint-save`'s layout (see that repo's
-`src/PeakQuickResume/`, `.csproj`, `Directory.Build.props`,
-`packaging/manifest.json`, `packaging/build-release.sh` as the template),
-get an empty, versioned, loadable plugin building and deploying to a local
-BepInEx profile before writing any gameplay code. After that, Phase 2 (the
-shared screen-space edge-of-screen indicator framework) is the right next
-target since Mechanics 1 and 2 both depend on it — `RESEARCH.md` Q8 points
-at `PingItems.Core.EdgeTracker`/`EdgeVisualEffects` as a fully-worked
-reference implementation of the exact viewport-edge-clipping math needed
-(read, don't copy — no license permits reuse, and the technique itself is
-generic screen-space geometry anyway).
+Phase 1 (scaffold), Phase 2 (screen-space indicator framework), and Phase 3
+(Mechanic 1 player labels) are all done.
+
+Phase 2 lives in `src/SenseOfDirection/Indicators/` — see `CODEBASE.md` for
+the file breakdown (`ScreenSpaceTracker` for the pure math,
+`IndicatorAnchor`/`IndicatorManager` for the generic registration/update
+loop, `IndicatorTestHarness` for dummy-point in-game verification, gated
+behind the `enable-indicator-test-harness` debug config flag, off by
+default). The math is an independent derivation (center-relative direction,
+scaled out to a rectangle edge inset by a margin), not a port of
+`PingItems.Core.EdgeTracker` — that class was read as reference only per
+`RESEARCH.md` Q8 (no license permits reuse). **Verified in-game** by the
+maintainer: dummy points clamp to the right edge and (after fixing an
+inverted arrow-rotation sign — `angle + 90`, not `angle - 90`, see git
+history) the arrow points the correct way as the camera turns.
+
+Phase 3 lives in `src/SenseOfDirection/Labels/` — see `CODEBASE.md` for the
+file breakdown. Implements: native name/color lookup
+(`character.characterName` / `character.refs.customization.PlayerColor`),
+host crown (real sprite, discovered at runtime off a live
+`PlayerName.hostStar`), dead/unconscious icons (plain colored squares for
+now — no ripped asset mandated for those, only the crown; swap for real art
+later if wanted), the dead-label persist-until-segment-deactivates behavior
+(implemented as a simple `character.gameObject.activeInHierarchy` check,
+per `RESEARCH.md` Q4's simpler recommended approach — no segment-index
+caching needed), distance calc (converted to real meters via
+`CharacterStats.unitsToMeters`, since raw Unity units aren't 1:1 meters) +
+min/max gate, and all the listed settings (font sizes, display-mode +
+rebind + hold timings) under the `Player-Labels` config section.
+
+**Not yet verified in-game:** Phase 3 hasn't been playtested yet — the
+maintainer needs to confirm in a real PEAK session that labels appear
+correctly for other players (font/outline material discovery succeeds,
+crown/dead/unconscious icons look right, Toggle/AlwaysOn/Hold modes behave
+as expected, off-screen labels clamp+arrow correctly) before Phase 4 builds
+on top of this.
+
+Next step is **Phase 4: campfire indicator** (small addition — same
+`IndicatorAnchor` mechanism, pointed at a fixed world point instead of a
+`Character`), then **Phase 5: Mechanic 2 (better pings)**.
+`RESEARCH.md` Q6-Q9 have the exact game classes/fields to hook for that.
