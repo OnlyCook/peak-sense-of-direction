@@ -73,9 +73,9 @@ order):
   are all re-applied every `Refresh` call (not baked in once at creation) so
   config changes take effect without a restart and a label created before
   `NativeAssets` finishes discovering the native font still picks it up.
-  Dead/unconscious icons are plain colored squares for now (no ripped asset
-  mandated for those in `ROADMAP.md`, unlike the crown) — swap for real art
-  in a later polish pass if wanted. Crown icon position hugs the actual
+  Dead/unconscious icons use bundled badge art (`Common/IconAssets.cs`,
+  PNGs under `Icons/`) — fixed tan color, not tinted per-player, unlike the
+  compass/off-screen player face icons. Crown icon position hugs the actual
   rendered name width via `TMP_Text.GetPreferredValues` rather than a fixed
   offset.
 - `PlayerLabelController.cs` — singleton owning one `PlayerLabel` per non-
@@ -457,17 +457,28 @@ RESEARCH.md's license table) — nothing here is copied from it.
   `Character.localCharacter.data.currentItem` having a `CompassPointer`
   child component - PEAK has no dedicated "Compass" item class, it's a
   data-driven `Item` like any other, identified this way instead.
-- `CompassIcons.cs` — placeholder marker shapes generated procedurally once
-  and cached (filled circle/ring/diamond/smiley-face/triangle/horizontal
-  fade-line baseline), since no ripped game asset exists for any of these
-  (the campfire marker is the one exception - reuses
+- `CompassIcons.cs` — placeholder shapes generated procedurally once and
+  cached; only the elevation-arrow triangle and the tape's horizontal
+  fade-line baseline are left here now (the campfire marker reuses
   `Labels.NativeAssets.CampfireIconSprite`, same as its off-screen
-  counterpart).
+  counterpart; the player face/ping ring/item-ping diamond markers all moved
+  to real bundled art via `Common/IconAssets.cs`, below).
+- `Common/IconAssets.cs` (new, though the `Common/` folder itself predates
+  this) — loads the mod's bundled icon PNGs (embedded resources under
+  `Icons/`, see the `.csproj`'s `EmbeddedResource` glob) into cached
+  `Sprite`s via `Assembly.GetManifestResourceStream` + `Texture2D.LoadImage`.
+  The player face/ping/item-ping icons are drawn white-fill + black-outline
+  on transparent specifically so `Image.color` tinting reproduces the
+  anchor's color exactly (white × tint = tint) while leaving the outline
+  untouched (black × tint = black); the two player-label status badges are
+  pre-colored (fixed tan) and never tinted.
 - `CompassMarkerWidget.cs` — one marker: a `CompassMarkerKind`-dependent icon
   tinted to the anchor's own color (player character color / ping color;
-  campfire keeps its real sprite's own colors), the player-only smiley
-  overlay + dead/unconscious status badge (same red/yellow convention
-  `Labels.PlayerLabel` already uses), an elevation arrow (only shown once
+  campfire keeps its real sprite's own colors) — for the player marker the
+  icon sprite itself swaps between normal/unconscious/dead face art as state
+  changes, rather than a separate smiley overlay — plus a dead/unconscious
+  status badge (`IconAssets.DeadBadge`/`UnconsciousBadge`, same art
+  `Labels.PlayerLabel` uses, untinted), an elevation arrow (only shown once
   `compass-elevation-threshold-meters` is exceeded - plain `↑`/`↓` glyphs on
   TMP's own default font rather than a drawn triangle, deliberately *not*
   the game's stylized display font since a general-purpose font is far more

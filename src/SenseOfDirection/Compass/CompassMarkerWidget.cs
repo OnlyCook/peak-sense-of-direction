@@ -1,3 +1,4 @@
+using SenseOfDirection.Common;
 using SenseOfDirection.Labels;
 using TMPro;
 using UnityEngine;
@@ -47,7 +48,6 @@ namespace SenseOfDirection.Compass
         private readonly CompassMarkerKind _kind;
         private readonly Image _iconImage;
         private readonly Image[] _iconOutlines;
-        private readonly Image _faceOverlay;
         private readonly Image _statusBadge;
         private readonly TMP_Text _elevationArrow;
         private readonly TMP_Text _nameText;
@@ -55,7 +55,7 @@ namespace SenseOfDirection.Compass
 
         private CompassMarkerWidget(
             CompassMarkerKind kind, RectTransform root, CanvasGroup canvasGroup,
-            Image iconImage, Image[] iconOutlines, Image faceOverlay, Image statusBadge, TMP_Text elevationArrow,
+            Image iconImage, Image[] iconOutlines, Image statusBadge, TMP_Text elevationArrow,
             TMP_Text nameText, TMP_Text distanceText)
         {
             _kind = kind;
@@ -63,7 +63,6 @@ namespace SenseOfDirection.Compass
             CanvasGroup = canvasGroup;
             _iconImage = iconImage;
             _iconOutlines = iconOutlines;
-            _faceOverlay = faceOverlay;
             _statusBadge = statusBadge;
             _elevationArrow = elevationArrow;
             _nameText = nameText;
@@ -72,12 +71,19 @@ namespace SenseOfDirection.Compass
 
         private static Sprite ResolveIconSprite(CompassMarkerKind kind) => kind switch
         {
-            CompassMarkerKind.Player => CompassIcons.FilledCircle,
-            CompassMarkerKind.Ping => CompassIcons.RingCircle,
-            CompassMarkerKind.ItemPing => CompassIcons.Diamond,
+            CompassMarkerKind.Player => IconAssets.PlayerFace,
+            CompassMarkerKind.Ping => IconAssets.PingRing,
+            CompassMarkerKind.ItemPing => IconAssets.ItemPingDiamond,
             CompassMarkerKind.Campfire => NativeAssets.CampfireIconSprite,
             _ => null,
         };
+
+        /// <summary>Player marker only: which face variant to show for the given dead/unconscious state.</summary>
+        private static Sprite ResolvePlayerFaceSprite(bool isDead, bool isUnconscious) => isDead
+            ? IconAssets.PlayerDeadFace
+            : isUnconscious
+                ? IconAssets.PlayerUnconsciousFace
+                : IconAssets.PlayerFace;
 
         public static CompassMarkerWidget Create(RectTransform parent, CompassMarkerKind kind)
         {
@@ -121,33 +127,21 @@ namespace SenseOfDirection.Compass
             iconImage.preserveAspect = true;
             iconImage.sprite = ResolveIconSprite(kind);
 
-            Image faceOverlay = null;
-            if (kind == CompassMarkerKind.Player)
-            {
-                var faceGo = new GameObject("Face", typeof(RectTransform), typeof(Image));
-                var faceRect = (RectTransform)faceGo.transform;
-                faceRect.SetParent(iconRect, false);
-                faceRect.anchorMin = Vector2.zero;
-                faceRect.anchorMax = Vector2.one;
-                faceRect.offsetMin = Vector2.zero;
-                faceRect.offsetMax = Vector2.zero;
-                faceOverlay = faceGo.GetComponent<Image>();
-                faceOverlay.sprite = CompassIcons.SmileyFace;
-                faceOverlay.preserveAspect = true;
-                faceOverlay.color = Color.black;
-            }
-
             Image statusBadge = null;
             if (kind == CompassMarkerKind.Player)
             {
                 var badgeGo = new GameObject("StatusBadge", typeof(RectTransform), typeof(Image));
                 var badgeRect = (RectTransform)badgeGo.transform;
                 badgeRect.SetParent(root, false);
-                badgeRect.sizeDelta = new Vector2(10f, 10f);
+                badgeRect.sizeDelta = new Vector2(14f, 14f);
                 badgeRect.anchorMin = new Vector2(1f, 1f);
                 badgeRect.anchorMax = new Vector2(1f, 1f);
-                badgeRect.anchoredPosition = new Vector2(-2f, -2f);
+                badgeRect.anchoredPosition = new Vector2(-3f, -3f);
                 statusBadge = badgeGo.GetComponent<Image>();
+                statusBadge.preserveAspect = true;
+                // Badge sprites are pre-colored (fixed tan fill), not tinted -
+                // actual sprite (dead/unconscious) assigned per-frame in Refresh.
+                statusBadge.color = Color.white;
                 statusBadge.gameObject.SetActive(false);
             }
 
@@ -203,7 +197,7 @@ namespace SenseOfDirection.Compass
             distanceText.fontSize = 14f;
             distanceText.color = new Color(1f, 1f, 1f, 0.9f);
 
-            return new CompassMarkerWidget(kind, root, canvasGroup, iconImage, iconOutlines, faceOverlay, statusBadge, elevationArrow, nameText, distanceText);
+            return new CompassMarkerWidget(kind, root, canvasGroup, iconImage, iconOutlines, statusBadge, elevationArrow, nameText, distanceText);
         }
 
         public void Destroy()
@@ -253,6 +247,22 @@ namespace SenseOfDirection.Compass
                 }
             }
 
+            // Player marker's face swaps between normal/unconscious/dead art
+            // as the anchor's own state changes (icon + all outline copies
+            // need to stay in sync, same as the campfire swap above).
+            if (_kind == CompassMarkerKind.Player)
+            {
+                Sprite faceSprite = ResolvePlayerFaceSprite(isDead, isUnconscious);
+                if (faceSprite != null && _iconImage.sprite != faceSprite)
+                {
+                    _iconImage.sprite = faceSprite;
+                    foreach (Image outline in _iconOutlines)
+                    {
+                        outline.sprite = faceSprite;
+                    }
+                }
+            }
+
             // Elevation arrow sits beside the icon (see below), so the name
             // label can sit directly above it without the two colliding.
             float y = iconSizePixels * 0.62f;
@@ -277,7 +287,11 @@ namespace SenseOfDirection.Compass
                 _statusBadge.gameObject.SetActive(showBadge);
                 if (showBadge)
                 {
-                    _statusBadge.color = isDead ? new Color(0.8f, 0.15f, 0.15f) : new Color(0.85f, 0.75f, 0.1f);
+                    Sprite badgeSprite = isDead ? IconAssets.DeadBadge : IconAssets.UnconsciousBadge;
+                    if (badgeSprite != null && _statusBadge.sprite != badgeSprite)
+                    {
+                        _statusBadge.sprite = badgeSprite;
+                    }
                 }
             }
 

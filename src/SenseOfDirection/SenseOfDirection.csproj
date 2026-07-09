@@ -42,6 +42,13 @@
     </Reference>
   </ItemGroup>
 
+  <!-- Bundled icon PNGs (compass faces/ping/item-ping + player-label status badges),
+       loaded at runtime via Common/IconAssets.cs (Assembly.GetManifestResourceStream) -
+       logical resource name ends up "SenseOfDirection.Icons.<filename>.png" -->
+  <ItemGroup>
+    <EmbeddedResource Include="Icons/*.png" />
+  </ItemGroup>
+
   <!-- Optional: copy the built DLL straight into the r2modman profile for testing
        Enable with:  dotnet build -p:DeployToProfile=true
 

@@ -1,3 +1,4 @@
+using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using TMPro;
 using UnityEngine;
@@ -79,10 +80,10 @@ namespace SenseOfDirection.Labels
             TMP_Text nameText = CreateText(root, "Name", new Vector2(0f, 10f));
             TMP_Text distanceText = CreateText(root, "Distance", new Vector2(0f, -12f));
 
-            GameObject deadIcon = CreateIcon(root, "DeadIcon", new Color(0.8f, 0.15f, 0.15f), new Vector2(14f, 14f), new Vector2(0f, -32f));
+            GameObject deadIcon = CreateIcon(root, "DeadIcon", Color.white, new Vector2(14f, 14f), new Vector2(0f, -32f), IconAssets.DeadBadge);
             deadIcon.SetActive(false);
 
-            GameObject unconsciousIcon = CreateIcon(root, "UnconsciousIcon", new Color(0.85f, 0.75f, 0.1f), new Vector2(14f, 14f), new Vector2(0f, -32f));
+            GameObject unconsciousIcon = CreateIcon(root, "UnconsciousIcon", Color.white, new Vector2(14f, 14f), new Vector2(0f, -32f), IconAssets.UnconsciousBadge);
             unconsciousIcon.SetActive(false);
 
             return new PlayerLabel(root, canvasGroup, nameText, distanceText, hostIcon, hostIconImage, deadIcon, unconsciousIcon, getWorldPosition);
@@ -103,14 +104,20 @@ namespace SenseOfDirection.Labels
             return text;
         }
 
-        private static GameObject CreateIcon(RectTransform parent, string goName, Color color, Vector2 size, Vector2 anchoredPosition)
+        private static GameObject CreateIcon(RectTransform parent, string goName, Color color, Vector2 size, Vector2 anchoredPosition, Sprite sprite = null)
         {
             var go = new GameObject(goName, typeof(RectTransform), typeof(Image));
             var rect = (RectTransform)go.transform;
             rect.SetParent(parent, false);
             rect.sizeDelta = size;
             rect.anchoredPosition = anchoredPosition;
-            go.GetComponent<Image>().color = color;
+            var image = go.GetComponent<Image>();
+            image.color = color;
+            image.preserveAspect = true;
+            if (sprite != null)
+            {
+                image.sprite = sprite;
+            }
             return go;
         }
 
