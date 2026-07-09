@@ -58,6 +58,14 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> ItemPingRayAssistRadiusMeters;
         public readonly ConfigEntry<bool> EnableCreaturePings;
 
+        public readonly ConfigEntry<KeyCode> GhostFreeCamToggleKey;
+        public readonly ConfigEntry<bool> EnableGhostFreeCam;
+        public readonly ConfigEntry<float> GhostFreeCamMaxDistanceMeters;
+        public readonly ConfigEntry<bool> GhostFreeCamUnlimitedRange;
+        public readonly ConfigEntry<float> GhostFreeCamMoveSpeedMetersPerSecond;
+        public readonly ConfigEntry<float> GhostFreeCamSprintMultiplier;
+        public readonly ConfigEntry<bool> HideAllGhosts;
+
         public readonly ConfigEntry<bool> EnableDebugLogging;
         public readonly ConfigEntry<bool> EnableIndicatorTestHarness;
         public readonly ConfigEntry<bool> EnableZombieDebugEsp;
@@ -329,6 +337,67 @@ namespace SenseOfDirection
                 "other mobs) when pinged, same as items/luggage. Off leaves creature " +
                 "pings behaving like vanilla (item/luggage highlighting is " +
                 "unaffected).");
+
+            GhostFreeCamToggleKey = config.Bind(
+                "Ghost-Free-Cam", "toggle-key", KeyCode.V,
+                "Key that toggles free-fly camera mode on/off while you're dead and " +
+                "spectating. Purely local - each player binds their own key. Only " +
+                "does anything while enable-ghost-free-cam ends up effectively on " +
+                "(see that setting's description for how that's decided).");
+
+            EnableGhostFreeCam = config.Bind(
+                "Ghost-Free-Cam", "enable-ghost-free-cam", true,
+                "Lets dead players fly a free camera around instead of being stuck in " +
+                "vanilla's third-person spectate view. Unlike every other setting in " +
+                "this mod, this one and the two below it are host-controlled, not " +
+                "purely local: only the room host's own value for these three " +
+                "settings ever takes effect for every player, mirroring enable-ghost-" +
+                "ping's requirement that both sides have this mod installed. Reason: " +
+                "letting each client fly however far they like, unlimited, would be " +
+                "an unfair (and effectively ESP-like) advantage other players in the " +
+                "same run never agreed to. If the host doesn't have this mod " +
+                "installed, ghost free-cam simply doesn't work for anyone, same as " +
+                "ghost pinging. Your own value here still matters if/when you end up " +
+                "being the host.");
+
+            GhostFreeCamMaxDistanceMeters = config.Bind(
+                "Ghost-Free-Cam", "max-distance-meters", 50f,
+                new ConfigDescription(
+                    "Host-controlled, see enable-ghost-free-cam. How far a ghost's " +
+                    "free camera can scout from whichever living player they're " +
+                    "currently spectating before being pulled back, like a chain of " +
+                    "this length. Ignored entirely when unlimited-range is on.",
+                    new AcceptableValueRange<float>(10f, 500f)));
+
+            GhostFreeCamUnlimitedRange = config.Bind(
+                "Ghost-Free-Cam", "unlimited-range", false,
+                "Host-controlled, see enable-ghost-free-cam. Removes max-distance-" +
+                "meters' leash entirely, letting ghosts free-cam anywhere on the " +
+                "map. Off by default - the leash is what keeps this mechanic from " +
+                "being overpowered.");
+
+            GhostFreeCamMoveSpeedMetersPerSecond = config.Bind(
+                "Ghost-Free-Cam", "move-speed-meters-per-second", 15f,
+                new ConfigDescription(
+                    "Purely local. How fast the free camera flies. PEAK's own built-" +
+                    "in dev free-camera controller (reused for the first pass of this " +
+                    "feature) turned out to feel unusably slow in practice, so this " +
+                    "mod drives its own movement directly in real-world meters/second " +
+                    "instead of relying on that controller's tuning.",
+                    new AcceptableValueRange<float>(1f, 100f)));
+
+            GhostFreeCamSprintMultiplier = config.Bind(
+                "Ghost-Free-Cam", "sprint-multiplier", 3f,
+                new ConfigDescription(
+                    "Purely local. Speed multiplier while holding Left Shift.",
+                    new AcceptableValueRange<float>(1f, 10f)));
+
+            HideAllGhosts = config.Bind(
+                "Ghost-Free-Cam", "hide-all-ghosts", false,
+                "Purely local (unlike the three host-controlled settings above) - " +
+                "hides every dead player's ghost body from your own view entirely. " +
+                "Doesn't affect anyone else, and doesn't affect your own ability to " +
+                "spectate/free-cam while dead yourself.");
 
             // Bound last so Debug is the last tab/section in ModConfig-style
             // settings UIs (section order follows bind order) - dev/QA

@@ -1,3 +1,4 @@
+using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
 using UnityEngine;
@@ -62,7 +63,7 @@ namespace SenseOfDirection.CampfireIndicator
 
             if (_widget != null && current != null && Character.localCharacter != null)
             {
-                float distanceMeters = Vector3.Distance(Character.localCharacter.Head, current.transform.position) * CharacterStats.unitsToMeters;
+                float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), current.transform.position) * CharacterStats.unitsToMeters;
                 _widget.Refresh(distanceMeters, cfg.ShowCampfireDistance.Value);
             }
         }

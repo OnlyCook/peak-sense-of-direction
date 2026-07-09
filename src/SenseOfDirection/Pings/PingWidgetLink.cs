@@ -1,3 +1,4 @@
+using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using UnityEngine;
 
@@ -33,7 +34,7 @@ namespace SenseOfDirection.Pings
             {
                 return;
             }
-            float distanceMeters = Vector3.Distance(Character.localCharacter.Head, _worldPosition) * CharacterStats.unitsToMeters;
+            float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), _worldPosition) * CharacterStats.unitsToMeters;
             // Uses the showDistance decided at Attach time, not a fresh read
             // of ShowPingDistanceLabel here - PointPingerPatches computes
             // that value once by also factoring in whether an item ping is
