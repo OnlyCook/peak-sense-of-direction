@@ -401,10 +401,104 @@ playtest:**
   up as a sudden jitter/growth spike. Fixed by freezing at the last observed
   scale instead of falling back to a constant.
 
+### `GhostFreeCam/` (Phase 6, done — Mechanic 3, ghost free-cam)
+
+- `GhostFreeCamPatches.cs` — bespoke WASD/Space/Ctrl/Shift-sprint flight
+  controller with mouse look reusing `CharacterInput.lookInput` (kept live
+  while dead) scaled by the player's own real Mouse/Controller Sensitivity
+  and Invert X/Y settings, matching vanilla's `CharacterMovement.CameraLook()`
+  formula exactly. Not a reuse of PEAK's own dormant `GodCam` controller as
+  RESEARCH.md Q10 originally proposed — in-game testing found it unusably
+  slow/unresponsive (legacy `Input.GetAxis` mouse axes nothing else in the
+  shipped game drives camera look through), so this mechanic ended up
+  bespoke rather than wholesale-reused, per that research doc's own
+  documented fallback plan.
+- `GhostFreeCamPoseSync.cs` / `GhostFreeCamConfigSync.cs` — keeps the ghost's
+  networked body/lean state and the host-controlled subset of config
+  (`enable-ghost-free-cam`, leash distance, unlimited-range) in sync across
+  clients.
+
+### `Compass/` (Phase 7, done — top-of-screen compass tape)
+
+Ad hoc addition (not in the original `ROADMAP.md` phase list) requested
+after Phase 6 landed: a native-HUD-styled compass strip at the top of the
+screen showing every registered `Indicators.IndicatorAnchor` that opts in,
+as an alternative (or supplement) to the edge-of-screen widgets Phases 2-5b
+already built. Read Coomzy-Compass_UI-1.0.1 (`scratch/decomp/`) as an
+architectural reference only — same license situation as every other
+reference zip (no LICENSE file, all-rights-reserved by default, see
+RESEARCH.md's license table) — nothing here is copied from it.
+
+- `Indicators/IndicatorDisplayMode.cs` (new) / `IndicatorAnchor.cs` (extended) —
+  each mechanic's anchor now optionally carries a `CompassKind` plus
+  color/label/dead/unconscious getters and a per-type `OffScreenOnly` /
+  `CompassOnly` / `Both` display-mode delegate, so `CompassManager` can
+  render its own marker for an anchor without any mechanic registering
+  twice. `IndicatorManager` gates the *original* off-screen widget/arrow on
+  this same mode (hidden entirely in `CompassOnly`) and exposes its anchor
+  list read-only for the compass to consume.
+- `CompassManager.cs` — singleton owning the tape's own `Canvas` (top-center
+  anchored, sized/positioned every frame from config so width/height/offset
+  changes apply live), heading ticks, and a `Dictionary<IndicatorAnchor,
+  CompassMarkerWidget>` synced each frame against `IndicatorManager.Anchors`
+  (create on first sight, destroy once the anchor's gone). Bearing math is
+  plain `Mathf.DeltaAngle` yaw subtraction mapped *linearly* onto the tape
+  width (deliberately not Coomzy's own acos/dot-product curve - keeps
+  degree-number ticks trivially aligned with markers), with markers/ticks
+  fading out over the last quarter of the visible half-FOV rather than
+  popping at the exact cutoff. Visual style went through two revisions
+  after playtest feedback: a first pass built a bordered blue-ish panel
+  background (styled after `peak-checkpoint-save`'s own F1/F7 panel), which
+  was then dropped entirely in favor of matching Coomzy-Compass_UI's more
+  minimal look instead - no background box, no "current heading" pointer
+  (forward is always the tape's own center by construction), just ticks/
+  markers floating over the world resting on one continuous baseline line.
+  `compass-requires-holding-item` (off by default) gates the whole tape on
+  `Character.localCharacter.data.currentItem` having a `CompassPointer`
+  child component - PEAK has no dedicated "Compass" item class, it's a
+  data-driven `Item` like any other, identified this way instead.
+- `CompassIcons.cs` — placeholder marker shapes generated procedurally once
+  and cached (filled circle/ring/diamond/smiley-face/triangle/horizontal
+  fade-line baseline), since no ripped game asset exists for any of these
+  (the campfire marker is the one exception - reuses
+  `Labels.NativeAssets.CampfireIconSprite`, same as its off-screen
+  counterpart).
+- `CompassMarkerWidget.cs` — one marker: a `CompassMarkerKind`-dependent icon
+  tinted to the anchor's own color (player character color / ping color;
+  campfire keeps its real sprite's own colors), the player-only smiley
+  overlay + dead/unconscious status badge (same red/yellow convention
+  `Labels.PlayerLabel` already uses), an elevation arrow (only shown once
+  `compass-elevation-threshold-meters` is exceeded - plain `↑`/`↓` glyphs on
+  TMP's own default font rather than a drawn triangle, deliberately *not*
+  the game's stylized display font since a general-purpose font is far more
+  likely to have those Unicode glyphs baked into its atlas), and optional
+  name/distance sub-text.
+- `CompassTick.cs` — the 24 fixed heading marks (every 15°, N/E/S/W always
+  lettered and taller/thicker than the plain degree ticks between them,
+  others blank unless `compass-show-degree-numbers` is on), created once
+  and repositioned/refaded every frame as the camera turns. True north gets
+  `CompassTheme.NorthAccent` (dark red) instead of plain white, on both its
+  tick line and its "N" label - the one splash of color on an otherwise
+  monochrome tape, common real-world-compass convention.
+- Wired into `Labels/PlayerLabelController.cs` (compass visibility follows
+  the same toggle-key/Hold/max-distance gate as the off-screen label, via
+  `_labelsVisible`), `CampfireIndicator/CampfireIndicatorController.cs`,
+  `Pings/PingWidgetLink.cs` (suppresses its own `CompassKind` entirely when
+  the same ping already got an item-ping marker - showing both is
+  redundant, same reasoning `PointPingerPatches` already applied to the
+  generic ping's distance label), and `ItemPings/ItemPingHighlight.cs`
+  (exposes its live group display name through a small cached field for
+  the compass label, since `Update()` only computed it as a local before).
+  Always instantiated from `Plugin.Awake` — no-ops (whole UI hidden) when
+  `Compass/enable-compass` is off, same pattern as every other always-on
+  controller in this mod.
+
 ### Not yet built
 
-- Phase 6: Mechanic 3 (ghost free-cam) — likely a small patch/reflection
-  helper toggling `MainCameraMovement.isGodCam` (see `RESEARCH.md` Q10).
+Nothing — every phase in `ROADMAP.md` plus the ad hoc Phase 7 compass
+addition above is implemented. Remaining `ROADMAP.md` phases (7→8 in that
+doc's own numbering: compatibility pass, packaging/release) are process/QA
+work, not new code.
 
 Update this section's file list as those land — keep it to one line per
 file, don't restate what's already in `ROADMAP.md`/`RESEARCH.md`.

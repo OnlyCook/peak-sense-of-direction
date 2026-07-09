@@ -1,4 +1,5 @@
 using SenseOfDirection.Common;
+using SenseOfDirection.Compass;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
 using UnityEngine;
@@ -57,6 +58,11 @@ namespace SenseOfDirection.CampfireIndicator
                     _trackedCampfire = current;
                     _widget = CampfireWidget.Create(() => current.transform.position);
                     _widget.Anchor.IsActive = () => current != null && current.gameObject.activeInHierarchy;
+
+                    _widget.Anchor.CompassKind = CompassMarkerKind.Campfire;
+                    _widget.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.CampfireCompassDisplayMode.Value;
+                    _widget.Anchor.GetCompassLabel = () => "Campfire";
+
                     IndicatorManager.Instance.RegisterAnchor(_widget.Anchor);
                 }
             }

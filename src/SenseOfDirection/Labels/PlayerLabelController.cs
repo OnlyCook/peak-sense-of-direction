@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using SenseOfDirection.Common;
+using SenseOfDirection.Compass;
 using SenseOfDirection.Indicators;
 using UnityEngine;
 
@@ -84,6 +85,23 @@ namespace SenseOfDirection.Labels
 
             var label = PlayerLabel.Create(AnchorPosition);
             label.Anchor.IsActive = () => character != null && character.gameObject.activeInHierarchy;
+
+            label.Anchor.CompassKind = CompassMarkerKind.Player;
+            label.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.PlayerLabelsCompassDisplayMode.Value;
+            label.Anchor.GetCompassColor = () => Plugin.Instance.Cfg.UseCharacterColor.Value
+                ? character.refs.customization.PlayerColor
+                : NativeAssets.DefaultTextColor;
+            label.Anchor.GetCompassLabel = () => character.characterName;
+            label.Anchor.GetIsDead = () => character.data.dead;
+            label.Anchor.GetIsUnconscious = () => character.data.passedOut || character.data.fullyPassedOut;
+            // Compass marker follows the same toggle-key/AlwaysOn/Hold visibility
+            // and max-distance gate as the off-screen label itself (_labelsVisible,
+            // computed once per frame in Update) - only the vanilla-label crossfade
+            // (IsNativeLabelVisible) doesn't apply here, since there's no vanilla
+            // compass to hand off to/from.
+            label.Anchor.IsCompassVisible = () => _labelsVisible
+                && Vector3.Distance(CharacterPositions.LocalViewpoint(), CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters <= Plugin.Instance.Cfg.MaxDistanceMeters.Value;
+
             IndicatorManager.Instance.RegisterAnchor(label.Anchor);
 
             _entries[character] = new Entry { Label = label, LookedAt = lookedAt };
