@@ -2,7 +2,6 @@ using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace SenseOfDirection.Pings
 {
@@ -46,16 +45,7 @@ namespace SenseOfDirection.Pings
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
 
-            RectTransform arrowRect = null;
-            if (enableArrow)
-            {
-                var arrowGo = new GameObject("Arrow", typeof(RectTransform), typeof(Image));
-                arrowRect = (RectTransform)arrowGo.transform;
-                arrowRect.SetParent(root, false);
-                arrowRect.sizeDelta = new Vector2(14f, 26f);
-                arrowRect.pivot = new Vector2(0.5f, 0.15f);
-                arrowGo.GetComponent<Image>().color = color;
-            }
+            RectTransform arrowRect = enableArrow ? OffScreenArrow.Create(root, color) : null;
 
             var textGo = new GameObject("Distance", typeof(RectTransform), typeof(TextMeshProUGUI));
             var textRect = (RectTransform)textGo.transform;

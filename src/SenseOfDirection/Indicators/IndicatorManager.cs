@@ -122,10 +122,12 @@ namespace SenseOfDirection.Indicators
                     if (state.IsOffScreen)
                     {
                         // Sprite convention: arrow art points "up" (+Y) at rotation 0.
-                        // Confirmed via in-game test harness that the naive
-                        // (angle - 90) offset renders exactly backwards, so this
-                        // is +90, not -90 - do not "simplify" this back.
-                        anchor.ArrowWidget.localEulerAngles = new Vector3(0f, 0f, state.ArrowAngleDegrees + 90f);
+                        // Confirmed in-game with the actual directional arrow art
+                        // (the old placeholder was a symmetric rectangle, so this
+                        // couldn't be verified visually until the real sprite
+                        // shipped): the +90 offset renders backwards, -90 is
+                        // correct - do not "simplify" this back to +90.
+                        anchor.ArrowWidget.localEulerAngles = new Vector3(0f, 0f, state.ArrowAngleDegrees - 90f);
                     }
                 }
             }
