@@ -42,12 +42,26 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Bundled icon PNGs (compass faces/ping/item-ping + player-label status badges),
-       loaded at runtime via Common/IconAssets.cs (Assembly.GetManifestResourceStream) -
-       logical resource name ends up "SenseOfDirection.Icons.<filename>.png" -->
-  <ItemGroup>
-    <EmbeddedResource Include="Icons/*.png" />
-  </ItemGroup>
+  <!-- Bundled icons (compass faces/ping/item-ping + player-label status badges) are
+       authored as SVG (Icons/*.svg) and rasterized to PNG at build time via ImageMagick,
+       then embedded - loaded at runtime via Common/IconAssets.cs
+       (Assembly.GetManifestResourceStream) - logical resource name ends up
+       "SenseOfDirection.Icons.<filename>.png" -->
+  <Target Name="RasterizeIconSvgs" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <IconSvg Include="Icons/*.svg" />
+    </ItemGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)icons" />
+    <Exec Command="magick -background none &quot;%(IconSvg.Identity)&quot; -define png:color-type=6 -depth 8 &quot;$(IntermediateOutputPath)icons/%(IconSvg.Filename).png&quot;" />
+    <ItemGroup>
+      <IconPng Include="$(IntermediateOutputPath)icons/*.png" />
+    </ItemGroup>
+    <ItemGroup>
+      <EmbeddedResource Include="@(IconPng)">
+        <LogicalName>SenseOfDirection.Icons.%(IconPng.Filename)%(IconPng.Extension)</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
 
   <!-- Optional: copy the built DLL straight into the r2modman profile for testing
        Enable with:  dotnet build -p:DeployToProfile=true

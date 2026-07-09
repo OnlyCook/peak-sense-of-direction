@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <path fill="#FFFFFF" fill-rule="evenodd" d="M 127.5 24.5 L 230.5 127.5 L 127.5 230.5 L 24.5 127.5 Z M 127.5 59.0 L 196.0 127.5 L 127.5 196.0 L 59.0 127.5 Z"/>
+  <path fill="none" stroke="#000000" stroke-width="4.3" stroke-linejoin="miter" d="M 127.5 25.5 L 229.5 127.5 L 127.5 229.5 L 25.5 127.5 Z"/>
+  <path fill="none" stroke="#000000" stroke-width="4.3" stroke-linejoin="miter" d="M 127.5 57.5 L 197.5 127.5 L 127.5 197.5 L 57.5 127.5 Z"/>
+</svg>

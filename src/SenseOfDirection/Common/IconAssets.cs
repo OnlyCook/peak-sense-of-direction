@@ -5,8 +5,9 @@ using UnityEngine;
 namespace SenseOfDirection.Common
 {
     /// <summary>
-    /// Loads the mod's bundled icon PNGs (embedded resources - see the
-    /// .csproj's "Icons/*.png" EmbeddedResource glob) into cached Sprites.
+    /// Loads the mod's bundled icons (authored as Icons/*.svg, rasterized to PNG at
+    /// build time and embedded - see the .csproj's RasterizeIconSvgs target) into
+    /// cached Sprites.
     ///
     /// The compass face/ping/item-ping icons are drawn with a pure-white fill
     /// and a pure-black outline on transparent, specifically so they can be
@@ -28,13 +29,13 @@ namespace SenseOfDirection.Common
         private static Sprite _deadBadge;
         private static Sprite _unconsciousBadge;
 
-        public static Sprite PlayerFace => _playerFace ??= Load("player-icon-reference-white");
-        public static Sprite PlayerUnconsciousFace => _playerUnconsciousFace ??= Load("player-unconscious-icon-reference-white");
-        public static Sprite PlayerDeadFace => _playerDeadFace ??= Load("player-dead-icon-reference-white");
-        public static Sprite PingRing => _pingRing ??= Load("ping-icon-reference-white");
-        public static Sprite ItemPingDiamond => _itemPingDiamond ??= Load("item-ping-icon-reference-white");
-        public static Sprite DeadBadge => _deadBadge ??= Load("player-dead-icon-reference-badge");
-        public static Sprite UnconsciousBadge => _unconsciousBadge ??= Load("player-unconscious-icon-reference-badge");
+        public static Sprite PlayerFace => _playerFace ??= Load("player-icon");
+        public static Sprite PlayerUnconsciousFace => _playerUnconsciousFace ??= Load("player-unconscious-icon");
+        public static Sprite PlayerDeadFace => _playerDeadFace ??= Load("player-dead-icon");
+        public static Sprite PingRing => _pingRing ??= Load("ping-icon");
+        public static Sprite ItemPingDiamond => _itemPingDiamond ??= Load("item-ping-icon");
+        public static Sprite DeadBadge => _deadBadge ??= Load("player-dead-icon-badge");
+        public static Sprite UnconsciousBadge => _unconsciousBadge ??= Load("player-unconscious-icon-badge");
 
         private static Sprite Load(string iconName)
         {
