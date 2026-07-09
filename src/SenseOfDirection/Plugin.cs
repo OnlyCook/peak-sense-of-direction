@@ -1,6 +1,7 @@
 using BepInEx;
 using HarmonyLib;
 using SenseOfDirection.CampfireIndicator;
+using SenseOfDirection.Compass;
 using SenseOfDirection.GhostFreeCam;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.ItemPings;
@@ -51,6 +52,9 @@ namespace SenseOfDirection
 
             // Same no-op-when-disabled pattern - internally checks EnablePingAudioBoost.
             _ = PingAudioTuner.Instance;
+
+            // Phase 7: same no-op-when-disabled pattern - internally checks EnableCompass.
+            _ = CompassManager.Instance;
 
             // Temporary dev/QA aid (see ZombieDebugEsp's own doc comment) -
             // same no-op-when-disabled pattern, internally checks EnableZombieDebugEsp.

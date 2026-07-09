@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
 using UnityEngine;
 
@@ -23,9 +24,11 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> ShowStatusBadges;
         public readonly ConfigEntry<bool> UseCharacterColor;
         public readonly ConfigEntry<bool> ReplaceVanillaLabels;
+        public readonly ConfigEntry<IndicatorDisplayMode> PlayerLabelsCompassDisplayMode;
 
         public readonly ConfigEntry<bool> EnableCampfireIndicator;
         public readonly ConfigEntry<bool> ShowCampfireDistance;
+        public readonly ConfigEntry<IndicatorDisplayMode> CampfireCompassDisplayMode;
 
         public readonly ConfigEntry<bool> EnablePingScaling;
         public readonly ConfigEntry<float> PingScaleMultiplier;
@@ -43,6 +46,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> PingAntiSpamMaxCooldownSeconds;
         public readonly ConfigEntry<float> PingAntiSpamResetSeconds;
         public readonly ConfigEntry<bool> EnableGhostPing;
+        public readonly ConfigEntry<IndicatorDisplayMode> PingsCompassDisplayMode;
 
         public readonly ConfigEntry<bool> EnableItemPings;
         public readonly ConfigEntry<float> ItemPingDetectionRadiusMeters;
@@ -57,6 +61,20 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> EnableItemPingRayAssist;
         public readonly ConfigEntry<float> ItemPingRayAssistRadiusMeters;
         public readonly ConfigEntry<bool> EnableCreaturePings;
+        public readonly ConfigEntry<IndicatorDisplayMode> ItemPingsCompassDisplayMode;
+
+        public readonly ConfigEntry<bool> EnableCompass;
+        public readonly ConfigEntry<float> CompassWidthPixels;
+        public readonly ConfigEntry<float> CompassHeightPixels;
+        public readonly ConfigEntry<float> CompassVerticalOffsetPixels;
+        public readonly ConfigEntry<float> CompassHorizontalOffsetPixels;
+        public readonly ConfigEntry<float> CompassFovDegrees;
+        public readonly ConfigEntry<float> CompassIconSizePixels;
+        public readonly ConfigEntry<float> CompassElevationThresholdMeters;
+        public readonly ConfigEntry<bool> CompassShowDegreeNumbers;
+        public readonly ConfigEntry<bool> CompassShowNames;
+        public readonly ConfigEntry<bool> CompassShowDistances;
+        public readonly ConfigEntry<bool> CompassRequiresHoldingItem;
 
         public readonly ConfigEntry<KeyCode> GhostFreeCamToggleKey;
         public readonly ConfigEntry<bool> EnableGhostFreeCam;
@@ -137,6 +155,13 @@ namespace SenseOfDirection
                 "Sense of Direction's labels are the only ones ever shown. Off by " +
                 "default - normally the two systems hand off to each other instead.");
 
+            PlayerLabelsCompassDisplayMode = config.Bind(
+                "Player-Labels", "compass-display-mode", IndicatorDisplayMode.OffScreenOnly,
+                "OffScreenOnly (default, current behavior): players only ever show as " +
+                "the edge-of-screen label above. CompassOnly: players only show as a " +
+                "marker on the Compass tape (see the Compass section) instead. Both: " +
+                "show both at once.");
+
             EnableCampfireIndicator = config.Bind(
                 "Campfire", "enable-campfire-indicator", false,
                 "Show an always-on edge-of-screen indicator pointing at the current " +
@@ -146,6 +171,11 @@ namespace SenseOfDirection
             ShowCampfireDistance = config.Bind(
                 "Campfire", "show-campfire-distance", true,
                 "Show the distance sub-line under the campfire indicator.");
+
+            CampfireCompassDisplayMode = config.Bind(
+                "Campfire", "compass-display-mode", IndicatorDisplayMode.OffScreenOnly,
+                "Same OffScreenOnly/CompassOnly/Both choice as Player-Labels/compass-" +
+                "display-mode, applied to the campfire indicator instead.");
 
             EnablePingScaling = config.Bind(
                 "Pings", "enable-ping-scaling", true,
@@ -249,6 +279,11 @@ namespace SenseOfDirection
                 "Let dead players keep pinging as ghosts (vanilla blocks pinging once " +
                 "dead), colored using their own character color same as when alive.");
 
+            PingsCompassDisplayMode = config.Bind(
+                "Pings", "compass-display-mode", IndicatorDisplayMode.OffScreenOnly,
+                "Same OffScreenOnly/CompassOnly/Both choice as Player-Labels/compass-" +
+                "display-mode, applied to pings instead.");
+
             EnableItemPings = config.Bind(
                 "Item-Pings", "enable-item-pings", true,
                 "Highlight nearby items/luggage when you ping near them, with a name " +
@@ -337,6 +372,94 @@ namespace SenseOfDirection
                 "other mobs) when pinged, same as items/luggage. Off leaves creature " +
                 "pings behaving like vanilla (item/luggage highlighting is " +
                 "unaffected).");
+
+            ItemPingsCompassDisplayMode = config.Bind(
+                "Item-Pings", "compass-display-mode", IndicatorDisplayMode.OffScreenOnly,
+                "Same OffScreenOnly/CompassOnly/Both choice as Player-Labels/compass-" +
+                "display-mode, applied to item/luggage/creature ping highlights " +
+                "instead.");
+
+            EnableCompass = config.Bind(
+                "Compass", "enable-compass", true,
+                "Master switch for the top-of-screen compass tape (Phase 7). Off " +
+                "hides it entirely regardless of any of the per-mechanic compass-" +
+                "display-mode settings above.");
+
+            CompassWidthPixels = config.Bind(
+                "Compass", "compass-width-pixels", 640f,
+                new ConfigDescription(
+                    "Width of the compass tape, in pixels at the 1920-wide reference " +
+                    "resolution (scales with actual resolution same as everything " +
+                    "else). Wider shows more of the horizon at once.",
+                    new AcceptableValueRange<float>(300f, 1400f)));
+
+            CompassHeightPixels = config.Bind(
+                "Compass", "compass-height-pixels", 40f,
+                new ConfigDescription(
+                    "Extra vertical gap between the tick row and the marker " +
+                    "baseline below it, on top of a small fixed minimum - the " +
+                    "default keeps everything tight together. Raise this for more " +
+                    "breathing room (e.g. after turning on marker names).",
+                    new AcceptableValueRange<float>(40f, 200f)));
+
+            CompassVerticalOffsetPixels = config.Bind(
+                "Compass", "compass-vertical-offset-pixels", 14f,
+                new ConfigDescription(
+                    "Gap between the top of the screen and the compass tape.",
+                    new AcceptableValueRange<float>(0f, 300f)));
+
+            CompassHorizontalOffsetPixels = config.Bind(
+                "Compass", "compass-horizontal-offset-pixels", 0f,
+                new ConfigDescription(
+                    "Horizontal offset from top-center. 0 keeps it centered; " +
+                    "positive shifts right, negative shifts left (e.g. to dodge " +
+                    "another HUD mod's own top-of-screen element).",
+                    new AcceptableValueRange<float>(-800f, 800f)));
+
+            CompassFovDegrees = config.Bind(
+                "Compass", "compass-fov-degrees", 150f,
+                new ConfigDescription(
+                    "How much of the horizon (in degrees) is visible on the tape at " +
+                    "once before a heading/marker slides off the edge. Lower feels " +
+                    "closer to your actual view frustum; higher gives more lead time " +
+                    "for things approaching from the side.",
+                    new AcceptableValueRange<float>(60f, 180f)));
+
+            CompassIconSizePixels = config.Bind(
+                "Compass", "compass-icon-size-pixels", 26f,
+                new ConfigDescription(
+                    "Size of each marker's icon on the compass.",
+                    new AcceptableValueRange<float>(12f, 64f)));
+
+            CompassElevationThresholdMeters = config.Bind(
+                "Compass", "compass-elevation-threshold-meters", 3f,
+                new ConfigDescription(
+                    "A marker only gets an up/down elevation arrow once its target " +
+                    "is at least this many meters above/below you - avoids a " +
+                    "flickering arrow for things that are roughly level with you.",
+                    new AcceptableValueRange<float>(0.5f, 30f)));
+
+            CompassShowDegreeNumbers = config.Bind(
+                "Compass", "compass-show-degree-numbers", false,
+                "Show a numeric heading (e.g. \"105\") at every non-cardinal tick " +
+                "instead of leaving it as a plain unlabeled line. N/E/S/W are always " +
+                "lettered either way.");
+
+            CompassShowNames = config.Bind(
+                "Compass", "compass-show-names", false,
+                "Show a name label above each compass marker that has one (players, " +
+                "item/creature pings, the campfire) - off by default to keep the " +
+                "tape simple; distances still show independently of this setting.");
+
+            CompassShowDistances = config.Bind(
+                "Compass", "compass-show-distances", true,
+                "Show a distance sub-label under each compass marker.");
+
+            CompassRequiresHoldingItem = config.Bind(
+                "Compass", "compass-requires-holding-item", false,
+                "Only show the compass tape while the local player is actually " +
+                "holding an in-game Compass item, instead of it always being " +
+                "visible. Off by default.");
 
             GhostFreeCamToggleKey = config.Bind(
                 "Ghost-Free-Cam", "toggle-key", KeyCode.V,

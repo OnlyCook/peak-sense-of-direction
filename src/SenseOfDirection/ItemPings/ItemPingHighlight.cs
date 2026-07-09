@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SenseOfDirection.Common;
+using SenseOfDirection.Compass;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Pings;
 using UnityEngine;
@@ -39,6 +40,7 @@ namespace SenseOfDirection.ItemPings
         private ItemPingWidget _widget;
         private float _remainingSeconds;
         private bool _endingEarly;
+        private string _currentDisplayName;
 
         /// <summary>Invoked once, when this highlight starts fading out (not when it's finally destroyed).</summary>
         public Action OnFadeStart;
@@ -52,6 +54,12 @@ namespace SenseOfDirection.ItemPings
             highlight._targets.AddRange(targets);
             highlight._remainingSeconds = durationSeconds;
             highlight._widget = ItemPingWidget.Create(highlight.GetGroupCenter, color, enableArrow);
+
+            highlight._widget.Anchor.CompassKind = CompassMarkerKind.ItemPing;
+            highlight._widget.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.ItemPingsCompassDisplayMode.Value;
+            highlight._widget.Anchor.GetCompassColor = () => color;
+            highlight._widget.Anchor.GetCompassLabel = () => highlight._currentDisplayName;
+
             IndicatorManager.Instance.RegisterAnchor(highlight._widget.Anchor);
             return highlight;
         }
@@ -119,6 +127,7 @@ namespace SenseOfDirection.ItemPings
             PluginConfig cfg = Plugin.Instance.Cfg;
             List<PingableTarget> valid = _targets.Where(t => t.GameObject != null && t.GameObject.activeInHierarchy).ToList();
             string name = valid.Count > 1 ? $"{valid.Count}x {valid[0].GetDisplayName()}" : valid[0].GetDisplayName();
+            _currentDisplayName = name;
             float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), GetGroupCenter()) * CharacterStats.unitsToMeters;
             _widget.Refresh(name, distanceMeters, cfg.ShowItemPingName.Value, cfg.ShowItemPingDistance.Value);
         }

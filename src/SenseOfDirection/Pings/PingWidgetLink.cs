@@ -1,4 +1,5 @@
 using SenseOfDirection.Common;
+using SenseOfDirection.Compass;
 using SenseOfDirection.Indicators;
 using UnityEngine;
 
@@ -18,13 +19,22 @@ namespace SenseOfDirection.Pings
         private Vector3 _worldPosition;
         private bool _showDistance;
 
-        public static void Attach(GameObject pingInstance, Color color, bool enableArrow, bool showDistance)
+        public static void Attach(GameObject pingInstance, Color color, bool enableArrow, bool showDistance, bool itemPingHandled)
         {
             var link = pingInstance.AddComponent<PingWidgetLink>();
             link._worldPosition = pingInstance.transform.position;
             link._showDistance = showDistance;
             link._widget = PingWidget.Create(() => link._worldPosition, color, enableArrow);
             link._widget.Refresh(0f, showDistance);
+
+            // An item ping already got its own (more useful, named) compass
+            // marker for this same ping - showing the generic ping's own ring
+            // marker right on top of it would just be visual clutter, same
+            // reasoning as suppressing its distance label above.
+            link._widget.Anchor.CompassKind = itemPingHandled ? CompassMarkerKind.None : CompassMarkerKind.Ping;
+            link._widget.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.PingsCompassDisplayMode.Value;
+            link._widget.Anchor.GetCompassColor = () => color;
+
             IndicatorManager.Instance.RegisterAnchor(link._widget.Anchor);
         }
 

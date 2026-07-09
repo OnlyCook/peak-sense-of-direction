@@ -34,6 +34,9 @@ namespace SenseOfDirection.Indicators
         /// <summary>Parent every registered anchor's widget under this.</summary>
         public RectTransform CanvasTransform { get; private set; }
 
+        /// <summary>Read-only view for <see cref="Compass.CompassManager"/>, which drives its own top-of-screen markers off the same registered anchors instead of requiring a second registration call per mechanic.</summary>
+        public IReadOnlyList<IndicatorAnchor> Anchors => _anchors;
+
         private readonly List<IndicatorAnchor> _anchors = new List<IndicatorAnchor>();
         private Canvas _canvas;
 
@@ -98,7 +101,12 @@ namespace SenseOfDirection.Indicators
                     continue;
                 }
 
-                bool active = camera != null && anchor.IsActive();
+                // CompassOnly mode hides this off-screen widget/arrow entirely -
+                // the anchor still stays registered (Compass.CompassManager reads
+                // the same anchor list for its own top-of-screen marker), it just
+                // doesn't get positioned or shown here.
+                bool showOffScreenWidget = anchor.GetDisplayMode() != IndicatorDisplayMode.CompassOnly;
+                bool active = camera != null && anchor.IsActive() && showOffScreenWidget;
                 anchor.Widget.gameObject.SetActive(active);
                 if (!active)
                 {
