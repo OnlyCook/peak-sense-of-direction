@@ -24,7 +24,12 @@ namespace SenseOfDirection.Pings
             var link = pingInstance.AddComponent<PingWidgetLink>();
             link._worldPosition = pingInstance.transform.position;
             link._showDistance = showDistance;
-            link._widget = PingWidget.Create(() => link._worldPosition, color, enableArrow);
+            // Same reasoning as the CompassKind suppression below: an item
+            // ping already spawns its own off-screen arrow for this same
+            // ping (ItemPingWidget, via ItemPingHighlight), so showing the
+            // generic ping's arrow too just stacks two overlapping arrows
+            // pointing at the same spot with different lifetimes.
+            link._widget = PingWidget.Create(() => link._worldPosition, color, enableArrow && !itemPingHandled);
             link._widget.Refresh(0f, showDistance);
 
             // An item ping already got its own (more useful, named) compass

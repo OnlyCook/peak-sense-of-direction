@@ -26,6 +26,7 @@ namespace SenseOfDirection.Common
         private static Sprite _playerDeadFace;
         private static Sprite _pingRing;
         private static Sprite _itemPingDiamond;
+        private static Sprite _pingArrow;
         private static Sprite _deadBadge;
         private static Sprite _unconsciousBadge;
 
@@ -34,6 +35,7 @@ namespace SenseOfDirection.Common
         public static Sprite PlayerDeadFace => _playerDeadFace ??= Load("player-dead-icon");
         public static Sprite PingRing => _pingRing ??= Load("ping-icon");
         public static Sprite ItemPingDiamond => _itemPingDiamond ??= Load("item-ping-icon");
+        public static Sprite PingArrow => _pingArrow ??= Load("ping-arrow-icon");
         public static Sprite DeadBadge => _deadBadge ??= Load("player-dead-icon-badge");
         public static Sprite UnconsciousBadge => _unconsciousBadge ??= Load("player-unconscious-icon-badge");
 
