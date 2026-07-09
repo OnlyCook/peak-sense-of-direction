@@ -1,6 +1,7 @@
 using BepInEx;
 using HarmonyLib;
 using SenseOfDirection.CampfireIndicator;
+using SenseOfDirection.GhostFreeCam;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.ItemPings;
 using SenseOfDirection.Labels;
@@ -41,6 +42,7 @@ namespace SenseOfDirection
             PlayerLabelPatches.Apply(_harmony, Logger);
             VanillaLabelSuppressionPatch.Apply(_harmony, Logger);
             PointPingerPatches.Apply(_harmony, Logger);
+            GhostFreeCamPatches.Apply(_harmony, Logger);
 
             // Always instantiated - internally no-ops per-frame when
             // EnableCampfireIndicator is off, same pattern as

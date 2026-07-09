@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Pings;
 using UnityEngine;
@@ -118,7 +119,7 @@ namespace SenseOfDirection.ItemPings
             PluginConfig cfg = Plugin.Instance.Cfg;
             List<PingableTarget> valid = _targets.Where(t => t.GameObject != null && t.GameObject.activeInHierarchy).ToList();
             string name = valid.Count > 1 ? $"{valid.Count}x {valid[0].GetDisplayName()}" : valid[0].GetDisplayName();
-            float distanceMeters = Vector3.Distance(Character.localCharacter.Head, GetGroupCenter()) * CharacterStats.unitsToMeters;
+            float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), GetGroupCenter()) * CharacterStats.unitsToMeters;
             _widget.Refresh(name, distanceMeters, cfg.ShowItemPingName.Value, cfg.ShowItemPingDistance.Value);
         }
 

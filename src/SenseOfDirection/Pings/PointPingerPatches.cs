@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using BepInEx.Logging;
 using HarmonyLib;
 using pworld.Scripts.Extensions;
+using SenseOfDirection.Common;
 using SenseOfDirection.ItemPings;
 using UnityEngine;
 
@@ -185,7 +186,7 @@ namespace SenseOfDirection.Pings
             {
                 return;
             }
-            float distance = Vector3.Distance(Character.localCharacter.Center, __instance.transform.position);
+            float distance = Vector3.Distance(CharacterPositions.LocalViewpoint(), __instance.transform.position);
             float frustumValue = camera.SizeOfFrustumAtDistance(distance);
             float scale = frustumValue * __instance.sizeOfFrustum * cfg.PingScaleMultiplier.Value;
             __instance.transform.localScale = Vector3.one * scale;
@@ -279,13 +280,15 @@ namespace SenseOfDirection.Pings
 
             PointPing prefabPing = __instance.pointPrefab.GetComponent<PointPing>();
 
+            Vector3 pingerPosition = CharacterPositions.EffectivePosition(character);
+
             float visibility = 1f;
             if (!cfg.RemoveVisibilityCutoff.Value)
             {
                 bool obstructed = Physics.Linecast(
-                    character.Head, Character.localCharacter.Head, out _,
+                    pingerPosition, CharacterPositions.LocalViewpoint(), out _,
                     HelperFunctions.LayerType.TerrainMap.ToLayerMask());
-                float distanceToLocal = Vector3.Distance(character.Head, Character.localCharacter.Head);
+                float distanceToLocal = Vector3.Distance(pingerPosition, CharacterPositions.LocalViewpoint());
                 Vector2 v = prefabPing.visibilityFullNoneNoLos;
                 visibility = 1f - Mathf.InverseLerp(
                     v.x, v.x + (v.y - v.x) * (obstructed ? prefabPing.NoLosVisibilityMul : 1f),
@@ -304,7 +307,7 @@ namespace SenseOfDirection.Pings
 
             GameObject spawned = UnityEngine.Object.Instantiate(
                 __instance.pointPrefab, point,
-                Quaternion.LookRotation((point - character.Head).normalized, Vector3.up));
+                Quaternion.LookRotation((point - pingerPosition).normalized, Vector3.up));
             pingInstanceField.SetValue(__instance, spawned);
 
             PointPing spawnedPing = spawned.GetComponent<PointPing>();

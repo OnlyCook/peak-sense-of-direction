@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using UnityEngine;
 
@@ -65,6 +66,15 @@ namespace SenseOfDirection.Labels
 
             Vector3 AnchorPosition()
             {
+                // A dead character's own bodypart transforms (including
+                // whatever playerNamePos is parented under) become an
+                // unreliable moving/despawning target some time after death
+                // - freeze the label at LastLivingPosition instead of
+                // following it there, same fix as CharacterPositions.
+                if (character.data.dead)
+                {
+                    return character.LastLivingPosition;
+                }
                 if (lookedAt != null && lookedAt.playerNamePos != null)
                 {
                     return lookedAt.playerNamePos.position;
@@ -116,7 +126,7 @@ namespace SenseOfDirection.Labels
                 PlayerLabel label = entry.Label;
                 CharacterData data = character.data;
 
-                float distanceMeters = Vector3.Distance(Character.localCharacter.Head, character.Head) * CharacterStats.unitsToMeters;
+                float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters;
                 bool isHost = character.photonView.Owner.IsMasterClient;
                 bool isDead = data.dead;
                 bool isUnconscious = data.passedOut || data.fullyPassedOut;
