@@ -134,7 +134,19 @@ namespace SenseOfDirection.ItemPings
 
             foreach (Luggage luggage in Luggage.ALL_LUGGAGE)
             {
-                if (luggage == null || !luggage.gameObject.activeInHierarchy || !Matches(luggage.transform.position, luggageRadiusSq))
+                // Luggage.ALL_LUGGAGE alone isn't reliable for "not yet
+                // opened": per the decompile (Luggage.OpenLuggageRPC), the
+                // spawnItems=true branch only removes the luggage from
+                // ALL_LUGGAGE inside an `if (NetCode.Session.IsHost)` guard
+                // - a non-host client's own ALL_LUGGAGE list keeps holding a
+                // reference to already-opened luggage forever (the
+                // spawnItems=false branch removes it for everyone, so this
+                // only reproduces for the common "opens with items" case).
+                // luggage.IsOpen (state == LuggageState.Open) is set via the
+                // same RPC on every client regardless of host status, so
+                // checking it directly here is what actually matches
+                // reality on clients.
+                if (luggage == null || luggage.IsOpen || !luggage.gameObject.activeInHierarchy || !Matches(luggage.transform.position, luggageRadiusSq))
                 {
                     continue;
                 }
