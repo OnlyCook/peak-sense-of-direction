@@ -1,7 +1,9 @@
+using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace SenseOfDirection.ItemPings
 {
@@ -14,7 +16,10 @@ namespace SenseOfDirection.ItemPings
     /// classes' own doc comments), the arrow makes sense here since this is
     /// pointing at a specific pinged object, same reasoning as the ping
     /// indicator itself. Tinted to the pinging player's own character color,
-    /// same as the ping/ripple.
+    /// same as the ping/ripple. A small crosshair (the same diamond icon the
+    /// compass uses for item pings) sits between the name and distance line so
+    /// the widget reads as a crosshair on the pinged object rather than just
+    /// floating text.
     /// </summary>
     public class ItemPingWidget
     {
@@ -24,12 +29,12 @@ namespace SenseOfDirection.ItemPings
         private readonly TMP_Text _nameText;
         private readonly TMP_Text _distanceText;
 
-        private ItemPingWidget(RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, TMP_Text nameText, TMP_Text distanceText, System.Func<Vector3> getWorldPosition)
+        private ItemPingWidget(RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, RectTransform crosshairRect, TMP_Text nameText, TMP_Text distanceText, System.Func<Vector3> getWorldPosition)
         {
             CanvasGroup = canvasGroup;
             _nameText = nameText;
             _distanceText = distanceText;
-            Anchor = new IndicatorAnchor(getWorldPosition, root, arrow);
+            Anchor = new IndicatorAnchor(getWorldPosition, root, arrow, crosshairRect);
         }
 
         public static ItemPingWidget Create(System.Func<Vector3> getWorldPosition, Color color, bool enableArrow)
@@ -52,7 +57,7 @@ namespace SenseOfDirection.ItemPings
             var nameRect = (RectTransform)nameGo.transform;
             nameRect.SetParent(root, false);
             nameRect.sizeDelta = new Vector2(320f, 28f);
-            nameRect.anchoredPosition = new Vector2(0f, 18f);
+            nameRect.anchoredPosition = new Vector2(0f, 24f);
 
             var nameText = nameGo.GetComponent<TextMeshProUGUI>();
             nameText.alignment = TextAlignmentOptions.Center;
@@ -65,7 +70,7 @@ namespace SenseOfDirection.ItemPings
             var distRect = (RectTransform)distGo.transform;
             distRect.SetParent(root, false);
             distRect.sizeDelta = new Vector2(120f, 24f);
-            distRect.anchoredPosition = new Vector2(0f, -22f);
+            distRect.anchoredPosition = new Vector2(0f, -18f);
 
             var distanceText = distGo.GetComponent<TextMeshProUGUI>();
             distanceText.alignment = TextAlignmentOptions.Center;
@@ -73,7 +78,25 @@ namespace SenseOfDirection.ItemPings
             distanceText.fontSize = 16f;
             distanceText.enableWordWrapping = false;
 
-            return new ItemPingWidget(root, canvasGroup, arrowRect, nameText, distanceText, getWorldPosition);
+            // Sits between the name and distance line (name bottom ~10px, distance
+            // top ~-16px) so it reads as a crosshair on the pinged object itself,
+            // same diamond icon the compass already uses for item pings. Only
+            // shown while the target is actually on-screen - see
+            // IndicatorAnchor.OnScreenOnlyWidget - since it makes no sense
+            // overlaid on nothing while the off-screen arrow is showing instead.
+            var crosshairGo = new GameObject("Crosshair", typeof(RectTransform), typeof(Image));
+            var crosshairRect = (RectTransform)crosshairGo.transform;
+            crosshairRect.SetParent(root, false);
+            crosshairRect.sizeDelta = new Vector2(30f, 30f);
+            crosshairRect.anchoredPosition = Vector2.zero;
+
+            var crosshairIcon = crosshairGo.GetComponent<Image>();
+            crosshairIcon.sprite = IconAssets.ItemPingDiamond;
+            crosshairIcon.color = color;
+            crosshairIcon.raycastTarget = false;
+            crosshairIcon.preserveAspect = true;
+
+            return new ItemPingWidget(root, canvasGroup, arrowRect, crosshairRect, nameText, distanceText, getWorldPosition);
         }
 
         public void Refresh(string displayName, float distanceMeters, bool showName, bool showDistance)

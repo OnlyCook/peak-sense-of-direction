@@ -51,10 +51,18 @@ namespace SenseOfDirection.Common
             using var memoryStream = new MemoryStream();
             stream.CopyTo(memoryStream);
 
-            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false)
+            // mipChain=true + Trilinear filtering matters here specifically because
+            // every icon is authored at a fixed 256x256 raster (see the .csproj's
+            // RasterizeIconSvgs target) but always displayed far smaller in the UI
+            // (e.g. ~20-40px) - an 8-12x minification. Bilinear alone has no mip
+            // level to sample at that scale, so it aliases/shimmers instead of
+            // smoothing, which is what actually caused the "raw pixelated" look
+            // (not a rasterization-quality problem, despite looking like one).
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, true)
             {
-                filterMode = FilterMode.Bilinear,
+                filterMode = FilterMode.Trilinear,
                 wrapMode = TextureWrapMode.Clamp,
+                anisoLevel = 4,
             };
             if (!texture.LoadImage(memoryStream.ToArray()))
             {

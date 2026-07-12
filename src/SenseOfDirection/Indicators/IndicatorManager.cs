@@ -130,6 +130,11 @@ namespace SenseOfDirection.Indicators
                         anchor.ArrowWidget.localEulerAngles = new Vector3(0f, 0f, state.ArrowAngleDegrees - 90f);
                     }
                 }
+
+                if (anchor.OnScreenOnlyWidget != null)
+                {
+                    anchor.OnScreenOnlyWidget.gameObject.SetActive(!state.IsOffScreen);
+                }
             }
         }
     }

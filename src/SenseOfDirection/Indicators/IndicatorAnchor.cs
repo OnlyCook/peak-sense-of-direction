@@ -38,6 +38,15 @@ namespace SenseOfDirection.Indicators
         /// </summary>
         public readonly RectTransform ArrowWidget;
 
+        /// <summary>
+        /// Optional child shown only while on-screen (the exact opposite of
+        /// <see cref="ArrowWidget"/>) - e.g. the item-ping crosshair, which
+        /// only makes sense overlaid on the actually-visible object, not
+        /// while the off-screen arrow is pointing toward it instead. Null if
+        /// this anchor has no such widget.
+        /// </summary>
+        public readonly RectTransform OnScreenOnlyWidget;
+
         /// <summary>None means this anchor never shows up on the compass tape.</summary>
         public CompassMarkerKind CompassKind = CompassMarkerKind.None;
 
@@ -55,11 +64,12 @@ namespace SenseOfDirection.Indicators
         public Func<bool> GetIsDead = () => false;
         public Func<bool> GetIsUnconscious = () => false;
 
-        public IndicatorAnchor(Func<Vector3> getWorldPosition, RectTransform widget, RectTransform arrowWidget = null)
+        public IndicatorAnchor(Func<Vector3> getWorldPosition, RectTransform widget, RectTransform arrowWidget = null, RectTransform onScreenOnlyWidget = null)
         {
             GetWorldPosition = getWorldPosition;
             Widget = widget;
             ArrowWidget = arrowWidget;
+            OnScreenOnlyWidget = onScreenOnlyWidget;
         }
     }
 }
