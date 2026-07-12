@@ -77,8 +77,21 @@ namespace SenseOfDirection.Compass
         private RectTransform _baseline;
         private Image _baselineImage;
 
+        /// <summary>Pixels/second the resolved horizontal overlap offset is smoothed towards its target at - same reasoning as <see cref="Indicators.IndicatorManager"/>'s own edge-label version, keeps markers sliding apart/back together instead of snapping.</summary>
+        private const float OverlapOffsetSpeedPixelsPerSecond = 240f;
+
         private readonly List<CompassTick> _ticks = new List<CompassTick>();
         private readonly Dictionary<IndicatorAnchor, CompassMarkerWidget> _markers = new Dictionary<IndicatorAnchor, CompassMarkerWidget>();
+
+        private readonly List<IndicatorAnchor> _overlapCandidates = new List<IndicatorAnchor>();
+        private readonly List<Vector2> _overlapBasePositionsScratch = new List<Vector2>();
+        private readonly List<Vector2> _overlapSizesScratch = new List<Vector2>();
+        private readonly Dictionary<IndicatorAnchor, float> _markerBaseX = new Dictionary<IndicatorAnchor, float>();
+        private readonly Dictionary<IndicatorAnchor, Vector2> _markerSize = new Dictionary<IndicatorAnchor, Vector2>();
+        private readonly Dictionary<IndicatorAnchor, Vector2> _markerOverlapOffset = new Dictionary<IndicatorAnchor, Vector2>();
+
+        /// <summary>Approximate vertical span of a marker's name-above/distance-below text, for overlap detection - see the horizontal-only note on <see cref="ResolveMarkerOverlaps"/>'s own use of it.</summary>
+        private const float MarkerLabelHeight = 70f;
 
         private void Awake()
         {
@@ -291,6 +304,7 @@ namespace SenseOfDirection.Compass
         private void UpdateMarkers(float cameraYaw, float halfFov, float halfWidth, float baselineY, Vector3 camPos, PluginConfig cfg)
         {
             var seen = new HashSet<IndicatorAnchor>();
+            _overlapCandidates.Clear();
 
             foreach (IndicatorAnchor anchor in IndicatorManager.Instance.Anchors)
             {
@@ -344,6 +358,25 @@ namespace SenseOfDirection.Compass
                     : (relative / halfFov) * halfWidth;
                 widget.Root.anchoredPosition = new Vector2(x, -baselineY);
 
+                // Overlap resolution (see ResolveMarkerOverlaps) only ever
+                // needs to push markers apart along the tape's one axis (all
+                // markers already share the same baseline Y) - box width is
+                // whichever of icon/name/distance is currently the widest
+                // visible element, since a wide name label can overlap a
+                // neighbor even when the icons themselves don't.
+                float markerWidth = cfg.CompassIconSizePixels.Value;
+                if (cfg.CompassShowNames.Value && !string.IsNullOrEmpty(anchor.GetCompassLabel()))
+                {
+                    markerWidth = Mathf.Max(markerWidth, 160f);
+                }
+                if (cfg.CompassShowDistances.Value)
+                {
+                    markerWidth = Mathf.Max(markerWidth, 120f);
+                }
+                _overlapCandidates.Add(anchor);
+                _markerBaseX[anchor] = x;
+                _markerSize[anchor] = new Vector2(markerWidth, MarkerLabelHeight);
+
                 // With clamp-to-edge on, the fade floor is ClampedEdgeAlpha
                 // instead of 0 (both inside the fade-out quarter and once
                 // past the FOV cutoff) - keeps the curve continuous straight
@@ -382,6 +415,8 @@ namespace SenseOfDirection.Compass
                     anchor.GetIsUnconscious());
             }
 
+            ResolveMarkerOverlaps();
+
             // Not gated on _markers.Count > seen.Count: a registered-but-not-yet-
             // materialized anchor (seen this frame but structurally not ok yet, so
             // it has no marker) can coincidentally match the count of a genuinely
@@ -398,7 +433,70 @@ namespace SenseOfDirection.Compass
                 {
                     widget.Destroy();
                     _markers.Remove(stale);
+                    _markerBaseX.Remove(stale);
+                    _markerSize.Remove(stale);
+                    _markerOverlapOffset.Remove(stale);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Second pass, run after every marker's own "natural" bearing-driven
+        /// X is already set above: nudges apart any markers whose boxes
+        /// overlap, per <see cref="Indicators.LabelOverlapResolver"/> - a
+        /// single fixed direction (always away from tape center), never
+        /// based on list order or which specific neighbor conflicts, so it
+        /// can't misplace itself over time as unrelated anchors come and go.
+        /// List order (<c>IndicatorManager.Anchors</c>' own registration
+        /// order, same priority convention <see cref="Indicators.IndicatorManager"/>
+        /// itself uses) doubles as priority. Applied to
+        /// <see cref="CompassMarkerWidget.LabelGroup"/>, not
+        /// <see cref="CompassMarkerWidget.Root"/>, so a marker's icon always
+        /// stays exactly on its real bearing - only its text may shift
+        /// slightly to dodge a neighboring marker's own text. The resulting
+        /// offset is smoothed towards its target rather than applied
+        /// directly, so a marker's label sliding into/out of overlap doesn't
+        /// snap.
+        /// </summary>
+        private void ResolveMarkerOverlaps()
+        {
+            if (_overlapCandidates.Count == 0)
+            {
+                return;
+            }
+
+            // Off means every marker's label just sits directly above/below
+            // its icon, same as before this feature existed - target offsets
+            // all stay zero (still smoothed towards, so toggling this off
+            // mid-overlap eases labels back instead of snapping them).
+            bool enabled = Plugin.Instance.Cfg.EnableLabelOverlapAvoidance.Value;
+
+            Vector2[] targetOffsets;
+            if (enabled)
+            {
+                _overlapBasePositionsScratch.Clear();
+                _overlapSizesScratch.Clear();
+                foreach (IndicatorAnchor anchor in _overlapCandidates)
+                {
+                    _overlapBasePositionsScratch.Add(new Vector2(_markerBaseX[anchor], 0f));
+                    _overlapSizesScratch.Add(_markerSize[anchor]);
+                }
+
+                targetOffsets = Indicators.LabelOverlapResolver.ComputeOffsets(_overlapBasePositionsScratch, _overlapSizesScratch, Indicators.LabelOverlapResolver.Axis.Horizontal);
+            }
+            else
+            {
+                targetOffsets = new Vector2[_overlapCandidates.Count];
+            }
+
+            for (int i = 0; i < _overlapCandidates.Count; i++)
+            {
+                IndicatorAnchor anchor = _overlapCandidates[i];
+                Vector2 currentOffset = _markerOverlapOffset.TryGetValue(anchor, out Vector2 existing) ? existing : Vector2.zero;
+                Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, targetOffsets[i], Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
+                _markerOverlapOffset[anchor] = smoothedOffset;
+
+                _markers[anchor].LabelGroup.anchoredPosition = smoothedOffset;
             }
         }
 

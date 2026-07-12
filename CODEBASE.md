@@ -49,6 +49,64 @@ order):
   `PluginConfig.EnableIndicatorTestHarness` (off by default): spawns fixed
   dummy world points around the camera so the framework above can be verified
   visually in-game before Mechanic 1/2 wire in real players/pings.
+- `LabelOverlapResolver.cs` — shared overlap-resolution core (fixes the
+  "labels overlap and become unreadable" bug): given a priority-ordered list
+  of label boxes at their natural tracked position, nudges anything
+  overlapping an earlier (higher-priority) box by the *minimum* distance
+  needed to just clear it (not a fixed full-box jump), along a single caller-
+  chosen `Axis` (`Vertical` for `IndicatorManager`'s edge labels; `Horizontal`
+  for `Compass.CompassManager`'s tape), capped at `MaxOffsetMagnitude` (56px)
+  - past that, remaining overlap is simply left alone rather than shoving a
+  label far enough that it stops reading as belonging to its own icon.
+  Direction is always the same, fixed way for a given axis (down for
+  vertical; away from screen/tape center for horizontal) - deliberately the
+  simplest option, chosen after three progressively "smarter" versions
+  (vertical-then-horizontal fallback; per-line name/distance splitting with
+  role-based push direction; conflict-relative push direction) each traded
+  one visual complaint for a worse one - a diagonal jumble, a huge gap
+  between an icon and its distance text, or the whole arrangement
+  misplacing itself over a few seconds as unrelated anchors (e.g. a ping's
+  own short-lived marker) registered/unregistered elsewhere and shifted
+  which direction an index- or role-based rule happened to resolve to. A
+  single fixed direction can't do that - it doesn't depend on list order or
+  which neighbor is conflicting, so it always converges the same way. Each
+  caller smooths the returned offset towards its previous value itself
+  (`Vector2.MoveTowards`) rather than applying it directly, so a label
+  popping into/out of overlap slides instead of snapping.
+
+  `IndicatorAnchor.OverlapSize` (zero by default) opts an anchor's widget in
+  with its approximate on-screen footprint (name+distance treated as one
+  combined box, not split) - set by `Labels/PlayerLabel.cs`,
+  `CampfireIndicator/CampfireWidget.cs` (fixed estimates, shrunk to icon-only
+  when the distance sub-line is hidden) and `ItemPings/ItemPingWidget.cs`
+  (recomputed every `Refresh()` from the actual rendered text width);
+  `Pings/PingWidget.cs` zeroes it out entirely whenever its own distance
+  text is hidden - a fixed nonzero box on an *invisible* widget was the root
+  cause of a single item ping's own label mysteriously drifting away and
+  back a couple seconds later (the generic ping spawned at the same point
+  suppresses its own distance text once an item ping already shows one for
+  the same event, per `PointPingerPatches`, but kept contributing a full-
+  size, entirely-invisible overlap box until its own marker despawned).
+  Anchors that leave it zero (e.g. a bare arrow-only widget) are skipped
+  entirely.
+
+  `IndicatorAnchor.LabelWidget` (null by default) lets an anchor decouple
+  its arrow/crosshair from its text: when set, overlap resolution nudges
+  that child transform (a `LabelGroup` sub-object sitting at local (0,0))
+  instead of the anchor's own `Widget`, so the arrow/crosshair - which needs
+  to stay exactly on the tracked position to still point/land correctly -
+  never moves, while the whole name+distance label shifts together. Used by
+  `Pings/PingWidget.cs` and `ItemPings/ItemPingWidget.cs`; left null by
+  `Labels/PlayerLabel.cs`/`CampfireIndicator/CampfireWidget.cs`, which have
+  no such direction-critical element and are fine moving as a whole.
+
+  `General/enable-label-overlap-avoidance` (on by default) gates the whole
+  feature - both `IndicatorManager.ResolveLabelOverlaps` and
+  `Compass.CompassManager.ResolveMarkerOverlaps` check
+  `Plugin.Instance.Cfg.EnableLabelOverlapAvoidance.Value` and, when off, feed
+  an all-zero target offset through the same smoothing path (rather than
+  skipping the method outright), so toggling it off mid-overlap eases labels
+  back to their exact tracked position instead of snapping them there.
 
 ### `Labels/` (Phase 3, done — player labels; campfire indicator is Phase 4, not yet built)
 
@@ -187,7 +245,15 @@ order):
   onto the spawned `PointPing` GameObject so the widget's lifetime is tied
   1:1 to the ping's own; `OnDestroy` starts `PingWidgetFadeOut` (a 0.35s
   alpha fade via `CanvasGroup`, appearing stays instant) rather than
-  snapping the widget away immediately.
+  snapping the widget away immediately. `PingWidgetFadeOut.Begin` zeroes the
+  fading anchor's `OverlapSize` immediately (opting it out of label-overlap-
+  avoidance for the rest of its life) - the anchor otherwise stays
+  registered for the whole 0.35s fade (so its off-screen arrow keeps
+  tracking correctly), and without this, a brand new ping landing near a
+  just-replaced old one (e.g. re-pinging close to a previous spot) had its
+  label visibly shoved away by the old, already-invisible one's frozen
+  (no longer `Refresh`-updated) box, easing back once the old anchor
+  finally unregistered - a real bug, not overlap resolution doing its job.
 - Ghost color: no separate ghost-body color source needed - `PlayerGhost`'s
   own `CustomizeGhost` reads the same `Customization.skins[skinIndex].color`
   array `CharacterCustomization.PlayerColor` does (confirmed in the
@@ -492,7 +558,9 @@ RESEARCH.md's license table) — nothing here is copied from it.
   TMP's own default font rather than a drawn triangle, deliberately *not*
   the game's stylized display font since a general-purpose font is far more
   likely to have those Unicode glyphs baked into its atlas), and optional
-  name/distance sub-text.
+  name/distance sub-text, both direct children of `LabelGroup` (a zero-
+  sized, home-(0,0) child of `Root` - see `CompassManager.ResolveMarkerOverlaps`,
+  which nudges `LabelGroup` as a whole, never `Root`/the icon itself).
 - `CompassTick.cs` — the 24 fixed heading marks (every 15°, N/E/S/W always
   lettered and taller/thicker than the plain degree ticks between them,
   others blank unless `compass-show-degree-numbers` is on), created once
@@ -508,6 +576,15 @@ RESEARCH.md's license table) — nothing here is copied from it.
   unchanged, only the RGB swaps. Re-applied every frame
   (`CompassTick.ApplyLineColor`, mirroring `ApplyHeight`'s own live-config
   pattern) so the setting takes effect without a restart.
+- `CompassManager.ResolveMarkerOverlaps` (new method, not a new file) —
+  the compass-side call site for `Indicators/LabelOverlapResolver.cs`
+  (horizontal-only, always away from tape center, since every marker
+  already shares the tape's baseline Y); applies the resolved offset to
+  `CompassMarkerWidget.LabelGroup`, never to `Root` itself, so a marker's
+  icon always stays exactly on its real bearing - only its text may shift
+  slightly to dodge a neighboring marker's own text. Marker box width is
+  whichever of icon/name/distance is currently the widest visible element,
+  recomputed each frame the same place `x` itself already is.
 - Wired into `Labels/PlayerLabelController.cs` (compass visibility follows
   the same toggle-key/Hold/max-distance gate as the off-screen label, via
   `_labelsVisible`), `CampfireIndicator/CampfireIndicatorController.cs`,

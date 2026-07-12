@@ -28,6 +28,31 @@ namespace SenseOfDirection.Indicators
 
         public float EdgeMarginPixels = 48f;
 
+        /// <summary>
+        /// Approximate on-screen footprint (width, height in canvas pixels)
+        /// used by <see cref="LabelOverlapResolver"/> to keep this anchor's
+        /// label from overlapping another's. Zero (default) opts this anchor
+        /// out of overlap resolution entirely - e.g. anchors with no visible
+        /// name/distance text worth avoiding.
+        /// </summary>
+        public Vector2 OverlapSize = Vector2.zero;
+
+        /// <summary>
+        /// Optional child of <see cref="Widget"/>, sitting at local (0,0),
+        /// that holds just this anchor's informational text (name/distance)
+        /// - not its arrow/crosshair. When set, overlap resolution nudges
+        /// <em>this</em> transform's local <c>anchoredPosition</c> instead of
+        /// <see cref="Widget"/>'s own, so an arrow/crosshair that needs to
+        /// stay exactly on the tracked position (e.g. <c>Pings.PingWidget</c>/
+        /// <c>ItemPings.ItemPingWidget</c>'s off-screen arrow) never moves,
+        /// while its label text is free to shift slightly to avoid
+        /// overlapping a neighboring label. Null (default) means overlap
+        /// resolution nudges <see cref="Widget"/> itself instead - fine for
+        /// anchors with no separate direction-indicating element (e.g.
+        /// <c>Labels.PlayerLabel</c>, which just clamps quietly to the edge).
+        /// </summary>
+        public RectTransform LabelWidget;
+
         /// <summary>Root widget, repositioned every frame to the on-screen or clamped-edge point.</summary>
         public readonly RectTransform Widget;
 

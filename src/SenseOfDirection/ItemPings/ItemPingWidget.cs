@@ -29,12 +29,21 @@ namespace SenseOfDirection.ItemPings
         private readonly TMP_Text _nameText;
         private readonly TMP_Text _distanceText;
 
-        private ItemPingWidget(RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, RectTransform crosshairRect, TMP_Text nameText, TMP_Text distanceText, System.Func<Vector3> getWorldPosition)
+        private ItemPingWidget(RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, RectTransform crosshairRect, RectTransform labelGroup, TMP_Text nameText, TMP_Text distanceText, System.Func<Vector3> getWorldPosition)
         {
             CanvasGroup = canvasGroup;
             _nameText = nameText;
             _distanceText = distanceText;
-            Anchor = new IndicatorAnchor(getWorldPosition, root, arrow, crosshairRect);
+            // Root is a tiny 20x20 anchor point; the real footprint spans
+            // the name label above it down through the distance sub-line
+            // below. Refined every Refresh() call to the actual rendered
+            // text width instead of a generous static guess - an
+            // over-wide box here made overlap resolution trigger (and push
+            // labels away) far more than actually needed. LabelWidget =
+            // labelGroup (not root) so overlap resolution only ever nudges
+            // the name/distance text, never the arrow or the on-screen
+            // crosshair - both need to stay exactly on the tracked position.
+            Anchor = new IndicatorAnchor(getWorldPosition, root, arrow, crosshairRect) { OverlapSize = new Vector2(120f, 60f), LabelWidget = labelGroup };
         }
 
         public static ItemPingWidget Create(System.Func<Vector3> getWorldPosition, Color color, bool enableArrow)
@@ -53,9 +62,16 @@ namespace SenseOfDirection.ItemPings
 
             RectTransform arrowRect = enableArrow ? OffScreenArrow.Create(root, color) : null;
 
+            // Home position (0,0) relative to root - overlap resolution
+            // nudges this transform, not root/arrow/crosshair (see
+            // LabelWidget above).
+            var labelGroupGo = new GameObject("LabelGroup", typeof(RectTransform));
+            var labelGroupRect = (RectTransform)labelGroupGo.transform;
+            labelGroupRect.SetParent(root, false);
+
             var nameGo = new GameObject("Name", typeof(RectTransform), typeof(TextMeshProUGUI));
             var nameRect = (RectTransform)nameGo.transform;
-            nameRect.SetParent(root, false);
+            nameRect.SetParent(labelGroupRect, false);
             nameRect.sizeDelta = new Vector2(320f, 28f);
             nameRect.anchoredPosition = new Vector2(0f, 24f);
 
@@ -68,7 +84,7 @@ namespace SenseOfDirection.ItemPings
 
             var distGo = new GameObject("Distance", typeof(RectTransform), typeof(TextMeshProUGUI));
             var distRect = (RectTransform)distGo.transform;
-            distRect.SetParent(root, false);
+            distRect.SetParent(labelGroupRect, false);
             distRect.sizeDelta = new Vector2(120f, 24f);
             distRect.anchoredPosition = new Vector2(0f, -18f);
 
@@ -96,7 +112,7 @@ namespace SenseOfDirection.ItemPings
             crosshairIcon.raycastTarget = false;
             crosshairIcon.preserveAspect = true;
 
-            return new ItemPingWidget(root, canvasGroup, arrowRect, crosshairRect, nameText, distanceText, getWorldPosition);
+            return new ItemPingWidget(root, canvasGroup, arrowRect, crosshairRect, labelGroupRect, nameText, distanceText, getWorldPosition);
         }
 
         public void Refresh(string displayName, float distanceMeters, bool showName, bool showDistance)
@@ -143,6 +159,14 @@ namespace SenseOfDirection.ItemPings
                 widestHalf = Mathf.Max(widestHalf, _distanceText.GetPreferredValues().x * 0.5f);
             }
             Anchor.EdgeMarginPixels = Mathf.Max(48f, widestHalf + 12f);
+
+            // Same widest-visible-text measurement, reused for the overlap
+            // box (Indicators.LabelOverlapResolver) instead of a separate
+            // fixed guess - keeps overlap detection matched to what's
+            // actually on screen (e.g. a short "KING" vs. a wider
+            // "2x COCONUT").
+            float widestWidth = showName || showDistance ? Mathf.Max(60f, widestHalf * 2f) : 0f;
+            Anchor.OverlapSize = new Vector2(widestWidth, 60f);
         }
     }
 }

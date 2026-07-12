@@ -56,7 +56,7 @@ namespace SenseOfDirection.Labels
             _deadIcon = deadIcon;
             _unconsciousIcon = unconsciousIcon;
 
-            Anchor = new IndicatorAnchor(getWorldPosition, root);
+            Anchor = new IndicatorAnchor(getWorldPosition, root) { OverlapSize = new Vector2(220f, 90f) };
         }
 
         public static PlayerLabel Create(System.Func<Vector3> getWorldPosition)
