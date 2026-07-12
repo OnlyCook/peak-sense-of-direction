@@ -361,17 +361,22 @@ namespace SenseOfDirection.Compass
                     anchor.GetIsUnconscious());
             }
 
-            if (_markers.Count > seen.Count)
+            // Not gated on _markers.Count > seen.Count: a registered-but-not-yet-
+            // materialized anchor (seen this frame but structurally not ok yet, so
+            // it has no marker) can coincidentally match the count of a genuinely
+            // stale entry below, making the counts equal even though a stale
+            // marker is still sitting in _markers - that coincidence used to skip
+            // this whole cleanup pass, letting the stale marker linger on the
+            // compass indefinitely (root cause of the "entries permanently stay
+            // on the compass" bug). Just always check for stale keys directly.
+            foreach (IndicatorAnchor stale in _markers.Keys.Where(a => !seen.Contains(a)).ToList())
             {
-                foreach (IndicatorAnchor stale in _markers.Keys.Where(a => !seen.Contains(a)).ToList())
+                CompassMarkerWidget widget = _markers[stale];
+                FadeMarkerAlpha(widget, 0f);
+                if (widget.CanvasGroup.alpha <= 0.01f)
                 {
-                    CompassMarkerWidget widget = _markers[stale];
-                    FadeMarkerAlpha(widget, 0f);
-                    if (widget.CanvasGroup.alpha <= 0.01f)
-                    {
-                        widget.Destroy();
-                        _markers.Remove(stale);
-                    }
+                    widget.Destroy();
+                    _markers.Remove(stale);
                 }
             }
         }

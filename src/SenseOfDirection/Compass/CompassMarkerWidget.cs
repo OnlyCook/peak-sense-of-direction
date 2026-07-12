@@ -263,6 +263,15 @@ namespace SenseOfDirection.Compass
                 }
             }
 
+            // Ping/item-ping labels are tinted to the pinging player's own
+            // color (matching the icon and the off-screen widget's own
+            // labels - Pings.PingWidget/ItemPings.ItemPingWidget), same as
+            // the ripple; player/campfire markers keep the fixed white/native
+            // look everywhere else on the compass already uses.
+            bool tintText = _kind == CompassMarkerKind.Ping || _kind == CompassMarkerKind.ItemPing;
+            _nameText.color = tintText ? color : Color.white;
+            _distanceText.color = tintText ? color : new Color(1f, 1f, 1f, 0.9f);
+
             // Elevation arrow sits beside the icon (see below), so the name
             // label can sit directly above it without the two colliding.
             float y = iconSizePixels * 0.62f;
