@@ -49,6 +49,7 @@ namespace SenseOfDirection.Labels
         private readonly Dictionary<Character, Entry> _entries = new Dictionary<Character, Entry>();
 
         private bool _toggleVisible;
+        private bool _toggleKeyWasDown;
         private float _holdReleaseUntil;
         private bool _labelsVisible;
 
@@ -243,11 +244,23 @@ namespace SenseOfDirection.Labels
                     return true;
 
                 case LabelDisplayMode.Toggle:
-                    if (Input.GetKeyDown(cfg.UiToggleKey.Value))
+                {
+                    // Deliberately not Input.GetKeyDown here - Unity's legacy
+                    // Input Manager has a long-documented bug where its own
+                    // internal down-edge detection can silently miss a key
+                    // press when another key (e.g. a WASD movement key) is
+                    // already held that same frame, so the toggle key only
+                    // ever registered while standing still. Doing the edge
+                    // detection ourselves off the plain (unaffected) GetKey
+                    // level-state read avoids that bug entirely.
+                    bool keyDownNow = Input.GetKey(cfg.UiToggleKey.Value);
+                    if (keyDownNow && !_toggleKeyWasDown)
                     {
                         _toggleVisible = !_toggleVisible;
                     }
+                    _toggleKeyWasDown = keyDownNow;
                     return _toggleVisible;
+                }
 
                 case LabelDisplayMode.Hold:
                     if (Input.GetKey(cfg.UiToggleKey.Value))

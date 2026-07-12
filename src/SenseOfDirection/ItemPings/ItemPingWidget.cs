@@ -100,6 +100,26 @@ namespace SenseOfDirection.ItemPings
             {
                 _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
             }
+
+            // The widget is centered on its anchor point, but IndicatorManager
+            // only clamps that anchor point itself to within EdgeMarginPixels
+            // of the screen edge - it has no idea how wide the name label
+            // actually renders. A fixed default margin (48px) is nowhere near
+            // half the width of a long/grouped name (e.g. "2x COCONUT"), so
+            // the label's own left/right half was clipping past the physical
+            // screen edge even though its anchor point was safely on-screen.
+            // Widen the margin to always cover half the widest currently-shown
+            // label text, recomputed every refresh since text changes live.
+            float widestHalf = 0f;
+            if (showName)
+            {
+                widestHalf = Mathf.Max(widestHalf, _nameText.GetPreferredValues().x * 0.5f);
+            }
+            if (showDistance)
+            {
+                widestHalf = Mathf.Max(widestHalf, _distanceText.GetPreferredValues().x * 0.5f);
+            }
+            Anchor.EdgeMarginPixels = Mathf.Max(48f, widestHalf + 12f);
         }
     }
 }
