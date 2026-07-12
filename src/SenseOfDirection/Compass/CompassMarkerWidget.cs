@@ -45,6 +45,9 @@ namespace SenseOfDirection.Compass
         public readonly RectTransform Root;
         public readonly CanvasGroup CanvasGroup;
 
+        /// <summary>TMP shader property name for the outline color, shared by the elevation arrow and (once tinted) the name/distance text materials.</summary>
+        private const string OutlineColorProperty = "_OutlineColor";
+
         private readonly CompassMarkerKind _kind;
         private readonly Image _iconImage;
         private readonly Image[] _iconOutlines;
@@ -52,6 +55,14 @@ namespace SenseOfDirection.Compass
         private readonly TMP_Text _elevationArrow;
         private readonly TMP_Text _nameText;
         private readonly TMP_Text _distanceText;
+
+        /// <summary>
+        /// Lazily-instanced material for tinted (Ping/ItemPing) name/distance
+        /// text so its outline can be darkened per-anchor-color without
+        /// touching <see cref="NativeAssets.OutlineMaterial"/>, which every
+        /// other (untinted) label on the compass/HUD shares.
+        /// </summary>
+        private Material _tintedTextMaterial;
 
         private CompassMarkerWidget(
             CompassMarkerKind kind, RectTransform root, CanvasGroup canvasGroup,
@@ -164,8 +175,8 @@ namespace SenseOfDirection.Compass
             // Accessing .fontMaterial (not .fontSharedMaterial) makes TMP
             // instance a per-object material automatically, so this doesn't
             // touch the shared default asset every other TMP element on
-            // this default font uses.
-            elevationArrow.fontMaterial.SetColor("_OutlineColor", Color.black);
+            // this default font uses. Outline color is re-applied (darkened
+            // per anchor color) every Refresh() call below.
             elevationArrow.fontMaterial.SetFloat("_OutlineWidth", 0.3f);
             elevationArrow.gameObject.SetActive(false);
 
@@ -206,6 +217,10 @@ namespace SenseOfDirection.Compass
             {
                 Object.Destroy(Root.gameObject);
             }
+            if (_tintedTextMaterial != null)
+            {
+                Object.Destroy(_tintedTextMaterial);
+            }
         }
 
         public void Refresh(
@@ -218,11 +233,9 @@ namespace SenseOfDirection.Compass
                 if (_nameText.font != NativeAssets.Font) _nameText.font = NativeAssets.Font;
                 if (_distanceText.font != NativeAssets.Font) _distanceText.font = NativeAssets.Font;
             }
-            if (NativeAssets.OutlineMaterial != null)
-            {
-                if (_nameText.fontSharedMaterial != NativeAssets.OutlineMaterial) _nameText.fontSharedMaterial = NativeAssets.OutlineMaterial;
-                if (_distanceText.fontSharedMaterial != NativeAssets.OutlineMaterial) _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
-            }
+            // Font asset/material assignment (native vs. tinted-instanced) is
+            // handled below, once whether this marker's text is tinted is
+            // known.
 
             var iconRect = (RectTransform)_iconImage.transform;
             iconRect.sizeDelta = new Vector2(iconSizePixels, iconSizePixels);
@@ -235,12 +248,18 @@ namespace SenseOfDirection.Compass
                 _iconImage.sprite = NativeAssets.CampfireIconSprite;
             }
 
+            // Campfire has no owning-player color to darken (it's not tied to
+            // any anchor's own color, same reasoning as the fill above), so
+            // its outline stays pure black; every other kind's outline is a
+            // darkened version of its own tint instead of a flat black line.
+            Color outlineColor = _kind == CompassMarkerKind.Campfire ? Color.black : ColorUtil.Darken(color);
             for (int i = 0; i < _iconOutlines.Length; i++)
             {
                 Image outline = _iconOutlines[i];
                 var outlineRect = (RectTransform)outline.transform;
                 outlineRect.sizeDelta = new Vector2(iconSizePixels, iconSizePixels);
                 outlineRect.anchoredPosition = OutlineOffsets[i] * 1.5f;
+                outline.color = outlineColor;
                 if (_kind == CompassMarkerKind.Campfire && NativeAssets.CampfireIconSprite != null && outline.sprite != NativeAssets.CampfireIconSprite)
                 {
                     outline.sprite = NativeAssets.CampfireIconSprite;
@@ -271,6 +290,28 @@ namespace SenseOfDirection.Compass
             bool tintText = _kind == CompassMarkerKind.Ping || _kind == CompassMarkerKind.ItemPing;
             _nameText.color = tintText ? color : Color.white;
             _distanceText.color = tintText ? color : new Color(1f, 1f, 1f, 0.9f);
+            if (tintText)
+            {
+                // Instanced (not shared) material so the outline can be
+                // darkened per-anchor-color without touching
+                // NativeAssets.OutlineMaterial, which every untinted label
+                // on the compass/HUD still shares.
+                if (_tintedTextMaterial == null && NativeAssets.OutlineMaterial != null)
+                {
+                    _tintedTextMaterial = new Material(NativeAssets.OutlineMaterial);
+                }
+                if (_tintedTextMaterial != null)
+                {
+                    _tintedTextMaterial.SetColor(OutlineColorProperty, ColorUtil.Darken(color));
+                    if (_nameText.fontSharedMaterial != _tintedTextMaterial) _nameText.fontSharedMaterial = _tintedTextMaterial;
+                    if (_distanceText.fontSharedMaterial != _tintedTextMaterial) _distanceText.fontSharedMaterial = _tintedTextMaterial;
+                }
+            }
+            else if (NativeAssets.OutlineMaterial != null)
+            {
+                if (_nameText.fontSharedMaterial != NativeAssets.OutlineMaterial) _nameText.fontSharedMaterial = NativeAssets.OutlineMaterial;
+                if (_distanceText.fontSharedMaterial != NativeAssets.OutlineMaterial) _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
+            }
 
             // Elevation arrow sits beside the icon (see below), so the name
             // label can sit directly above it without the two colliding.
@@ -317,6 +358,7 @@ namespace SenseOfDirection.Compass
                 arrowRect.anchoredPosition = new Vector2(iconSizePixels * 0.5f + 3f, 0f);
                 _elevationArrow.fontSize = arrowSize;
                 _elevationArrow.text = elevation == CompassElevation.Above ? "↑" : "↓";
+                _elevationArrow.fontMaterial.SetColor(OutlineColorProperty, outlineColor);
             }
         }
     }
