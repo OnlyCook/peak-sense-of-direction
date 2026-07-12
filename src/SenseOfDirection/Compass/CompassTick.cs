@@ -74,10 +74,15 @@ namespace SenseOfDirection.Compass
         /// growth - two independent, additive shifts that together produce
         /// the requested effect without this class needing to know about
         /// the baseline at all.
+        ///
+        /// <paramref name="thicknessMultiplier"/> (<c>compass-line-thickness-
+        /// multiplier</c>) scales the line's own base width - centered on the
+        /// same local X as height growth is on Y, so a thicker line doesn't
+        /// drift off the tick's own vertical axis.
         /// </summary>
-        public void ApplyHeight(float extraPixels)
+        public void ApplyHeight(float extraPixels, float thicknessMultiplier)
         {
-            _lineRect.sizeDelta = new Vector2(_lineBaseWidth, _lineBaseHeight + extraPixels);
+            _lineRect.sizeDelta = new Vector2(_lineBaseWidth * thicknessMultiplier, _lineBaseHeight + extraPixels);
         }
 
         public static CompassTick Create(RectTransform parent, float degrees)

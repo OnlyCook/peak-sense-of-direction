@@ -189,7 +189,7 @@ namespace SenseOfDirection.Compass
 
             _root.anchoredPosition = new Vector2(cfg.CompassHorizontalOffsetPixels.Value, -cfg.CompassVerticalOffsetPixels.Value);
 
-            _baseline.sizeDelta = new Vector2(width, BaselineThicknessPixels);
+            _baseline.sizeDelta = new Vector2(width, BaselineThicknessPixels * cfg.CompassLineThicknessMultiplier.Value);
             _baseline.anchoredPosition = new Vector2(0f, -baselineY);
         }
 
@@ -243,7 +243,7 @@ namespace SenseOfDirection.Compass
 
             foreach (CompassTick tick in _ticks)
             {
-                tick.ApplyHeight(tickExtraHeight);
+                tick.ApplyHeight(tickExtraHeight, cfg.CompassLineThicknessMultiplier.Value);
                 tick.ApplyLineColor(lineColor);
 
                 if (NativeAssets.Font != null && tick.Label.font != NativeAssets.Font)

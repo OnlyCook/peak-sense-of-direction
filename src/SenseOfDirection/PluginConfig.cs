@@ -77,6 +77,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> CompassShowDistances;
         public readonly ConfigEntry<bool> CompassRequiresHoldingItem;
         public readonly ConfigEntry<SenseOfDirection.Compass.CompassLineColor> CompassLineColor;
+        public readonly ConfigEntry<float> CompassLineThicknessMultiplier;
 
         public readonly ConfigEntry<KeyCode> GhostFreeCamToggleKey;
         public readonly ConfigEntry<bool> EnableGhostFreeCam;
@@ -471,6 +472,14 @@ namespace SenseOfDirection
                 "Base color of the compass tape's heading ticks/labels and baseline " +
                 "stripe (true north keeps its own dark red accent regardless). " +
                 "White is the default.");
+
+            CompassLineThicknessMultiplier = config.Bind(
+                "Compass", "compass-line-thickness-multiplier", 1f,
+                new ConfigDescription(
+                    "Scales the thickness of the compass tape's tick lines (both " +
+                    "cardinal and minor) and its baseline stripe. 1 keeps the " +
+                    "current/default thickness; higher values make the lines bolder.",
+                    new AcceptableValueRange<float>(0.5f, 3f)));
 
             GhostFreeCamToggleKey = config.Bind(
                 "Ghost-Free-Cam", "toggle-key", KeyCode.V,
