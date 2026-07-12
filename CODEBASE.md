@@ -153,13 +153,22 @@ order):
 - `PingAudioTuner.cs` — a small always-running `MonoBehaviour` singleton
   (same registration pattern as `CampfireIndicatorController`) that polls
   `SFX_Player.instance.sources` (public fields, no reflection needed) every
-  frame and forces `AudioRolloffMode.Linear` plus a configurable
+  frame and forces `AudioRolloffMode.Logarithmic` plus a configurable
   min/max distance onto whichever pooled `AudioSource` is currently playing
   a clip from `PointPingerPatches.PingClips`. Needed because boosting
   `SFX_Instance.settings.range` alone only pushes back
   `SFX_Player.PlaySFX`'s "don't even start playing" distance gate, not the
   actual rolloff curve baked onto the pooled source templates (not visible
-  in the decompiled IL - RESEARCH.md Q6).
+  in the decompiled IL - RESEARCH.md Q6). Fixed a critical leak: per the
+  decompiled `SFX_Player.IPlaySFX`, every sound played through a pooled
+  source gets its `maxDistance` reset each play, but `rolloffMode`/
+  `minDistance` are never touched by vanilla at all - so once a source
+  played a ping and got set to `Logarithmic`/boosted `minDistance`, those
+  values used to stick forever, silently carrying over to whatever
+  unrelated creature/item sound got randomly assigned that same pooled slot
+  next. Now snapshots each source's original `rolloffMode`/`minDistance` the
+  first time it's touched and restores both (not just disabling the
+  low-pass filter) the instant it stops playing a ping clip.
 - `PingRipple.cs` — the "3D ripple" effect: an expanding translucent sphere
   (`GameObject.CreatePrimitive(PrimitiveType.Sphere)`, unlit alpha-blended
   material, color = pinging player's `PlayerColor`) rather than a flat 2D

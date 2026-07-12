@@ -32,6 +32,24 @@ namespace SenseOfDirection.Pings
     ///
     /// <c>SFX_Player.sources</c> and each <c>SFX_Source.source</c>/
     /// <c>.isPlaying</c> are public fields, so no reflection is needed here.
+    ///
+    /// Critical bug this class used to have (found via in-game report - ping
+    /// audio boost was making unrelated creature/item sounds like a Beetle's
+    /// growl or a dropped Energy Drink audible from 50m+ away): per the
+    /// decompiled <c>SFX_Player.IPlaySFX</c>, every single sound played
+    /// through a pooled source has its <c>maxDistance</c> reset from
+    /// <c>SFX_Instance.settings.range</c> on every play, but its
+    /// <c>rolloffMode</c>/<c>minDistance</c> are never touched by vanilla at
+    /// all. Once this tuner set a pooled source to
+    /// <see cref="AudioRolloffMode.Logarithmic"/> with a boosted
+    /// <c>minDistance</c> for a ping, those two values used to stick forever
+    /// on that shared source - the very next unrelated sound played through
+    /// the same pooled slot (any creature/item SFX, chosen at random by
+    /// <c>SFX_Player.GetAvailibleSource</c>) silently inherited the ping's
+    /// falloff shape. Fixed by snapshotting each source's original
+    /// <c>rolloffMode</c>/<c>minDistance</c> the first time it's touched and
+    /// restoring both (not just disabling the low-pass filter) the moment it
+    /// stops playing a ping clip.
     /// </summary>
     public class PingAudioTuner : MonoBehaviour
     {
@@ -54,6 +72,19 @@ namespace SenseOfDirection.Pings
             }
         }
 
+        private readonly struct OriginalSourceState
+        {
+            public readonly AudioRolloffMode RolloffMode;
+            public readonly float MinDistance;
+
+            public OriginalSourceState(AudioRolloffMode rolloffMode, float minDistance)
+            {
+                RolloffMode = rolloffMode;
+                MinDistance = minDistance;
+            }
+        }
+
+        private readonly Dictionary<AudioSource, OriginalSourceState> _originalState = new Dictionary<AudioSource, OriginalSourceState>();
         private readonly HashSet<AudioSource> _activeThisFrame = new HashSet<AudioSource>();
         private readonly HashSet<AudioSource> _activeLastFrame = new HashSet<AudioSource>();
 
@@ -81,6 +112,11 @@ namespace SenseOfDirection.Pings
                     AudioSource source = pooled.source;
                     _activeThisFrame.Add(source);
 
+                    if (!_originalState.ContainsKey(source))
+                    {
+                        _originalState[source] = new OriginalSourceState(source.rolloffMode, source.minDistance);
+                    }
+
                     source.rolloffMode = AudioRolloffMode.Logarithmic;
                     source.minDistance = cfg.PingAudioMinDistanceMeters.Value;
                     source.maxDistance = cfg.PingAudioRangeMeters.Value;
@@ -100,12 +136,17 @@ namespace SenseOfDirection.Pings
 
             // Any source we were muffling last frame but aren't touching this
             // frame (ping ended, or boost got disabled) must have its filter
-            // disabled - it's a shared pooled AudioSource, so whatever plays
-            // through it next (any other sound in the game) must not inherit
-            // a stale muffle.
+            // disabled AND its rolloffMode/minDistance restored - it's a
+            // shared pooled AudioSource, so whatever plays through it next
+            // (any other sound in the game) must not inherit a stale muffle
+            // or falloff shape.
             foreach (AudioSource previouslyActive in _activeLastFrame)
             {
-                if (previouslyActive == null || _activeThisFrame.Contains(previouslyActive))
+                if (previouslyActive == null)
+                {
+                    continue;
+                }
+                if (_activeThisFrame.Contains(previouslyActive))
                 {
                     continue;
                 }
@@ -113,6 +154,11 @@ namespace SenseOfDirection.Pings
                 if (lowPass != null)
                 {
                     lowPass.enabled = false;
+                }
+                if (_originalState.TryGetValue(previouslyActive, out OriginalSourceState original))
+                {
+                    previouslyActive.rolloffMode = original.RolloffMode;
+                    previouslyActive.minDistance = original.MinDistance;
                 }
             }
 
