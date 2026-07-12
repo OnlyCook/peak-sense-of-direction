@@ -126,7 +126,12 @@ namespace SenseOfDirection.ItemPings
 
             PluginConfig cfg = Plugin.Instance.Cfg;
             List<PingableTarget> valid = _targets.Where(t => t.GameObject != null && t.GameObject.activeInHierarchy).ToList();
-            string name = valid.Count > 1 ? $"{valid.Count}x {valid[0].GetDisplayName()}" : valid[0].GetDisplayName();
+            // Game's own pickup prompts/UI show item names in all caps
+            // (RESEARCH.md/ISSUES.md) - native Item.GetItemName()/Mob
+            // GameObject-name fallbacks come through in mixed/native case, so
+            // normalize here rather than at each individual capture site.
+            string baseName = valid[0].GetDisplayName().ToUpperInvariant();
+            string name = valid.Count > 1 ? $"{valid.Count}x {baseName}" : baseName;
             _currentDisplayName = name;
             float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), GetGroupCenter()) * CharacterStats.unitsToMeters;
             _widget.Refresh(name, distanceMeters, cfg.ShowItemPingName.Value, cfg.ShowItemPingDistance.Value);

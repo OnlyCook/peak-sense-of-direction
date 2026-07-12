@@ -44,7 +44,10 @@ namespace SenseOfDirection.Pings
         private class SpamState
         {
             public float LastPingTime = float.NegativeInfinity;
-            public int RapidCount;
+            public int FreeCount;
+            public bool SlowMode;
+            public int QueueLength;
+            public float NextSlotTime;
         }
 
         private static readonly Dictionary<Character, SpamState> SpamStates = new Dictionary<Character, SpamState>();
@@ -124,10 +127,34 @@ namespace SenseOfDirection.Pings
                         // trigger-only hitbox was otherwise invisible to this
                         // raycast/spherecast no matter how wide the layer
                         // mask or how forgiving the sphere radius.
-                        bool didHit = sphereRadiusUnits > 0f
-                            ? Physics.SphereCast(ray, sphereRadiusUnits, out hit, 1000f, mask, QueryTriggerInteraction.Collide)
-                            : Physics.Raycast(ray, out hit, 1000f, mask, QueryTriggerInteraction.Collide);
-                        __result = didHit;
+                        //
+                        // *All* hits (not just the nearest), since the
+                        // nearest hit widening this raycast onto the "Default"
+                        // layer finds is often the local player's own
+                        // first-person held-item/hand view-model sitting
+                        // right in front of the camera - vanilla's own
+                        // TerrainMap-only raycast never had this problem
+                        // since hand/held-item colliders aren't on that
+                        // layer. Skip past those to the first hit that isn't
+                        // part of the local hand/held item (ISSUES.md: "you'll
+                        // ping the held item instead").
+                        RaycastHit[] hits = sphereRadiusUnits > 0f
+                            ? Physics.SphereCastAll(ray, sphereRadiusUnits, 1000f, mask, QueryTriggerInteraction.Collide)
+                            : Physics.RaycastAll(ray, 1000f, mask, QueryTriggerInteraction.Collide);
+                        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+                        foreach (RaycastHit candidate in hits)
+                        {
+                            if (!IsLocalHandOrHeldItem(candidate.collider))
+                            {
+                                hit = candidate;
+                                __result = true;
+                                return false;
+                            }
+                        }
+
+                        hit = default;
+                        __result = false;
                         return false;
                     }
                 }
@@ -139,6 +166,41 @@ namespace SenseOfDirection.Pings
 
             hit = default;
             return true;
+        }
+
+        /// <summary>
+        /// Local player's own first-person view-model root is literally named
+        /// "Hand" in-game (confirmed via <c>ItemPingDetector.LogNearbyUnmatched</c>,
+        /// which excludes it from its debug dump the same way), so this walks
+        /// up the collider's transform hierarchy looking for that name -
+        /// covers a collider sitting on a nested child of the hand rig, not
+        /// just directly on it. Also excludes anything under the local
+        /// character's own currently-held <c>Item</c>, in case its world
+        /// pickup collider (as opposed to the view-model) is what's actually
+        /// being hit at point-blank range.
+        /// </summary>
+        private static bool IsLocalHandOrHeldItem(Collider collider)
+        {
+            if (collider == null)
+            {
+                return false;
+            }
+
+            for (Transform t = collider.transform; t != null; t = t.parent)
+            {
+                if (t.name == "Hand")
+                {
+                    return true;
+                }
+            }
+
+            Item heldItem = Character.localCharacter?.data?.currentItem;
+            if (heldItem != null && collider.GetComponentInParent<Item>() == heldItem)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -274,11 +336,56 @@ namespace SenseOfDirection.Pings
                 return true;
             }
 
-            if (cfg.EnablePingAntiSpam.Value && !ShouldAcceptPing(character, cfg))
+            if (cfg.EnablePingAntiSpam.Value)
             {
-                return false;
+                if (!TryAdmitPing(character, cfg, out float delaySeconds))
+                {
+                    return false;
+                }
+                if (delaySeconds > 0f)
+                {
+                    Plugin.Instance.StartCoroutine(DelayedPingCoroutine(character, __instance, point, hitNormal, cfg, delaySeconds));
+                    return false;
+                }
             }
 
+            SpawnPingNow(__instance, point, hitNormal, character, cfg);
+            return false;
+        }
+
+        /// <summary>
+        /// No cancellation/replacement here (unlike an earlier version of
+        /// this patch) - up to <c>PingAntiSpamMaxQueueLength</c> of a
+        /// spamming player's pings are genuinely queued concurrently once in
+        /// slow mode, each with its own independent coroutine, so a burst of
+        /// 2 queued pings both eventually show (spaced by
+        /// <c>PingAntiSpamSlowModeIntervalSeconds</c> per <see
+        /// cref="TryAdmitPing"/>'s own scheduling) rather than the newest one
+        /// stomping the previous one's slot.
+        /// </summary>
+        private static System.Collections.IEnumerator DelayedPingCoroutine(Character character, PointPinger instance, Vector3 point, Vector3 hitNormal, PluginConfig cfg, float delaySeconds)
+        {
+            yield return new WaitForSeconds(delaySeconds);
+            if (SpamStates.TryGetValue(character, out SpamState state))
+            {
+                state.QueueLength = Mathf.Max(0, state.QueueLength - 1);
+            }
+            if (instance == null || character == null)
+            {
+                yield break;
+            }
+            try
+            {
+                SpawnPingNow(instance, point, hitNormal, character, cfg);
+            }
+            catch (Exception e)
+            {
+                _log?.LogError($"Delayed anti-spam ping spawn failed: {e}");
+            }
+        }
+
+        private static void SpawnPingNow(PointPinger __instance, Vector3 point, Vector3 hitNormal, Character character, PluginConfig cfg)
+        {
             PointPing prefabPing = __instance.pointPrefab.GetComponent<PointPing>();
 
             Vector3 pingerPosition = CharacterPositions.EffectivePosition(character);
@@ -296,7 +403,7 @@ namespace SenseOfDirection.Pings
                     distanceToLocal);
                 if (visibility <= 0f)
                 {
-                    return false;
+                    return;
                 }
             }
 
@@ -338,22 +445,33 @@ namespace SenseOfDirection.Pings
             }
 
             UnityEngine.Object.Destroy(spawned, 2f);
-            return false;
         }
 
         /// <summary>
-        /// Gradual, self-decaying rate limit - never applied to the local
-        /// player's own pings (maintainer feedback: this is only meant to
-        /// throttle other players spamming, not the person running the mod).
-        /// An occasional ping from someone else is never delayed at all
-        /// (`RapidCount` starts at, and quickly decays back to, 0); only
-        /// pinging faster than `PingAntiSpamRapidIntervalSeconds` repeatedly
-        /// ramps the required gap up (by `PingAntiSpamCooldownStepSeconds`
-        /// per rapid ping, capped at `PingAntiSpamMaxCooldownSeconds`), and a
-        /// quiet period of `PingAntiSpamResetSeconds` fully clears it again.
+        /// The first `PingAntiSpamFreeSpamCount` pings in a row from the same
+        /// player always go through instantly. Once that's exceeded, the
+        /// player enters "slow mode": further pings are queued rather than
+        /// shown immediately, spaced at least `PingAntiSpamSlowModeInterval-
+        /// Seconds` apart (so a spammer is capped at that rate rather than
+        /// being cut off) - each queued ping still eventually shows, up to
+        /// `PingAntiSpamMaxQueueLength` outstanding at once; a further ping
+        /// arriving once the queue's already full is dropped outright rather
+        /// than growing an ever-larger backlog (ISSUES.md: the previous
+        /// gradual-cooldown version could leave a burst of 20 pings all
+        /// trickling in one-by-one for several seconds after the spammer
+        /// stopped - capping the queue means at most
+        /// `PingAntiSpamMaxQueueLength` pings are ever "in flight"). Slow
+        /// mode itself only lifts once the player goes `PingAntiSpamReset-
+        /// Seconds` without a new ping *and* their queue has fully drained -
+        /// checked lazily on the next ping to arrive rather than via a
+        /// separate timer. Never applied to the local player's own pings
+        /// (maintainer feedback: this only throttles pings received from
+        /// others, never the local player's own).
         /// </summary>
-        private static bool ShouldAcceptPing(Character character, PluginConfig cfg)
+        private static bool TryAdmitPing(Character character, PluginConfig cfg, out float delaySeconds)
         {
+            delaySeconds = 0f;
+
             if (character == Character.localCharacter)
             {
                 return true;
@@ -367,25 +485,34 @@ namespace SenseOfDirection.Pings
 
             float now = Time.time;
             float gap = now - state.LastPingTime;
-
-            float requiredGap = Mathf.Min(state.RapidCount * cfg.PingAntiSpamCooldownStepSeconds.Value, cfg.PingAntiSpamMaxCooldownSeconds.Value);
-            bool accepted = gap >= requiredGap;
-
-            if (gap >= cfg.PingAntiSpamResetSeconds.Value)
-            {
-                state.RapidCount = 0;
-            }
-            else if (gap < cfg.PingAntiSpamRapidIntervalSeconds.Value)
-            {
-                state.RapidCount++;
-            }
-            else
-            {
-                state.RapidCount = Mathf.Max(0, state.RapidCount - 1);
-            }
-
             state.LastPingTime = now;
-            return accepted;
+
+            if (state.SlowMode && state.QueueLength == 0 && gap >= cfg.PingAntiSpamResetSeconds.Value)
+            {
+                state.SlowMode = false;
+                state.FreeCount = 0;
+            }
+
+            if (!state.SlowMode)
+            {
+                state.FreeCount++;
+                if (state.FreeCount <= cfg.PingAntiSpamFreeSpamCount.Value)
+                {
+                    return true;
+                }
+                state.SlowMode = true;
+            }
+
+            if (state.QueueLength >= cfg.PingAntiSpamMaxQueueLength.Value)
+            {
+                return false;
+            }
+
+            float slotTime = Mathf.Max(now, state.NextSlotTime) + cfg.PingAntiSpamSlowModeIntervalSeconds.Value;
+            state.NextSlotTime = slotTime;
+            state.QueueLength++;
+            delaySeconds = slotTime - now;
+            return true;
         }
     }
 }

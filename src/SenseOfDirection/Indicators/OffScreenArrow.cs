@@ -18,7 +18,7 @@ namespace SenseOfDirection.Indicators
             var arrowGo = new GameObject("Arrow", typeof(RectTransform), typeof(Image), typeof(Shadow));
             var arrowRect = (RectTransform)arrowGo.transform;
             arrowRect.SetParent(parent, false);
-            arrowRect.sizeDelta = new Vector2(16f, 18f);
+            arrowRect.sizeDelta = new Vector2(19f, 21f);
 
             // Pivot at the shape's own geometric center, not its tail: this
             // rotates in place like a compass needle in a fixed bezel, so it

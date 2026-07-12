@@ -69,6 +69,19 @@ namespace SenseOfDirection.ItemPings
                 rayOrigin, rayDirection, rayMaxDistanceUnits, rayHitboxRadiusUnits,
                 cfg.EnableCreaturePings.Value);
 
+            // Whatever the pinging player is currently holding sits right in
+            // front of their own aim ray/near their own position, so it's
+            // otherwise a near-guaranteed match on both the point-radius and
+            // ray-alignment checks above - excluded here regardless of which
+            // one matched, since a player pinging past their own held item
+            // should never end up (item-)pinging the thing in their own
+            // hands (ISSUES.md).
+            Item heldItem = pingingCharacter.data.currentItem;
+            if (heldItem != null)
+            {
+                found.RemoveAll(t => t.GameObject == heldItem.gameObject);
+            }
+
             if (cfg.EnableDebugLogging.Value)
             {
                 ItemPingDetector.LogNearbyUnmatched(point, itemRadiusUnits, Plugin.Instance.Log);

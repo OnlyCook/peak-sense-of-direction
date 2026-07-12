@@ -41,9 +41,9 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> EnablePingOffScreenIndicator;
         public readonly ConfigEntry<bool> ShowPingDistanceLabel;
         public readonly ConfigEntry<bool> EnablePingAntiSpam;
-        public readonly ConfigEntry<float> PingAntiSpamRapidIntervalSeconds;
-        public readonly ConfigEntry<float> PingAntiSpamCooldownStepSeconds;
-        public readonly ConfigEntry<float> PingAntiSpamMaxCooldownSeconds;
+        public readonly ConfigEntry<int> PingAntiSpamFreeSpamCount;
+        public readonly ConfigEntry<float> PingAntiSpamSlowModeIntervalSeconds;
+        public readonly ConfigEntry<int> PingAntiSpamMaxQueueLength;
         public readonly ConfigEntry<float> PingAntiSpamResetSeconds;
         public readonly ConfigEntry<bool> EnableGhostPing;
         public readonly ConfigEntry<IndicatorDisplayMode> PingsCompassDisplayMode;
@@ -241,37 +241,40 @@ namespace SenseOfDirection
                 "Pings", "enable-ping-anti-spam", true,
                 "Rate-limit how often *other* players' pings actually render/play once " +
                 "they're pinging rapidly, so spamming the ping key isn't more disruptive " +
-                "than vanilla now that pings are bigger/louder. Never applies to your own " +
-                "pings - only ones you receive from other players.");
+                "than vanilla now that pings are bigger/louder. A short burst of pings " +
+                "always goes through instantly; only once someone keeps spamming past that " +
+                "does \"slow mode\" kick in, queueing further pings to arrive at a throttled " +
+                "rate instead (never silently dropped, unless the queue itself is full - see " +
+                "ping-anti-spam-max-queue-length). Never applies to your own pings - only " +
+                "ones you receive from other players.");
 
-            PingAntiSpamRapidIntervalSeconds = config.Bind(
-                "Pings", "ping-anti-spam-rapid-interval-seconds", 1.5f,
+            PingAntiSpamFreeSpamCount = config.Bind(
+                "Pings", "ping-anti-spam-free-spam-count", 3,
                 new ConfigDescription(
-                    "Pings from the same player arriving faster than this count as " +
-                    "\"rapid\" and gradually ramp up their required cooldown. Pinging " +
-                    "slower than this never ramps anything up.",
-                    new AcceptableValueRange<float>(0.1f, 10f)));
+                    "How many pings in a row from the same player always show up instantly " +
+                    "before slow mode kicks in.",
+                    new AcceptableValueRange<int>(1, 20)));
 
-            PingAntiSpamCooldownStepSeconds = config.Bind(
-                "Pings", "ping-anti-spam-cooldown-step-seconds", 1f,
+            PingAntiSpamSlowModeIntervalSeconds = config.Bind(
+                "Pings", "ping-anti-spam-slow-mode-interval-seconds", 0.5f,
                 new ConfigDescription(
-                    "Extra required cooldown added per rapid ping from the same player - " +
-                    "the more they spam in a row, the longer they have to wait between " +
-                    "pings actually showing up for you.",
+                    "Once slow mode kicks in, queued pings from that player are spaced at " +
+                    "least this far apart before they're actually shown to you.",
                     new AcceptableValueRange<float>(0.1f, 5f)));
 
-            PingAntiSpamMaxCooldownSeconds = config.Bind(
-                "Pings", "ping-anti-spam-max-cooldown-seconds", 8f,
+            PingAntiSpamMaxQueueLength = config.Bind(
+                "Pings", "ping-anti-spam-max-queue-length", 2,
                 new ConfigDescription(
-                    "Cap on how long the ramped-up cooldown from ping-anti-spam-cooldown-" +
-                    "step-seconds can grow to.",
-                    new AcceptableValueRange<float>(1f, 30f)));
+                    "How many of a spamming player's pings can be queued up waiting to " +
+                    "show at once while in slow mode. Any further ping while the queue's " +
+                    "already full is dropped entirely rather than queued.",
+                    new AcceptableValueRange<int>(1, 10)));
 
             PingAntiSpamResetSeconds = config.Bind(
-                "Pings", "ping-anti-spam-reset-seconds", 6f,
+                "Pings", "ping-anti-spam-reset-seconds", 2f,
                 new ConfigDescription(
-                    "How long a player has to go without pinging before their ramped-up " +
-                    "cooldown fully resets to normal.",
+                    "How long a player has to go without pinging (with their queue fully " +
+                    "drained) before slow mode fully resets to normal.",
                     new AcceptableValueRange<float>(1f, 30f)));
 
             EnableGhostPing = config.Bind(
