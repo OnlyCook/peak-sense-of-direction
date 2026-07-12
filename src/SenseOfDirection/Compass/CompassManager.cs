@@ -67,6 +67,9 @@ namespace SenseOfDirection.Compass
 
         private const int TickCount = 24; // every 15 degrees
 
+        /// <summary>Marker fade-in/out rate, matched to <c>PlayerLabel</c>'s own vanilla-style crossfade (<c>UIPlayerNames.UpdateName</c>'s <c>Time.deltaTime * 5f</c>) so markers appearing/disappearing (new anchor, out of range, anchor removed entirely) don't pop instantly like the raw edge-of-FOV fade already applies to in-view markers.</summary>
+        private const float MarkerFadeSpeedPerSecond = 5f;
+
         private RectTransform _root;
         private RectTransform _baseline;
 
@@ -300,12 +303,13 @@ namespace SenseOfDirection.Compass
                         continue;
                     }
                     widget = CompassMarkerWidget.Create(_root, anchor.CompassKind);
+                    widget.CanvasGroup.alpha = 0f; // fades in below instead of popping in at full alpha
                     _markers[anchor] = widget;
                 }
 
                 if (!wantsCompass || !structurallyOk)
                 {
-                    widget.CanvasGroup.alpha = 0f;
+                    FadeMarkerAlpha(widget, 0f);
                     continue;
                 }
 
@@ -314,7 +318,7 @@ namespace SenseOfDirection.Compass
                 Vector3 flat = new Vector3(toTarget.x, 0f, toTarget.z);
                 if (flat.sqrMagnitude < 0.0001f)
                 {
-                    widget.CanvasGroup.alpha = 0f;
+                    FadeMarkerAlpha(widget, 0f);
                     continue;
                 }
 
@@ -323,13 +327,13 @@ namespace SenseOfDirection.Compass
                 float absRelative = Mathf.Abs(relative);
                 if (absRelative > halfFov)
                 {
-                    widget.CanvasGroup.alpha = 0f;
+                    FadeMarkerAlpha(widget, 0f);
                     continue;
                 }
 
                 float x = (relative / halfFov) * halfWidth;
                 widget.Root.anchoredPosition = new Vector2(x, -baselineY);
-                widget.CanvasGroup.alpha = ComputeEdgeFade(absRelative, halfFov);
+                FadeMarkerAlpha(widget, ComputeEdgeFade(absRelative, halfFov));
 
                 float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), worldPos) * CharacterStats.unitsToMeters;
 
@@ -361,10 +365,21 @@ namespace SenseOfDirection.Compass
             {
                 foreach (IndicatorAnchor stale in _markers.Keys.Where(a => !seen.Contains(a)).ToList())
                 {
-                    _markers[stale].Destroy();
-                    _markers.Remove(stale);
+                    CompassMarkerWidget widget = _markers[stale];
+                    FadeMarkerAlpha(widget, 0f);
+                    if (widget.CanvasGroup.alpha <= 0.01f)
+                    {
+                        widget.Destroy();
+                        _markers.Remove(stale);
+                    }
                 }
             }
+        }
+
+        /// <summary>Steps a marker's <c>CanvasGroup.alpha</c> towards <paramref name="targetAlpha"/> at <see cref="MarkerFadeSpeedPerSecond"/> instead of snapping directly to it - covers both fade-in (newly created, alpha starts at 0) and fade-out (going out of range/FOV, or the owning anchor disappearing entirely).</summary>
+        private static void FadeMarkerAlpha(CompassMarkerWidget widget, float targetAlpha)
+        {
+            widget.CanvasGroup.alpha = Mathf.MoveTowards(widget.CanvasGroup.alpha, targetAlpha, Time.deltaTime * MarkerFadeSpeedPerSecond);
         }
 
         /// <summary>Smoothly fades a mark out over the last quarter of the visible half-FOV, rather than a hard pop at the exact cutoff.</summary>
