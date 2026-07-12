@@ -80,10 +80,10 @@ namespace SenseOfDirection.Labels
             TMP_Text nameText = CreateText(root, "Name", new Vector2(0f, 10f));
             TMP_Text distanceText = CreateText(root, "Distance", new Vector2(0f, -12f));
 
-            GameObject deadIcon = CreateIcon(root, "DeadIcon", Color.white, new Vector2(14f, 14f), new Vector2(0f, -32f), IconAssets.DeadBadge);
+            GameObject deadIcon = CreateIcon(root, "DeadIcon", Color.white, new Vector2(20f, 20f), new Vector2(0f, -32f), IconAssets.DeadBadge);
             deadIcon.SetActive(false);
 
-            GameObject unconsciousIcon = CreateIcon(root, "UnconsciousIcon", Color.white, new Vector2(14f, 14f), new Vector2(0f, -32f), IconAssets.UnconsciousBadge);
+            GameObject unconsciousIcon = CreateIcon(root, "UnconsciousIcon", Color.white, new Vector2(20f, 20f), new Vector2(0f, -32f), IconAssets.UnconsciousBadge);
             unconsciousIcon.SetActive(false);
 
             return new PlayerLabel(root, canvasGroup, nameText, distanceText, hostIcon, hostIconImage, deadIcon, unconsciousIcon, getWorldPosition);

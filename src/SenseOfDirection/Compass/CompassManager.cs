@@ -121,7 +121,16 @@ namespace SenseOfDirection.Compass
             _baseline.SetParent(_root, false);
             _baseline.anchorMin = new Vector2(0.5f, 1f);
             _baseline.anchorMax = new Vector2(0.5f, 1f);
-            _baseline.pivot = new Vector2(0.5f, 1f);
+            // Center-pivoted (not top-pivoted) - anchoredPosition.y is thus
+            // the stripe's own visual vertical center, matching exactly where
+            // every tick's line crosses it (see CompassTick's own "cross
+            // point" doc comment). A top pivot used to put the crossing point
+            // 1px above the stripe's actual painted center (the stripe hangs
+            // straight down from a top pivot) - ticks compensated for that
+            // with an ad hoc, inconsistently-applied nudge instead of fixing
+            // the actual mismatch, which is what made the baseline look
+            // increasingly off-center as tick lines grew taller.
+            _baseline.pivot = new Vector2(0.5f, 0.5f);
             var baselineImage = baselineGo.GetComponent<Image>();
             baselineImage.sprite = CompassIcons.HorizontalFadeLine;
             baselineImage.type = Image.Type.Simple;
@@ -148,25 +157,36 @@ namespace SenseOfDirection.Compass
         private const float BaselineThicknessPixels = 2f;
 
         /// <summary>
-        /// Y offset (from _root's own origin) of the baseline - ticks
-        /// straddle this same Y (so their vertical line crosses the
-        /// baseline, forming a "+") and marker icons rest centered on it.
-        /// Tight by default; <c>compass-height-pixels</c> only grows this
-        /// past its default, for players who want more breathing room (e.g.
-        /// after turning on marker names, which sit above the icon/line).
+        /// Base Y offset (from _root's own origin) of the baseline at the
+        /// default <c>compass-height-pixels</c> (40) - ticks straddle this
+        /// same Y (so their vertical line crosses the baseline, forming a
+        /// "+") and marker icons rest centered on it.
         /// </summary>
-        private const float MinBaselineOffset = 26f;
-        private static float BaselineOffset(float height) => MinBaselineOffset + Mathf.Max(height - 40f, 0f);
+        private const float BaseBaselineOffset = 26f;
 
-        private void ApplyLayout(PluginConfig cfg)
+        /// <summary>How far past its default (40px) <c>compass-height-pixels</c> is - the extra length added to each tick's vertical line.</summary>
+        private static float TickExtraHeight(float height) => Mathf.Max(height - 40f, 0f);
+
+        /// <summary>
+        /// The actual Y offset used this frame: the tick line grows by
+        /// <see cref="TickExtraHeight"/> symmetrically about its own local
+        /// center (see <see cref="CompassTick.ApplyHeight"/>), and this
+        /// shared baseline/tick-root Y is pushed down by half of that same
+        /// growth - the two shifts compose into a line whose top edge stays
+        /// fixed on screen while its bottom edge extends further down, with
+        /// the baseline dragged along to stay centered on the line the
+        /// whole time, rather than left behind at the original top.
+        /// </summary>
+        private static float BaselineOffset(float tickExtraHeight) => BaseBaselineOffset + tickExtraHeight * 0.5f;
+
+        private void ApplyLayout(PluginConfig cfg, float baselineY)
         {
             float width = cfg.CompassWidthPixels.Value;
-            float height = cfg.CompassHeightPixels.Value;
 
             _root.anchoredPosition = new Vector2(cfg.CompassHorizontalOffsetPixels.Value, -cfg.CompassVerticalOffsetPixels.Value);
 
             _baseline.sizeDelta = new Vector2(width, BaselineThicknessPixels);
-            _baseline.anchoredPosition = new Vector2(0f, -BaselineOffset(height));
+            _baseline.anchoredPosition = new Vector2(0f, -baselineY);
         }
 
         /// <summary>Whether the local player is currently holding an in-game compass item (identified by its <c>CompassPointer</c> child component - PEAK has no dedicated "Compass" item class, it's a data-driven <c>Item</c> like any other).</summary>
@@ -191,7 +211,9 @@ namespace SenseOfDirection.Compass
             }
             _root.gameObject.SetActive(true);
 
-            ApplyLayout(cfg);
+            float tickExtraHeight = TickExtraHeight(cfg.CompassHeightPixels.Value);
+            float baselineY = BaselineOffset(tickExtraHeight);
+            ApplyLayout(cfg, baselineY);
 
             Transform camTransform = camera.transform;
             Vector3 camPos = camTransform.position;
@@ -204,18 +226,19 @@ namespace SenseOfDirection.Compass
 
             float halfFov = cfg.CompassFovDegrees.Value * 0.5f;
             float halfWidth = cfg.CompassWidthPixels.Value * 0.5f;
-            float baselineY = BaselineOffset(cfg.CompassHeightPixels.Value);
 
-            UpdateTicks(cameraYaw, halfFov, halfWidth, baselineY);
+            UpdateTicks(cameraYaw, halfFov, halfWidth, baselineY, tickExtraHeight);
             UpdateMarkers(cameraYaw, halfFov, halfWidth, baselineY, camPos, cfg);
         }
 
-        private void UpdateTicks(float cameraYaw, float halfFov, float halfWidth, float baselineY)
+        private void UpdateTicks(float cameraYaw, float halfFov, float halfWidth, float baselineY, float tickExtraHeight)
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
 
             foreach (CompassTick tick in _ticks)
             {
+                tick.ApplyHeight(tickExtraHeight);
+
                 if (NativeAssets.Font != null && tick.Label.font != NativeAssets.Font)
                 {
                     tick.Label.font = NativeAssets.Font;

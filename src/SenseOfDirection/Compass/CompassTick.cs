@@ -21,12 +21,37 @@ namespace SenseOfDirection.Compass
         public readonly CanvasGroup CanvasGroup;
         public readonly TMP_Text Label;
 
-        private CompassTick(float degrees, RectTransform rect, CanvasGroup canvasGroup, TMP_Text label)
+        private readonly RectTransform _lineRect;
+        private readonly float _lineBaseWidth;
+        private readonly float _lineBaseHeight;
+
+        private CompassTick(float degrees, RectTransform rect, CanvasGroup canvasGroup, TMP_Text label, RectTransform lineRect, float lineBaseWidth, float lineBaseHeight)
         {
             Degrees = degrees;
             Rect = rect;
             CanvasGroup = canvasGroup;
             Label = label;
+            _lineRect = lineRect;
+            _lineBaseWidth = lineBaseWidth;
+            _lineBaseHeight = lineBaseHeight;
+        }
+
+        /// <summary>
+        /// Grows the tick's vertical line by <paramref name="extraPixels"/>
+        /// (<c>compass-height-pixels</c> past its default), symmetrically
+        /// about its own fixed local center - only the sizeDelta changes
+        /// here, the local anchoredPosition never does. The actual
+        /// downward-only look (top edge fixed on screen, bottom edge
+        /// extending further down, baseline dragged down to stay centered
+        /// on the growing line) comes entirely from <see cref="CompassManager"/>
+        /// moving the shared tick-root/baseline Y by half of this same
+        /// growth - two independent, additive shifts that together produce
+        /// the requested effect without this class needing to know about
+        /// the baseline at all.
+        /// </summary>
+        public void ApplyHeight(float extraPixels)
+        {
+            _lineRect.sizeDelta = new Vector2(_lineBaseWidth, _lineBaseHeight + extraPixels);
         }
 
         public static CompassTick Create(RectTransform parent, float degrees)
@@ -50,22 +75,35 @@ namespace SenseOfDirection.Compass
             // kept even (not odd), so centering both on the same point splits
             // symmetrically either side with no rounding-induced drift.
             float lineHeight = isCardinal ? 16f : 8f;
+            float topHalf = lineHeight * 0.5f;
 
             var lineGo = new GameObject("Line", typeof(RectTransform), typeof(Image));
             var lineRect = (RectTransform)lineGo.transform;
             lineRect.SetParent(rect, false);
             // Centered (not top-pivoted) on the tick's own origin, which
-            // CompassManager sets to the same Y as the marker baseline -
-            // straddles the baseline line so the two form a "+" cross,
-            // rather than sitting entirely above it.
+            // CompassManager sets to the same Y as the marker baseline's own
+            // visual center - straddles the baseline line so the two form a
+            // "+" cross. The cross point (the line's top half, above the
+            // baseline) is identical for every tick, cardinal or not - an
+            // earlier version nudged only minor ticks down 1px to
+            // compensate for the baseline being top- rather than
+            // center-pivoted at the time, which just traded one 1px
+            // misalignment (cardinal ticks) for another (the nudge growing
+            // more visible as `compass-height-pixels` stretched the line
+            // further); fixing the baseline's own pivot instead makes every
+            // tick line up the same way with no per-tick special case.
+            // The extra 1px on the bottom half only (not a symmetric +0.5 on
+            // both sides) is a deliberate, requested asymmetry - real
+            // compass tapes read as resting "on" the baseline, not
+            // straddling it dead center.
             lineRect.anchorMin = new Vector2(0.5f, 0.5f);
             lineRect.anchorMax = new Vector2(0.5f, 0.5f);
             lineRect.pivot = new Vector2(0.5f, 0.5f);
-            lineRect.sizeDelta = new Vector2(isCardinal ? 2.5f : 1f, lineHeight);
-            // Minor ticks still read as sitting slightly too high even at an
-            // even height - lazy fix, just nudge them down 1px rather than
-            // chasing the exact sub-pixel cause further.
-            lineRect.anchoredPosition = isCardinal ? Vector2.zero : new Vector2(0f, -1f);
+            float lineWidth = isCardinal ? 2.5f : 1.5f;
+            float lineBaseHeight = lineHeight + 1f;
+            float lineBaseY = -0.5f;
+            lineRect.sizeDelta = new Vector2(lineWidth, lineBaseHeight);
+            lineRect.anchoredPosition = new Vector2(0f, lineBaseY);
             lineGo.GetComponent<Image>().color = isNorth ? CompassTheme.NorthAccent : new Color(1f, 1f, 1f, isCardinal ? 0.9f : 0.45f);
 
             var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -78,7 +116,7 @@ namespace SenseOfDirection.Compass
             labelRect.anchorMax = new Vector2(0.5f, 0f);
             labelRect.pivot = new Vector2(0.5f, 0f);
             labelRect.sizeDelta = new Vector2(60f, 20f);
-            labelRect.anchoredPosition = new Vector2(0f, lineHeight * 0.5f + 6f);
+            labelRect.anchoredPosition = new Vector2(0f, topHalf + 6f);
 
             var label = labelGo.GetComponent<TextMeshProUGUI>();
             label.alignment = TextAlignmentOptions.Center;
@@ -86,7 +124,7 @@ namespace SenseOfDirection.Compass
             label.fontSize = isCardinal ? 20f : 14f;
             label.color = isNorth ? CompassTheme.NorthAccent : (isCardinal ? Color.white : new Color(1f, 1f, 1f, 0.75f));
 
-            return new CompassTick(degrees, rect, canvasGroup, label);
+            return new CompassTick(degrees, rect, canvasGroup, label, lineRect, lineWidth, lineBaseHeight);
         }
     }
 }
