@@ -73,17 +73,22 @@ namespace SenseOfDirection.Labels
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
 
-            GameObject hostIcon = CreateIcon(root, "HostIcon", Color.white, new Vector2(20f, 20f), new Vector2(0f, 26f));
+            // Badge size bumped from the original 20x20 - barely distinguishable
+            // at that size in practice. Offsets shifted outward by the same
+            // +3px the half-size grew by (10 -> 13), so the gap to the name/
+            // distance text stays exactly what it was before, just with a
+            // bigger badge.
+            GameObject hostIcon = CreateIcon(root, "HostIcon", Color.white, new Vector2(26f, 26f), new Vector2(0f, 29f));
             Image hostIconImage = hostIcon.GetComponent<Image>();
             hostIcon.SetActive(false);
 
             TMP_Text nameText = CreateText(root, "Name", new Vector2(0f, 10f));
             TMP_Text distanceText = CreateText(root, "Distance", new Vector2(0f, -12f));
 
-            GameObject deadIcon = CreateIcon(root, "DeadIcon", Color.white, new Vector2(20f, 20f), new Vector2(0f, -32f), IconAssets.DeadBadge);
+            GameObject deadIcon = CreateIcon(root, "DeadIcon", Color.white, new Vector2(26f, 26f), new Vector2(0f, -35f), IconAssets.DeadBadge);
             deadIcon.SetActive(false);
 
-            GameObject unconsciousIcon = CreateIcon(root, "UnconsciousIcon", Color.white, new Vector2(20f, 20f), new Vector2(0f, -32f), IconAssets.UnconsciousBadge);
+            GameObject unconsciousIcon = CreateIcon(root, "UnconsciousIcon", Color.white, new Vector2(26f, 26f), new Vector2(0f, -35f), IconAssets.UnconsciousBadge);
             unconsciousIcon.SetActive(false);
 
             return new PlayerLabel(root, canvasGroup, nameText, distanceText, hostIcon, hostIconImage, deadIcon, unconsciousIcon, getWorldPosition);

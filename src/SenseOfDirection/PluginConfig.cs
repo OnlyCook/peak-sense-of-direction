@@ -78,6 +78,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> CompassRequiresHoldingItem;
         public readonly ConfigEntry<SenseOfDirection.Compass.CompassLineColor> CompassLineColor;
         public readonly ConfigEntry<float> CompassLineThicknessMultiplier;
+        public readonly ConfigEntry<bool> CompassClampIconsToEdge;
 
         public readonly ConfigEntry<KeyCode> GhostFreeCamToggleKey;
         public readonly ConfigEntry<bool> EnableGhostFreeCam;
@@ -480,6 +481,13 @@ namespace SenseOfDirection
                     "cardinal and minor) and its baseline stripe. 1 keeps the " +
                     "current/default thickness; higher values make the lines bolder.",
                     new AcceptableValueRange<float>(0.5f, 3f)));
+
+            CompassClampIconsToEdge = config.Bind(
+                "Compass", "compass-clamp-icons-to-edge", false,
+                "Markers that would otherwise not be visible (outside the compass " +
+                "FOV window) are instead clamped to the nearest left/right edge of " +
+                "the tape and shown dimmed, like a mini radar, instead of not " +
+                "appearing at all. Off by default.");
 
             GhostFreeCamToggleKey = config.Bind(
                 "Ghost-Free-Cam", "toggle-key", KeyCode.V,

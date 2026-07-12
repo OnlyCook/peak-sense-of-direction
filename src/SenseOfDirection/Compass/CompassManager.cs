@@ -70,6 +70,9 @@ namespace SenseOfDirection.Compass
         /// <summary>Marker fade-in/out rate, matched to <c>PlayerLabel</c>'s own vanilla-style crossfade (<c>UIPlayerNames.UpdateName</c>'s <c>Time.deltaTime * 5f</c>) so markers appearing/disappearing (new anchor, out of range, anchor removed entirely) don't pop instantly like the raw edge-of-FOV fade already applies to in-view markers.</summary>
         private const float MarkerFadeSpeedPerSecond = 5f;
 
+        /// <summary>Dimmed alpha a marker settles at once clamped to the tape's edge (<c>compass-clamp-icons-to-edge</c>) rather than the full <see cref="ComputeEdgeFade"/> curve, which would fade it to fully invisible past the FOV cutoff it's deliberately no longer following.</summary>
+        private const float ClampedEdgeAlpha = 0.35f;
+
         private RectTransform _root;
         private RectTransform _baseline;
         private Image _baselineImage;
@@ -329,15 +332,29 @@ namespace SenseOfDirection.Compass
                 float targetYaw = Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg;
                 float relative = Mathf.DeltaAngle(cameraYaw, targetYaw);
                 float absRelative = Mathf.Abs(relative);
-                if (absRelative > halfFov)
+                bool outsideFov = absRelative > halfFov;
+                if (outsideFov && !cfg.CompassClampIconsToEdge.Value)
                 {
                     FadeMarkerAlpha(widget, 0f);
                     continue;
                 }
 
-                float x = (relative / halfFov) * halfWidth;
+                float x = outsideFov
+                    ? halfWidth * Mathf.Sign(relative)
+                    : (relative / halfFov) * halfWidth;
                 widget.Root.anchoredPosition = new Vector2(x, -baselineY);
-                FadeMarkerAlpha(widget, ComputeEdgeFade(absRelative, halfFov));
+
+                // With clamp-to-edge on, the fade floor is ClampedEdgeAlpha
+                // instead of 0 (both inside the fade-out quarter and once
+                // past the FOV cutoff) - keeps the curve continuous straight
+                // through the boundary instead of fading towards 0 right up
+                // to the cutoff and then jumping back up to ClampedEdgeAlpha
+                // the instant it's crossed, which read as a snap.
+                bool clamp = cfg.CompassClampIconsToEdge.Value;
+                float targetAlpha = outsideFov
+                    ? ClampedEdgeAlpha
+                    : ComputeEdgeFade(absRelative, halfFov, clamp ? ClampedEdgeAlpha : 0f);
+                FadeMarkerAlpha(widget, targetAlpha);
 
                 float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), worldPos) * CharacterStats.unitsToMeters;
 
@@ -391,15 +408,16 @@ namespace SenseOfDirection.Compass
             widget.CanvasGroup.alpha = Mathf.MoveTowards(widget.CanvasGroup.alpha, targetAlpha, Time.deltaTime * MarkerFadeSpeedPerSecond);
         }
 
-        /// <summary>Smoothly fades a mark out over the last quarter of the visible half-FOV, rather than a hard pop at the exact cutoff.</summary>
-        private static float ComputeEdgeFade(float absRelativeDegrees, float halfFov)
+        /// <summary>Smoothly fades a mark out over the last quarter of the visible half-FOV, rather than a hard pop at the exact cutoff. <paramref name="minAlpha"/> is the floor the fade approaches instead of 0 - used by the compass-clamp-icons-to-edge path so the curve lands exactly on <see cref="ClampedEdgeAlpha"/> at the FOV cutoff instead of continuing towards 0.</summary>
+        private static float ComputeEdgeFade(float absRelativeDegrees, float halfFov, float minAlpha = 0f)
         {
             float fadeStart = halfFov * 0.75f;
             if (absRelativeDegrees <= fadeStart)
             {
                 return 1f;
             }
-            return Mathf.Clamp01(1f - (absRelativeDegrees - fadeStart) / (halfFov - fadeStart));
+            float t = Mathf.Clamp01((absRelativeDegrees - fadeStart) / (halfFov - fadeStart));
+            return Mathf.Lerp(1f, minAlpha, t);
         }
 
         private static string CardinalLabel(float degrees)
