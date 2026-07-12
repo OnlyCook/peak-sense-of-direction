@@ -25,11 +25,22 @@ namespace SenseOfDirection.Pings
 
         private readonly TMP_Text _distanceText;
 
-        private PingWidget(RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, TMP_Text distanceText, System.Func<Vector3> getWorldPosition)
+        private PingWidget(RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, RectTransform labelGroup, TMP_Text distanceText, System.Func<Vector3> getWorldPosition)
         {
             CanvasGroup = canvasGroup;
             _distanceText = distanceText;
-            Anchor = new IndicatorAnchor(getWorldPosition, root, arrow);
+            // LabelWidget = labelGroup (not root) so overlap resolution only
+            // ever nudges the distance text, never the off-screen arrow -
+            // the arrow needs to stay exactly on the tracked position to
+            // still point the right way. OverlapSize itself is left at
+            // (0,0) here and only ever set in Refresh() while the distance
+            // text is actually visible (see there) - a ping's distance line
+            // is often suppressed entirely (e.g. an item ping already
+            // showing distance for the same event, per PointPingerPatches),
+            // and a stale nonzero box on an invisible widget was pushing
+            // other, real labels away from a target they'd otherwise have
+            // no reason to avoid.
+            Anchor = new IndicatorAnchor(getWorldPosition, root, arrow) { LabelWidget = labelGroup };
         }
 
         public static PingWidget Create(System.Func<Vector3> getWorldPosition, Color color, bool enableArrow)
@@ -48,9 +59,15 @@ namespace SenseOfDirection.Pings
 
             RectTransform arrowRect = enableArrow ? OffScreenArrow.Create(root, color) : null;
 
+            // Home position (0,0) relative to root - overlap resolution
+            // nudges this transform, not root/arrow (see LabelWidget above).
+            var labelGroupGo = new GameObject("LabelGroup", typeof(RectTransform));
+            var labelGroupRect = (RectTransform)labelGroupGo.transform;
+            labelGroupRect.SetParent(root, false);
+
             var textGo = new GameObject("Distance", typeof(RectTransform), typeof(TextMeshProUGUI));
             var textRect = (RectTransform)textGo.transform;
-            textRect.SetParent(root, false);
+            textRect.SetParent(labelGroupRect, false);
             textRect.sizeDelta = new Vector2(120f, 24f);
             textRect.anchoredPosition = new Vector2(0f, -22f);
 
@@ -60,7 +77,7 @@ namespace SenseOfDirection.Pings
             distanceText.fontSize = 16f;
             distanceText.enableWordWrapping = false;
 
-            return new PingWidget(root, canvasGroup, arrowRect, distanceText, getWorldPosition);
+            return new PingWidget(root, canvasGroup, arrowRect, labelGroupRect, distanceText, getWorldPosition);
         }
 
         public void Refresh(float distanceMeters, bool showDistance)
@@ -78,6 +95,11 @@ namespace SenseOfDirection.Pings
             if (showDistance)
             {
                 _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
+                Anchor.OverlapSize = new Vector2(Mathf.Max(60f, _distanceText.GetPreferredValues().x + 12f), 40f);
+            }
+            else
+            {
+                Anchor.OverlapSize = Vector2.zero;
             }
         }
     }

@@ -45,6 +45,15 @@ namespace SenseOfDirection.Compass
         public readonly RectTransform Root;
         public readonly CanvasGroup CanvasGroup;
 
+        /// <summary>
+        /// Home position (0,0) child of <see cref="Root"/> holding just the
+        /// name/distance text - see <see cref="Compass.CompassManager"/>'s
+        /// own overlap-resolution pass, which nudges this horizontally
+        /// (the whole label shifts sideways as one object) so the marker's
+        /// icon never leaves its real bearing.
+        /// </summary>
+        public readonly RectTransform LabelGroup;
+
         /// <summary>TMP shader property name for the outline color, shared by the elevation arrow and (once tinted) the name/distance text materials.</summary>
         private const string OutlineColorProperty = "_OutlineColor";
 
@@ -67,7 +76,7 @@ namespace SenseOfDirection.Compass
         private CompassMarkerWidget(
             CompassMarkerKind kind, RectTransform root, CanvasGroup canvasGroup,
             Image iconImage, Image[] iconOutlines, Image statusBadge, TMP_Text elevationArrow,
-            TMP_Text nameText, TMP_Text distanceText)
+            RectTransform labelGroup, TMP_Text nameText, TMP_Text distanceText)
         {
             _kind = kind;
             Root = root;
@@ -76,6 +85,7 @@ namespace SenseOfDirection.Compass
             _iconOutlines = iconOutlines;
             _statusBadge = statusBadge;
             _elevationArrow = elevationArrow;
+            LabelGroup = labelGroup;
             _nameText = nameText;
             _distanceText = distanceText;
         }
@@ -180,9 +190,23 @@ namespace SenseOfDirection.Compass
             elevationArrow.fontMaterial.SetFloat("_OutlineWidth", 0.3f);
             elevationArrow.gameObject.SetActive(false);
 
+            // Home position (0,0) relative to root - CompassManager's own
+            // overlap resolution nudges this transform, not root, so a
+            // marker's icon (plus outline/badge/elevation arrow, all direct
+            // children of root above) never moves off its real bearing;
+            // only the informational name/distance text is free to shift
+            // slightly to avoid overlapping a neighboring marker's own text.
+            var labelGroupGo = new GameObject("LabelGroup", typeof(RectTransform));
+            var labelGroupRect = (RectTransform)labelGroupGo.transform;
+            labelGroupRect.SetParent(root, false);
+            labelGroupRect.anchorMin = new Vector2(0.5f, 0.5f);
+            labelGroupRect.anchorMax = new Vector2(0.5f, 0.5f);
+            labelGroupRect.pivot = new Vector2(0.5f, 0.5f);
+            labelGroupRect.sizeDelta = Vector2.zero;
+
             var nameGo = new GameObject("Name", typeof(RectTransform), typeof(TextMeshProUGUI));
             var nameRect = (RectTransform)nameGo.transform;
-            nameRect.SetParent(root, false);
+            nameRect.SetParent(labelGroupRect, false);
             nameRect.anchorMin = new Vector2(0.5f, 0.5f);
             nameRect.anchorMax = new Vector2(0.5f, 0.5f);
             nameRect.pivot = new Vector2(0.5f, 0.5f);
@@ -197,7 +221,7 @@ namespace SenseOfDirection.Compass
 
             var distGo = new GameObject("Distance", typeof(RectTransform), typeof(TextMeshProUGUI));
             var distRect = (RectTransform)distGo.transform;
-            distRect.SetParent(root, false);
+            distRect.SetParent(labelGroupRect, false);
             distRect.anchorMin = new Vector2(0.5f, 0.5f);
             distRect.anchorMax = new Vector2(0.5f, 0.5f);
             distRect.pivot = new Vector2(0.5f, 0.5f);
@@ -208,7 +232,7 @@ namespace SenseOfDirection.Compass
             distanceText.fontSize = 14f;
             distanceText.color = new Color(1f, 1f, 1f, 0.9f);
 
-            return new CompassMarkerWidget(kind, root, canvasGroup, iconImage, iconOutlines, statusBadge, elevationArrow, nameText, distanceText);
+            return new CompassMarkerWidget(kind, root, canvasGroup, iconImage, iconOutlines, statusBadge, elevationArrow, labelGroupRect, nameText, distanceText);
         }
 
         public void Destroy()

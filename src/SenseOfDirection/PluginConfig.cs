@@ -15,6 +15,7 @@ namespace SenseOfDirection
     {
         public readonly ConfigEntry<KeyCode> UiToggleKey;
         public readonly ConfigEntry<bool> EnablePlayerLabels;
+        public readonly ConfigEntry<bool> EnableLabelOverlapAvoidance;
 
         public readonly ConfigEntry<float> NameFontSize;
         public readonly ConfigEntry<float> DistanceFontSize;
@@ -109,6 +110,13 @@ namespace SenseOfDirection
                 "General", "enable-player-labels", true,
                 "Master switch for Sense of Direction's player labels. Off hides them " +
                 "entirely (vanilla's own name labels are unaffected either way).");
+
+            EnableLabelOverlapAvoidance = config.Bind(
+                "General", "enable-label-overlap-avoidance", true,
+                "Nudges overlapping player/ping/item-ping/campfire labels (and compass " +
+                "markers) apart so they stay readable when several land on top of each " +
+                "other, instead of stacking illegibly. Off restores every label/marker " +
+                "to its exact tracked position with no nudging at all.");
 
             NameFontSize = config.Bind(
                 "Player-Labels", "name-font-size", 28f,

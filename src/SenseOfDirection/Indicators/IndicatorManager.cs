@@ -40,6 +40,15 @@ namespace SenseOfDirection.Indicators
         private readonly List<IndicatorAnchor> _anchors = new List<IndicatorAnchor>();
         private Canvas _canvas;
 
+        /// <summary>Pixels/second the resolved overlap offset (see <see cref="LabelOverlapResolver"/>) is smoothed towards its target at - keeps labels sliding apart/back together instead of snapping as overlap starts/stops.</summary>
+        private const float OverlapOffsetSpeedPixelsPerSecond = 240f;
+
+        private readonly List<IndicatorAnchor> _overlapCandidates = new List<IndicatorAnchor>();
+        private readonly List<Vector2> _overlapBasePositionsScratch = new List<Vector2>();
+        private readonly List<Vector2> _overlapSizesScratch = new List<Vector2>();
+        private readonly Dictionary<IndicatorAnchor, Vector2> _overlapBasePosition = new Dictionary<IndicatorAnchor, Vector2>();
+        private readonly Dictionary<IndicatorAnchor, Vector2> _overlapOffset = new Dictionary<IndicatorAnchor, Vector2>();
+
         private void Awake()
         {
             var canvasGo = new GameObject("Canvas");
@@ -70,6 +79,8 @@ namespace SenseOfDirection.Indicators
         public void UnregisterAnchor(IndicatorAnchor anchor)
         {
             _anchors.Remove(anchor);
+            _overlapBasePosition.Remove(anchor);
+            _overlapOffset.Remove(anchor);
             if (anchor.Widget != null)
             {
                 Destroy(anchor.Widget.gameObject);
@@ -88,6 +99,8 @@ namespace SenseOfDirection.Indicators
 
             var camera = Camera.main;
             Vector2 canvasSize = CanvasTransform.rect.size;
+
+            _overlapCandidates.Clear();
 
             for (int i = _anchors.Count - 1; i >= 0; i--)
             {
@@ -116,6 +129,12 @@ namespace SenseOfDirection.Indicators
                 var state = ScreenSpaceTracker.Compute(camera, canvasSize, anchor.GetWorldPosition(), anchor.EdgeMarginPixels);
                 anchor.Widget.anchoredPosition = state.CanvasPosition;
 
+                if (anchor.OverlapSize.x > 0f && anchor.OverlapSize.y > 0f)
+                {
+                    _overlapCandidates.Add(anchor);
+                    _overlapBasePosition[anchor] = state.CanvasPosition;
+                }
+
                 if (anchor.ArrowWidget != null)
                 {
                     anchor.ArrowWidget.gameObject.SetActive(state.IsOffScreen);
@@ -134,6 +153,76 @@ namespace SenseOfDirection.Indicators
                 if (anchor.OnScreenOnlyWidget != null)
                 {
                     anchor.OnScreenOnlyWidget.gameObject.SetActive(!state.IsOffScreen);
+                }
+            }
+
+            ResolveLabelOverlaps();
+        }
+
+        /// <summary>
+        /// Second pass, run after every anchor's own "natural" tracked
+        /// position is already set above: nudges apart any labels (opted in
+        /// via a nonzero <see cref="IndicatorAnchor.OverlapSize"/>) whose
+        /// boxes overlap, per <see cref="LabelOverlapResolver"/> - a single
+        /// fixed direction (always down), never based on list order or which
+        /// specific neighbor conflicts, so it can't misplace itself over time
+        /// as unrelated anchors elsewhere come and go. List order
+        /// (<see cref="_anchors"/>' own registration order) doubles as
+        /// priority - earlier-registered anchors never move for a
+        /// later-registered one. The resulting offset is smoothed towards
+        /// its target rather than applied directly, so a label sliding into/
+        /// out of overlap doesn't snap.
+        /// </summary>
+        private void ResolveLabelOverlaps()
+        {
+            if (_overlapCandidates.Count == 0)
+            {
+                return;
+            }
+
+            // Off (Plugin.Instance.Cfg.EnableLabelOverlapAvoidance) means every
+            // label just sits at its exact tracked position, same as before
+            // this feature existed - target offsets all stay zero (still
+            // smoothed towards, so toggling this off mid-overlap eases labels
+            // back instead of snapping them).
+            bool enabled = Plugin.Instance.Cfg.EnableLabelOverlapAvoidance.Value;
+
+            Vector2[] targetOffsets;
+            if (enabled)
+            {
+                _overlapBasePositionsScratch.Clear();
+                _overlapSizesScratch.Clear();
+                foreach (IndicatorAnchor anchor in _overlapCandidates)
+                {
+                    _overlapBasePositionsScratch.Add(_overlapBasePosition[anchor]);
+                    _overlapSizesScratch.Add(anchor.OverlapSize);
+                }
+
+                targetOffsets = LabelOverlapResolver.ComputeOffsets(_overlapBasePositionsScratch, _overlapSizesScratch, LabelOverlapResolver.Axis.Vertical);
+            }
+            else
+            {
+                targetOffsets = new Vector2[_overlapCandidates.Count];
+            }
+
+            for (int i = 0; i < _overlapCandidates.Count; i++)
+            {
+                IndicatorAnchor anchor = _overlapCandidates[i];
+                Vector2 currentOffset = _overlapOffset.TryGetValue(anchor, out Vector2 existing) ? existing : Vector2.zero;
+                Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, targetOffsets[i], Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
+                _overlapOffset[anchor] = smoothedOffset;
+
+                // LabelWidget (when the anchor has one) is a local (0,0)-
+                // homed child of Widget holding just the text - nudge that
+                // instead of Widget itself, so an arrow/crosshair that needs
+                // to stay exactly on the tracked position never moves.
+                if (anchor.LabelWidget != null)
+                {
+                    anchor.LabelWidget.anchoredPosition = smoothedOffset;
+                }
+                else
+                {
+                    anchor.Widget.anchoredPosition = _overlapBasePosition[anchor] + smoothedOffset;
                 }
             }
         }

@@ -54,7 +54,10 @@ namespace SenseOfDirection.CampfireIndicator
             _iconImage = iconImage;
             _outlineImages = outlineImages;
             _distanceText = distanceText;
-            Anchor = new IndicatorAnchor(getWorldPosition, root);
+            // Icon is always visible, so the box is never fully zero (unlike
+            // Pings.PingWidget) - just shrunk to icon-only when the distance
+            // sub-line is hidden, refined every Refresh() call below.
+            Anchor = new IndicatorAnchor(getWorldPosition, root) { OverlapSize = new Vector2(28f, 28f) };
         }
 
         public static CampfireWidget Create(System.Func<Vector3> getWorldPosition)
@@ -149,6 +152,11 @@ namespace SenseOfDirection.CampfireIndicator
             if (showDistance)
             {
                 _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
+                Anchor.OverlapSize = new Vector2(140f, 50f);
+            }
+            else
+            {
+                Anchor.OverlapSize = new Vector2(28f, 28f);
             }
         }
     }

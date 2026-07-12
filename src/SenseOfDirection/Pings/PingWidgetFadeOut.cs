@@ -12,6 +12,17 @@ namespace SenseOfDirection.Pings
     /// anchor stays registered for the duration (so the arrow keeps tracking
     /// the camera correctly while fading) and is only unregistered - which
     /// destroys the widget - once the fade completes.
+    ///
+    /// <see cref="IndicatorAnchor.OverlapSize"/> is zeroed out the instant the
+    /// fade begins, opting this anchor out of label-overlap-avoidance for the
+    /// rest of its life: a fading-out ping is about to disappear entirely, so
+    /// it has no reading left to protect, and letting it keep contributing
+    /// its last-known (now frozen, since nothing calls <c>Refresh</c> on it
+    /// anymore) box was pushing a brand new, actually-visible ping's label
+    /// away for the whole ~0.35s fade whenever the new ping landed within
+    /// range of a just-replaced old one (e.g. re-pinging near a previous
+    /// spot) - a real bug, not overlap resolution working as intended, since
+    /// the "conflicting" label was already on its way out.
     /// </summary>
     public class PingWidgetFadeOut : MonoBehaviour
     {
@@ -23,6 +34,7 @@ namespace SenseOfDirection.Pings
 
         public static void Begin(CanvasGroup canvasGroup, IndicatorAnchor anchor)
         {
+            anchor.OverlapSize = Vector2.zero;
             var runner = canvasGroup.gameObject.AddComponent<PingWidgetFadeOut>();
             runner._canvasGroup = canvasGroup;
             runner._anchor = anchor;
