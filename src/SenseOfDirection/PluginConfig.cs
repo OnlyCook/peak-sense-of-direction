@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using SenseOfDirection.Compass;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
 using UnityEngine;
@@ -75,6 +76,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> CompassShowNames;
         public readonly ConfigEntry<bool> CompassShowDistances;
         public readonly ConfigEntry<bool> CompassRequiresHoldingItem;
+        public readonly ConfigEntry<SenseOfDirection.Compass.CompassLineColor> CompassLineColor;
 
         public readonly ConfigEntry<KeyCode> GhostFreeCamToggleKey;
         public readonly ConfigEntry<bool> EnableGhostFreeCam;
@@ -463,6 +465,12 @@ namespace SenseOfDirection
                 "Only show the compass tape while the local player is actually " +
                 "holding an in-game Compass item, instead of it always being " +
                 "visible. Off by default.");
+
+            CompassLineColor = config.Bind(
+                "Compass", "compass-line-color", SenseOfDirection.Compass.CompassLineColor.White,
+                "Base color of the compass tape's heading ticks/labels and baseline " +
+                "stripe (true north keeps its own dark red accent regardless). " +
+                "White is the default.");
 
             GhostFreeCamToggleKey = config.Bind(
                 "Ghost-Free-Cam", "toggle-key", KeyCode.V,

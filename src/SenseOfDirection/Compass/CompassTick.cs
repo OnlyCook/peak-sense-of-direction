@@ -24,8 +24,11 @@ namespace SenseOfDirection.Compass
         private readonly RectTransform _lineRect;
         private readonly float _lineBaseWidth;
         private readonly float _lineBaseHeight;
+        private readonly Image _lineImage;
+        private readonly bool _isCardinal;
+        private readonly bool _isNorth;
 
-        private CompassTick(float degrees, RectTransform rect, CanvasGroup canvasGroup, TMP_Text label, RectTransform lineRect, float lineBaseWidth, float lineBaseHeight)
+        private CompassTick(float degrees, RectTransform rect, CanvasGroup canvasGroup, TMP_Text label, RectTransform lineRect, float lineBaseWidth, float lineBaseHeight, Image lineImage, bool isCardinal, bool isNorth)
         {
             Degrees = degrees;
             Rect = rect;
@@ -34,6 +37,29 @@ namespace SenseOfDirection.Compass
             _lineRect = lineRect;
             _lineBaseWidth = lineBaseWidth;
             _lineBaseHeight = lineBaseHeight;
+            _lineImage = lineImage;
+            _isCardinal = isCardinal;
+            _isNorth = isNorth;
+        }
+
+        /// <summary>
+        /// Re-tints the tick's line/label against <paramref name="baseColor"/>
+        /// (<c>compass-line-color</c>, resolved by <see cref="CompassTheme.LineColor"/>)
+        /// every frame, same live-config-applies-without-restart pattern as
+        /// <see cref="ApplyHeight"/> - true north keeps its own fixed
+        /// <see cref="CompassTheme.NorthAccent"/> regardless of this setting.
+        /// </summary>
+        public void ApplyLineColor(Color baseColor)
+        {
+            if (_isNorth)
+            {
+                return;
+            }
+
+            _lineImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, _isCardinal ? 0.9f : 0.45f);
+            Label.color = _isCardinal
+                ? new Color(baseColor.r, baseColor.g, baseColor.b, 1f)
+                : new Color(baseColor.r, baseColor.g, baseColor.b, 0.75f);
         }
 
         /// <summary>
@@ -104,7 +130,8 @@ namespace SenseOfDirection.Compass
             float lineBaseY = -0.5f;
             lineRect.sizeDelta = new Vector2(lineWidth, lineBaseHeight);
             lineRect.anchoredPosition = new Vector2(0f, lineBaseY);
-            lineGo.GetComponent<Image>().color = isNorth ? CompassTheme.NorthAccent : new Color(1f, 1f, 1f, isCardinal ? 0.9f : 0.45f);
+            var lineImage = lineGo.GetComponent<Image>();
+            lineImage.color = isNorth ? CompassTheme.NorthAccent : new Color(1f, 1f, 1f, isCardinal ? 0.9f : 0.45f);
 
             var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             var labelRect = (RectTransform)labelGo.transform;
@@ -124,7 +151,7 @@ namespace SenseOfDirection.Compass
             label.fontSize = isCardinal ? 20f : 14f;
             label.color = isNorth ? CompassTheme.NorthAccent : (isCardinal ? Color.white : new Color(1f, 1f, 1f, 0.75f));
 
-            return new CompassTick(degrees, rect, canvasGroup, label, lineRect, lineWidth, lineBaseHeight);
+            return new CompassTick(degrees, rect, canvasGroup, label, lineRect, lineWidth, lineBaseHeight, lineImage, isCardinal, isNorth);
         }
     }
 }

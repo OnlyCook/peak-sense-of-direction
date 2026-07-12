@@ -500,6 +500,14 @@ RESEARCH.md's license table) — nothing here is copied from it.
   `CompassTheme.NorthAccent` (dark red) instead of plain white, on both its
   tick line and its "N" label - the one splash of color on an otherwise
   monochrome tape, common real-world-compass convention.
+- `CompassLineColor.cs` (new) / `CompassTheme.LineColor` — the selectable
+  base color (White [default]/LightGray/Gray/DarkGray/Black,
+  `Compass/compass-line-color`) every non-north tick line/label and the
+  baseline stripe (`CompassManager`'s own `_baselineImage`) are tinted
+  against; alpha per-element (cardinal vs. minor tick, baseline) is
+  unchanged, only the RGB swaps. Re-applied every frame
+  (`CompassTick.ApplyLineColor`, mirroring `ApplyHeight`'s own live-config
+  pattern) so the setting takes effect without a restart.
 - Wired into `Labels/PlayerLabelController.cs` (compass visibility follows
   the same toggle-key/Hold/max-distance gate as the off-screen label, via
   `_labelsVisible`), `CampfireIndicator/CampfireIndicatorController.cs`,

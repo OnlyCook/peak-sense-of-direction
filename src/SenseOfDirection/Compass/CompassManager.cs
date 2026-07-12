@@ -72,6 +72,7 @@ namespace SenseOfDirection.Compass
 
         private RectTransform _root;
         private RectTransform _baseline;
+        private Image _baselineImage;
 
         private readonly List<CompassTick> _ticks = new List<CompassTick>();
         private readonly Dictionary<IndicatorAnchor, CompassMarkerWidget> _markers = new Dictionary<IndicatorAnchor, CompassMarkerWidget>();
@@ -134,10 +135,10 @@ namespace SenseOfDirection.Compass
             // the actual mismatch, which is what made the baseline look
             // increasingly off-center as tick lines grew taller.
             _baseline.pivot = new Vector2(0.5f, 0.5f);
-            var baselineImage = baselineGo.GetComponent<Image>();
-            baselineImage.sprite = CompassIcons.HorizontalFadeLine;
-            baselineImage.type = Image.Type.Simple;
-            baselineImage.color = new Color(1f, 1f, 1f, 0.55f);
+            _baselineImage = baselineGo.GetComponent<Image>();
+            _baselineImage.sprite = CompassIcons.HorizontalFadeLine;
+            _baselineImage.type = Image.Type.Simple;
+            _baselineImage.color = new Color(1f, 1f, 1f, 0.55f);
         }
 
         private void BuildTicks()
@@ -237,10 +238,13 @@ namespace SenseOfDirection.Compass
         private void UpdateTicks(float cameraYaw, float halfFov, float halfWidth, float baselineY, float tickExtraHeight)
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
+            Color lineColor = CompassTheme.LineColor(cfg.CompassLineColor.Value);
+            _baselineImage.color = new Color(lineColor.r, lineColor.g, lineColor.b, 0.55f);
 
             foreach (CompassTick tick in _ticks)
             {
                 tick.ApplyHeight(tickExtraHeight);
+                tick.ApplyLineColor(lineColor);
 
                 if (NativeAssets.Font != null && tick.Label.font != NativeAssets.Font)
                 {
