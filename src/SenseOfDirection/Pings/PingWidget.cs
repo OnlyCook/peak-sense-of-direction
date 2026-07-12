@@ -15,7 +15,8 @@ namespace SenseOfDirection.Pings
     /// so a 2D UI element drawn on top of it just obstructs the view; the
     /// arrow (via <see cref="IndicatorManager"/>'s own off-screen gating)
     /// only ever appears once the ping has actually left the screen. Tinted
-    /// to the pinging player's own character color.
+    /// to the pinging player's own character color - both the off-screen
+    /// arrow and the distance sub-line.
     /// </summary>
     public class PingWidget
     {
@@ -55,7 +56,7 @@ namespace SenseOfDirection.Pings
 
             var distanceText = textGo.GetComponent<TextMeshProUGUI>();
             distanceText.alignment = TextAlignmentOptions.Center;
-            distanceText.color = Color.white;
+            distanceText.color = color;
             distanceText.fontSize = 16f;
             distanceText.enableWordWrapping = false;
 
