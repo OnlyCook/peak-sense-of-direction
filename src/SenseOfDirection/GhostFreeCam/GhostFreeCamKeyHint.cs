@@ -86,7 +86,7 @@ namespace SenseOfDirection.GhostFreeCam
                 _badgeImage.sprite = BuildBadgeSprite(width / BadgeSize);
             }
 
-            string text = freeCamActive ? "to leave free-cam mode" : "to go into free-cam mode";
+            string text = GhostFreeCamLocalization.GetLabel(freeCamActive);
             _labelText.text = text;
             _labelShadowText.text = text;
 

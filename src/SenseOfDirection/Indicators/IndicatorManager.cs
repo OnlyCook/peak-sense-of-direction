@@ -43,6 +43,22 @@ namespace SenseOfDirection.Indicators
         /// <summary>Pixels/second the resolved overlap offset (see <see cref="LabelOverlapResolver"/>) is smoothed towards its target at - keeps labels sliding apart/back together instead of snapping as overlap starts/stops.</summary>
         private const float OverlapOffsetSpeedPixelsPerSecond = 240f;
 
+        /// <summary>
+        /// Pixels/second an anchor's widget position is smoothed towards its
+        /// freshly-computed <see cref="ScreenSpaceTracker"/> target at. Normal
+        /// on-screen tracking or off-screen edge-panning moves well under this
+        /// cap, so it's invisible there - it only kicks in for the one case it
+        /// exists for: the instant a tracked point crosses the on/off-screen
+        /// boundary, where the target position itself discontinuously jumps
+        /// from the real projected point to the clamped-edge point (or, worse,
+        /// near the exact behind-camera transition, to the opposite side of the
+        /// screen). Without this, that jump rendered as a hard snap instead of
+        /// a slide.
+        /// </summary>
+        private const float PositionSmoothSpeedPixelsPerSecond = 3000f;
+
+        private readonly Dictionary<IndicatorAnchor, Vector2> _smoothedPosition = new Dictionary<IndicatorAnchor, Vector2>();
+
         private readonly List<IndicatorAnchor> _overlapCandidates = new List<IndicatorAnchor>();
         private readonly List<Vector2> _overlapBasePositionsScratch = new List<Vector2>();
         private readonly List<Vector2> _overlapSizesScratch = new List<Vector2>();
@@ -86,6 +102,7 @@ namespace SenseOfDirection.Indicators
             _overlapBasePosition.Remove(anchor);
             _overlapBoxPosition.Remove(anchor);
             _overlapOffset.Remove(anchor);
+            _smoothedPosition.Remove(anchor);
             if (anchor.Widget != null)
             {
                 Destroy(anchor.Widget.gameObject);
@@ -128,17 +145,26 @@ namespace SenseOfDirection.Indicators
                 anchor.Widget.gameObject.SetActive(active);
                 if (!active)
                 {
+                    // Dropped so a later reappearance snaps straight to its
+                    // fresh target instead of sliding in from a stale
+                    // position last seen possibly a while ago.
+                    _smoothedPosition.Remove(anchor);
                     continue;
                 }
 
                 var state = ScreenSpaceTracker.Compute(camera, canvasSize, anchor.GetWorldPosition(), anchor.EdgeMarginPixels);
-                anchor.Widget.anchoredPosition = state.CanvasPosition;
+
+                Vector2 smoothedPosition = _smoothedPosition.TryGetValue(anchor, out Vector2 previousPosition)
+                    ? Vector2.MoveTowards(previousPosition, state.CanvasPosition, Time.deltaTime * PositionSmoothSpeedPixelsPerSecond)
+                    : state.CanvasPosition;
+                _smoothedPosition[anchor] = smoothedPosition;
+                anchor.Widget.anchoredPosition = smoothedPosition;
 
                 if (anchor.OverlapSize.x > 0f && anchor.OverlapSize.y > 0f)
                 {
                     _overlapCandidates.Add(anchor);
-                    _overlapBasePosition[anchor] = state.CanvasPosition;
-                    _overlapBoxPosition[anchor] = state.CanvasPosition + anchor.OverlapCenterOffset;
+                    _overlapBasePosition[anchor] = smoothedPosition;
+                    _overlapBoxPosition[anchor] = smoothedPosition + anchor.OverlapCenterOffset;
                 }
 
                 if (anchor.ArrowWidget != null)

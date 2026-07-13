@@ -44,7 +44,15 @@ order):
 - `IndicatorManager.cs` — singleton owning the one full-screen overlay
   `Canvas`; `LateUpdate` drives every registered anchor's widget position via
   `ScreenSpaceTracker`. `Register/UnregisterAnchor` is the API later phases
-  use.
+  use. Each anchor's raw `ScreenSpaceTracker` target position is smoothed
+  (`Vector2.MoveTowards`, `PositionSmoothSpeedPixelsPerSecond`) before being
+  applied to its widget - invisible during normal on-screen tracking or
+  off-screen edge-panning (both move well under the cap), but turns the
+  otherwise-instant jump at the on/off-screen crossing (where the raw target
+  itself discontinuously switches from the real projected point to the
+  clamped-edge point) into a short slide instead of a snap. Resets per-anchor
+  (via `_smoothedPosition.Remove`) whenever the anchor goes inactive, so a
+  later reappearance snaps fresh rather than sliding in from a stale spot.
 - `IndicatorTestHarness.cs` — dev/QA only, gated by
   `PluginConfig.EnableIndicatorTestHarness` (off by default): spawns fixed
   dummy world points around the camera so the framework above can be verified
@@ -512,6 +520,10 @@ playtest:**
   (root pivot centered) so it stays centered and never clips regardless of
   label text length, and never shifts vertically between states. Vanilla's
   own ghost panel never mentions this mod's toggle key at all.
+- `GhostFreeCamLocalization.cs` — per-`LocalizedText.CURRENT_LANGUAGE`
+  "to go into/leave free-cam mode" text for the key hint above; a small
+  hardcoded per-language table (community-sourced, not vanilla-sourced —
+  this hint has no native localization key of its own to read off of).
 
 ### `Compass/` (Phase 7, done — top-of-screen compass tape)
 
