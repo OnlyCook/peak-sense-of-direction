@@ -69,12 +69,43 @@ namespace SenseOfDirection.ItemPings
     /// </summary>
     public static class ItemPingDetector
     {
+        /// <summary>
+        /// Reused across pings so the hazard sweep below allocates nothing per
+        /// ping (<c>Physics.OverlapSphere</c> returns a fresh array every call;
+        /// the NonAlloc form fills this instead). 256 colliders within one
+        /// ping's item radius is far past anything realistic - a full buffer
+        /// just means the tail is ignored, which is harmless here.
+        /// </summary>
+        private static readonly Collider[] OverlapBuffer = new Collider[256];
+
+        /// <summary>
+        /// Dedupes matches by GameObject. Types can legitimately overlap (a
+        /// creature with its own class that also derives from <c>Mob</c> lands
+        /// in both of <see cref="PingableRegistry"/>'s buckets, exactly as it
+        /// landed in both of the old per-type scene queries), and the cached
+        /// item bucket is unioned with the game's own live
+        /// <c>Item.ALL_ACTIVE_ITEMS</c> - without this, one object could become
+        /// two targets and get labeled "2x COCONUT" on its own.
+        /// </summary>
+        private static readonly HashSet<GameObject> Matched = new HashSet<GameObject>();
+
         public static List<PingableTarget> FindNear(
             Vector3 point, float itemRadiusUnits, float luggageRadiusUnits,
             Vector3 rayOrigin, Vector3 rayDirection, float rayMaxDistanceUnits, float rayHitboxRadiusUnits,
             bool includeCreatures)
         {
             var results = new List<PingableTarget>();
+            Matched.Clear();
+
+            void Add(GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName)
+            {
+                if (Matched.Add(gameObject))
+                {
+                    results.Add(new PingableTarget(gameObject, getCenter, getDisplayName));
+                }
+            }
+
+            PingableRegistry registry = PingableRegistry.Instance;
 
             float itemRadiusSq = itemRadiusUnits * itemRadiusUnits;
             float luggageRadiusSq = luggageRadiusUnits * luggageRadiusUnits;
@@ -108,9 +139,9 @@ namespace SenseOfDirection.ItemPings
                     || MatchesRay(center, rayOrigin, rayDirection, rayMaxDistanceUnits, creatureRayHitboxRadiusSq);
             }
 
-            // Deliberately not Item.ALL_ACTIVE_ITEMS: per the decompile
-            // (Item.OnEnable/Start + ItemOptimizationManager.Update), that
-            // list is a "recently relevant" optimization cache, not "every
+            // Item.ALL_ACTIVE_ITEMS can't be the *only* source: per the
+            // decompile (Item.OnEnable/Start + ItemOptimizationManager.Update),
+            // that list is a "recently relevant" optimization cache, not "every
             // item" - WasActive() (which adds an item to it) is only called
             // when the item's own Rigidbody isn't kinematic, so an item still
             // attached to its spawn point (tree/bush, still kinematic - see
@@ -118,18 +149,33 @@ namespace SenseOfDirection.ItemPings
             // ItemOptimizationManager expires *any* item from the list after
             // 30 seconds without a fresh WasActive() call (e.g. simply
             // sitting on the ground, untouched, while the player is far away
-            // - exactly the "walked off and came back" case). A scene-wide
-            // query sidesteps both: same pattern used for every other type
-            // below, cheap enough since this runs once per accepted ping, not
-            // per-frame.
-            foreach (Item item in UnityEngine.Object.FindObjectsByType<Item>(FindObjectsSortMode.None))
+            // - exactly the "walked off and came back" case).
+            // PingableRegistry's periodic scene sweep covers both of those.
+            // The two are unioned rather than either being used alone, because
+            // they miss opposite things: the sweep can be up to a few seconds
+            // behind on an item that only just came into existence (loot from
+            // a luggage someone just opened), and that is precisely the case
+            // ALL_ACTIVE_ITEMS is guaranteed to have (a just-spawned item is
+            // non-kinematic, so it's in there immediately). It's a short list,
+            // so reading it live costs nothing.
+            void TryAddItem(Item item)
             {
                 if (item == null || !item.gameObject.activeInHierarchy || !Matches(item.Center(), itemRadiusSq))
                 {
-                    continue;
+                    return;
                 }
                 Item capturedItem = item;
-                results.Add(new PingableTarget(capturedItem.gameObject, () => capturedItem.Center(), () => capturedItem.GetItemName()));
+                Add(capturedItem.gameObject, () => capturedItem.Center(), () => capturedItem.GetItemName());
+            }
+
+            IReadOnlyList<Item> cachedItems = registry.Items;
+            for (int i = 0; i < cachedItems.Count; i++)
+            {
+                TryAddItem(cachedItems[i]);
+            }
+            foreach (Item item in Item.ALL_ACTIVE_ITEMS)
+            {
+                TryAddItem(item);
             }
 
             foreach (Luggage luggage in Luggage.ALL_LUGGAGE)
@@ -151,17 +197,19 @@ namespace SenseOfDirection.ItemPings
                     continue;
                 }
                 Luggage capturedLuggage = luggage;
-                results.Add(new PingableTarget(capturedLuggage.gameObject, () => capturedLuggage.transform.position, () => capturedLuggage.GetName()));
+                Add(capturedLuggage.gameObject, () => capturedLuggage.transform.position, () => capturedLuggage.GetName());
             }
 
-            foreach (SlipperyJellyfish jellyfish in UnityEngine.Object.FindObjectsByType<SlipperyJellyfish>(FindObjectsSortMode.None))
+            IReadOnlyList<SlipperyJellyfish> jellyfish = registry.Jellyfish;
+            for (int i = 0; i < jellyfish.Count; i++)
             {
-                if (jellyfish == null || !jellyfish.gameObject.activeInHierarchy || !Matches(jellyfish.transform.position, itemRadiusSq))
+                SlipperyJellyfish capturedJellyfish = jellyfish[i];
+                if (capturedJellyfish == null || !capturedJellyfish.gameObject.activeInHierarchy
+                    || !Matches(capturedJellyfish.transform.position, itemRadiusSq))
                 {
                     continue;
                 }
-                SlipperyJellyfish capturedJellyfish = jellyfish;
-                results.Add(new PingableTarget(capturedJellyfish.gameObject, () => capturedJellyfish.transform.position, () => "Jellyfish"));
+                Add(capturedJellyfish.gameObject, () => capturedJellyfish.transform.position, () => "Jellyfish");
             }
 
             if (includeCreatures)
@@ -182,25 +230,29 @@ namespace SenseOfDirection.ItemPings
                 // already gets (confirmed necessary via a live MushroomZombie
                 // test that landed 1.4-2.1m from the ping point, right at/
                 // past the tighter item radius).
-                foreach (Mob mob in UnityEngine.Object.FindObjectsByType<Mob>(FindObjectsSortMode.None))
+                IReadOnlyList<Mob> mobs = registry.Mobs;
+                for (int i = 0; i < mobs.Count; i++)
                 {
-                    if (mob == null || !mob.gameObject.activeInHierarchy || !MatchesCreature(mob.transform.position))
+                    Mob capturedMob = mobs[i];
+                    if (capturedMob == null || !capturedMob.gameObject.activeInHierarchy
+                        || !MatchesCreature(capturedMob.transform.position))
                     {
                         continue;
                     }
-                    Mob capturedMob = mob;
                     string name = capturedMob.gameObject.name.Replace("(Clone)", string.Empty).Trim();
-                    results.Add(new PingableTarget(capturedMob.gameObject, () => capturedMob.transform.position, () => name));
+                    Add(capturedMob.gameObject, () => capturedMob.transform.position, () => name);
                 }
 
-                foreach (Spider spider in UnityEngine.Object.FindObjectsByType<Spider>(FindObjectsSortMode.None))
+                IReadOnlyList<Spider> spiders = registry.Spiders;
+                for (int i = 0; i < spiders.Count; i++)
                 {
-                    if (spider == null || !spider.gameObject.activeInHierarchy || !MatchesCreature(spider.transform.position))
+                    Spider capturedSpider = spiders[i];
+                    if (capturedSpider == null || !capturedSpider.gameObject.activeInHierarchy
+                        || !MatchesCreature(capturedSpider.transform.position))
                     {
                         continue;
                     }
-                    Spider capturedSpider = spider;
-                    results.Add(new PingableTarget(capturedSpider.gameObject, () => capturedSpider.transform.position, () => "Spider"));
+                    Add(capturedSpider.gameObject, () => capturedSpider.transform.position, () => "Spider");
                 }
 
                 // Capybara deliberately kept on the tighter, plain item
@@ -212,14 +264,16 @@ namespace SenseOfDirection.ItemPings
                 // creatures need would make it too easy to end up
                 // highlighting the capybara when a nearby fruit item was
                 // the thing actually meant to be pinged.
-                foreach (Capybara capybara in UnityEngine.Object.FindObjectsByType<Capybara>(FindObjectsSortMode.None))
+                IReadOnlyList<Capybara> capybaras = registry.Capybaras;
+                for (int i = 0; i < capybaras.Count; i++)
                 {
-                    if (capybara == null || !capybara.gameObject.activeInHierarchy || !Matches(capybara.transform.position, itemRadiusSq))
+                    Capybara capturedCapybara = capybaras[i];
+                    if (capturedCapybara == null || !capturedCapybara.gameObject.activeInHierarchy
+                        || !Matches(capturedCapybara.transform.position, itemRadiusSq))
                     {
                         continue;
                     }
-                    Capybara capturedCapybara = capybara;
-                    results.Add(new PingableTarget(capturedCapybara.gameObject, () => capturedCapybara.transform.position, () => "Capybara"));
+                    Add(capturedCapybara.gameObject, () => capturedCapybara.transform.position, () => "Capybara");
                 }
 
                 // Confirmed via a dedicated diagnostic pass (not
@@ -239,8 +293,10 @@ namespace SenseOfDirection.ItemPings
                 // reads mainRenderer.bounds.center, not transform.position,
                 // for exactly this reason) - applied the same fix here via a
                 // child Renderer's live bounds center instead.
-                foreach (MushroomZombie zombie in UnityEngine.Object.FindObjectsByType<MushroomZombie>(FindObjectsSortMode.None))
+                IReadOnlyList<MushroomZombie> zombies = registry.Zombies;
+                for (int i = 0; i < zombies.Count; i++)
                 {
+                    MushroomZombie zombie = zombies[i];
                     if (zombie == null || !zombie.gameObject.activeInHierarchy)
                     {
                         continue;
@@ -251,17 +307,19 @@ namespace SenseOfDirection.ItemPings
                         continue;
                     }
                     GameObject capturedZombieGo = zombie.gameObject;
-                    results.Add(new PingableTarget(capturedZombieGo, () => GetLiveCenter(capturedZombieGo), () => "Zombie"));
+                    Add(capturedZombieGo, () => GetLiveCenter(capturedZombieGo), () => "Zombie");
                 }
 
-                foreach (Antlion antlion in UnityEngine.Object.FindObjectsByType<Antlion>(FindObjectsSortMode.None))
+                IReadOnlyList<Antlion> antlions = registry.Antlions;
+                for (int i = 0; i < antlions.Count; i++)
                 {
-                    if (antlion == null || !antlion.gameObject.activeInHierarchy || !MatchesCreature(antlion.transform.position))
+                    Antlion capturedAntlion = antlions[i];
+                    if (capturedAntlion == null || !capturedAntlion.gameObject.activeInHierarchy
+                        || !MatchesCreature(capturedAntlion.transform.position))
                     {
                         continue;
                     }
-                    Antlion capturedAntlion = antlion;
-                    results.Add(new PingableTarget(capturedAntlion.gameObject, () => capturedAntlion.transform.position, () => "Antlion"));
+                    Add(capturedAntlion.gameObject, () => capturedAntlion.transform.position, () => "Antlion");
                 }
 
                 // Requested for completeness even though the campfire already
@@ -285,7 +343,7 @@ namespace SenseOfDirection.ItemPings
                     Campfire campfire = MapHandler.CurrentCampfire;
                     if (campfire != null && campfire.gameObject.activeInHierarchy && Matches(campfire.transform.position, itemRadiusSq))
                     {
-                        results.Add(new PingableTarget(campfire.gameObject, () => campfire.transform.position, () => "Campfire"));
+                        Add(campfire.gameObject, () => campfire.transform.position, () => "Campfire");
                     }
                 }
 
@@ -295,15 +353,17 @@ namespace SenseOfDirection.ItemPings
                 // ClimbHandle.GetName() itself returns "PICKAXE" or the
                 // less clean "PITONPROMPT" localization key, so a hardcoded
                 // name per flag is used instead for a cleaner label).
-                foreach (ClimbHandle handle in UnityEngine.Object.FindObjectsByType<ClimbHandle>(FindObjectsSortMode.None))
+                IReadOnlyList<ClimbHandle> handles = registry.ClimbHandles;
+                for (int i = 0; i < handles.Count; i++)
                 {
-                    if (handle == null || !handle.gameObject.activeInHierarchy || !Matches(handle.Center(), itemRadiusSq))
+                    ClimbHandle capturedHandle = handles[i];
+                    if (capturedHandle == null || !capturedHandle.gameObject.activeInHierarchy
+                        || !Matches(capturedHandle.Center(), itemRadiusSq))
                     {
                         continue;
                     }
-                    ClimbHandle capturedHandle = handle;
                     string name = capturedHandle.isPickaxe ? "Pickaxe" : "Piton";
-                    results.Add(new PingableTarget(capturedHandle.gameObject, () => capturedHandle.Center(), () => name));
+                    Add(capturedHandle.gameObject, () => capturedHandle.Center(), () => name);
                 }
 
                 // Giant Urchin: no distinctive name anywhere in its own
@@ -328,26 +388,20 @@ namespace SenseOfDirection.ItemPings
                 // since this offset is structural (a fixed gap between
                 // collider-root and visible surface), not just "creatures are
                 // bigger/moving" like the other luggageRadiusSq uses above.
+                // The CollisionModifier + DisableBasedOnRunSettings(Hazard_Urchins)
+                // identification itself happens once per registry sweep, not per
+                // ping - see PingableRegistry.Urchins.
                 float urchinRadiusSq = (luggageRadiusUnits * 2f) * (luggageRadiusUnits * 2f);
-                foreach (CollisionModifier modifier in UnityEngine.Object.FindObjectsByType<CollisionModifier>(FindObjectsSortMode.None))
+                IReadOnlyList<CollisionModifier> urchins = registry.Urchins;
+                for (int i = 0; i < urchins.Count; i++)
                 {
-                    if (modifier == null || !modifier.gameObject.activeInHierarchy)
+                    CollisionModifier capturedModifier = urchins[i];
+                    if (capturedModifier == null || !capturedModifier.gameObject.activeInHierarchy
+                        || !Matches(capturedModifier.transform.position, urchinRadiusSq))
                     {
                         continue;
                     }
-                    Transform parent = modifier.transform.parent;
-                    if (parent == null)
-                    {
-                        continue;
-                    }
-                    DisableBasedOnRunSettings disabler = parent.GetComponent<DisableBasedOnRunSettings>();
-                    if (disabler == null || disabler.disableIfSettingDisabled != RunSettings.SETTINGTYPE.Hazard_Urchins
-                        || !Matches(modifier.transform.position, urchinRadiusSq))
-                    {
-                        continue;
-                    }
-                    CollisionModifier capturedModifier = modifier;
-                    results.Add(new PingableTarget(capturedModifier.gameObject, () => capturedModifier.transform.position, () => "Giant Urchin"));
+                    Add(capturedModifier.gameObject, () => capturedModifier.transform.position, () => "Giant Urchin");
                 }
 
                 // Spore bombs / explosive spore bombs have no dedicated
@@ -362,21 +416,28 @@ namespace SenseOfDirection.ItemPings
                 // A bounded OverlapSphere rather than a full scene query,
                 // since (unlike tree-coconuts) these sit on the ground where
                 // you'd ping directly at them - no ray-assist reach needed.
-                var seenHazards = new HashSet<GameObject>();
-                foreach (Collider collider in Physics.OverlapSphere(point, itemRadiusUnits, ~0, QueryTriggerInteraction.Collide))
+                Collider[] hazards = OverlapBuffer;
+                int hazardCount = Physics.OverlapSphereNonAlloc(point, itemRadiusUnits, OverlapBuffer, ~0, QueryTriggerInteraction.Collide);
+
+                // A full buffer means colliders were dropped, and which ones is
+                // arbitrary - so on the (very unlikely, 2m-radius) overflow,
+                // take the allocating form rather than silently missing the
+                // hazard that was actually pinged.
+                if (hazardCount == OverlapBuffer.Length)
                 {
-                    GameObject go = collider.gameObject;
-                    if (!seenHazards.Add(go))
-                    {
-                        continue;
-                    }
-                    string hazardName = NamedHazardDisplayName(go.name);
+                    hazards = Physics.OverlapSphere(point, itemRadiusUnits, ~0, QueryTriggerInteraction.Collide);
+                    hazardCount = hazards.Length;
+                }
+
+                for (int i = 0; i < hazardCount; i++)
+                {
+                    GameObject capturedGo = hazards[i].gameObject;
+                    string hazardName = NamedHazardDisplayName(capturedGo.name);
                     if (hazardName == null)
                     {
                         continue;
                     }
-                    GameObject capturedGo = go;
-                    results.Add(new PingableTarget(capturedGo, () => capturedGo.transform.position, () => hazardName));
+                    Add(capturedGo, () => capturedGo.transform.position, () => hazardName);
                 }
             }
 

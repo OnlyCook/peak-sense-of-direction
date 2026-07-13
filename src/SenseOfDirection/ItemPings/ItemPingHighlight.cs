@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using SenseOfDirection.Common;
 using SenseOfDirection.Compass;
 using SenseOfDirection.Indicators;
@@ -37,10 +36,27 @@ namespace SenseOfDirection.ItemPings
     public class ItemPingHighlight : MonoBehaviour
     {
         private readonly List<PingableTarget> _targets = new List<PingableTarget>();
+
+        /// <summary>Rebuilt in place every frame instead of LINQ-ing out a fresh list - see <see cref="Update"/>.</summary>
+        private readonly List<PingableTarget> _valid = new List<PingableTarget>();
+
+        private readonly HashSet<GameObject> _knownTargets = new HashSet<GameObject>();
+
         private ItemPingWidget _widget;
         private float _remainingSeconds;
         private bool _endingEarly;
         private string _currentDisplayName;
+
+        /// <summary>
+        /// Inputs the display name was last built from. The name only changes
+        /// when the group's size or its first target's name does (an item being
+        /// picked up, a cooked-state rename), which is rare - but building it
+        /// meant an uppercase conversion plus, for a group, an interpolated
+        /// string, every frame for every live highlight. Cached so a steady
+        /// highlight allocates nothing per frame.
+        /// </summary>
+        private int _lastValidCount = -1;
+        private string _lastBaseName;
 
         /// <summary>Invoked once, when this highlight starts fading out (not when it's finally destroyed).</summary>
         public Action OnFadeStart;
@@ -51,9 +67,15 @@ namespace SenseOfDirection.ItemPings
         {
             var go = new GameObject("SoD.ItemPingHighlight");
             var highlight = go.AddComponent<ItemPingHighlight>();
-            highlight._targets.AddRange(targets);
+            foreach (PingableTarget target in targets)
+            {
+                if (highlight._knownTargets.Add(target.GameObject))
+                {
+                    highlight._targets.Add(target);
+                }
+            }
             highlight._remainingSeconds = durationSeconds;
-            highlight._widget = ItemPingWidget.Create(highlight.GetGroupCenter, color, enableArrow);
+            highlight._widget = ItemPingWidget.Rent(highlight.GetGroupCenter, color, enableArrow);
 
             highlight._widget.Anchor.CompassKind = CompassMarkerKind.ItemPing;
             highlight._widget.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.ItemPingsCompassDisplayMode.Value;
@@ -67,10 +89,12 @@ namespace SenseOfDirection.ItemPings
         /// <summary>Resets the display timer and merges in any targets not already tracked (dedup by GameObject).</summary>
         public void Refresh(List<PingableTarget> newTargets, float durationSeconds)
         {
-            var known = new HashSet<GameObject>(_targets.Select(t => t.GameObject));
+            // _knownTargets is maintained as targets are added rather than
+            // rebuilt from _targets on every merge - a re-ping of an already
+            // highlighted group lands here, and that's on the ping path.
             foreach (PingableTarget target in newTargets)
             {
-                if (known.Add(target.GameObject))
+                if (_knownTargets.Add(target.GameObject))
                 {
                     _targets.Add(target);
                 }
@@ -94,9 +118,17 @@ namespace SenseOfDirection.ItemPings
             return count > 0 ? sum / count : transform.position;
         }
 
-        private bool AnyTargetStillValid()
+        /// <summary>Refills <see cref="_valid"/> with the targets that still exist and are still active.</summary>
+        private void CollectValidTargets()
         {
-            return _targets.Any(t => t.GameObject != null && t.GameObject.activeInHierarchy);
+            _valid.Clear();
+            foreach (PingableTarget target in _targets)
+            {
+                if (target.GameObject != null && target.GameObject.activeInHierarchy)
+                {
+                    _valid.Add(target);
+                }
+            }
         }
 
         private void Update()
@@ -106,7 +138,13 @@ namespace SenseOfDirection.ItemPings
                 return;
             }
 
-            if (!AnyTargetStillValid())
+            // One liveness pass per frame, reusing the same list - this used to
+            // be a LINQ Any() followed by a Where().ToList(), i.e. two walks
+            // plus a new list and two enumerators every frame, for every live
+            // highlight. Harmless for one, but "ping a pile of items" spawns a
+            // highlight per group and they all run this at once.
+            CollectValidTargets();
+            if (_valid.Count == 0)
             {
                 BeginFadeOut();
                 return;
@@ -125,16 +163,22 @@ namespace SenseOfDirection.ItemPings
             }
 
             PluginConfig cfg = Plugin.Instance.Cfg;
-            List<PingableTarget> valid = _targets.Where(t => t.GameObject != null && t.GameObject.activeInHierarchy).ToList();
+
             // Game's own pickup prompts/UI show item names in all caps
             // (RESEARCH.md/ISSUES.md) - native Item.GetItemName()/Mob
             // GameObject-name fallbacks come through in mixed/native case, so
             // normalize here rather than at each individual capture site.
-            string baseName = valid[0].GetDisplayName().ToUpperInvariant();
-            string name = valid.Count > 1 ? $"{valid.Count}x {baseName}" : baseName;
-            _currentDisplayName = name;
+            string baseName = _valid[0].GetDisplayName();
+            if (_valid.Count != _lastValidCount || !string.Equals(baseName, _lastBaseName, StringComparison.Ordinal))
+            {
+                _lastValidCount = _valid.Count;
+                _lastBaseName = baseName;
+                string upper = baseName.ToUpperInvariant();
+                _currentDisplayName = _valid.Count > 1 ? $"{_valid.Count}x {upper}" : upper;
+            }
+
             float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), GetGroupCenter()) * CharacterStats.unitsToMeters;
-            _widget.Refresh(name, distanceMeters, cfg.ShowItemPingName.Value, cfg.ShowItemPingDistance.Value);
+            _widget.Refresh(_currentDisplayName, distanceMeters, cfg.ShowItemPingName.Value, cfg.ShowItemPingDistance.Value);
         }
 
         private void BeginFadeOut()

@@ -78,6 +78,21 @@ namespace SenseOfDirection.Indicators
         public readonly RectTransform Widget;
 
         /// <summary>
+        /// What <see cref="IndicatorManager.UnregisterAnchor"/> should do with
+        /// <see cref="Widget"/> when this anchor goes away. Null (default) means
+        /// destroy it, which is right for a widget that's built once and lives
+        /// as long as the thing it tracks (a player label, the campfire).
+        /// Ping/item-ping widgets set this instead, to return the whole widget
+        /// hierarchy to their own pool: they're created and thrown away
+        /// constantly (one per ping, one per pinged item group), and building
+        /// one means a handful of GameObjects with TMP text and Image
+        /// components on them - the kind of churn that shows up as a hitch when
+        /// several land in the same frame (ISSUES.md: "especially multiple
+        /// items").
+        /// </summary>
+        public Action ReleaseWidget;
+
+        /// <summary>
         /// Optional child shown only while off-screen and rotated to point
         /// toward the tracked world position. Null if this anchor has no
         /// off-screen arrow (e.g. it's only ever meaningful on-screen).

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace SenseOfDirection.ItemPings
@@ -42,6 +41,10 @@ namespace SenseOfDirection.ItemPings
         /// not meant to reach meaningfully further than the ping itself.
         /// </summary>
         private const float RayOvershootMeters = 2f;
+
+        /// <summary>Reused between pings (see the grouping comment in <see cref="SpawnFor"/>) - a ping is always fully handled before the next one is, so a single scratch pair is safe.</summary>
+        private static readonly List<List<PingableTarget>> _clustersScratch = new List<List<PingableTarget>>();
+        private static readonly Dictionary<string, List<PingableTarget>> _clusterByNameScratch = new Dictionary<string, List<PingableTarget>>();
 
         /// <returns>How many item/luggage targets were highlighted (new or merged), for the caller to decide whether to suppress its own generic ping distance label.</returns>
         public static int SpawnFor(Vector3 point, Color color, Character pingingCharacter)
@@ -95,11 +98,36 @@ namespace SenseOfDirection.ItemPings
             bool enableArrow = cfg.EnableItemPingOffScreenIndicator.Value;
             float duration = cfg.ItemPingDurationSeconds.Value;
 
-            IEnumerable<List<PingableTarget>> clusters = cfg.EnableItemPingGrouping.Value
-                ? found.GroupBy(t => t.GetDisplayName()).Select(g => g.ToList())
-                : found.Select(t => new List<PingableTarget> { t });
+            // Plain dictionary/list grouping rather than LINQ: this runs inside
+            // the frame a ping lands in, so it's on the path ISSUES.md's "never
+            // stutter when pinging" complaint is about - GroupBy/Select/ToList
+            // allocate an enumerator chain, a grouping object and a list per
+            // cluster on top of the lists actually handed to the highlights.
+            _clustersScratch.Clear();
+            if (cfg.EnableItemPingGrouping.Value)
+            {
+                _clusterByNameScratch.Clear();
+                foreach (PingableTarget target in found)
+                {
+                    string name = target.GetDisplayName();
+                    if (!_clusterByNameScratch.TryGetValue(name, out List<PingableTarget> cluster))
+                    {
+                        cluster = new List<PingableTarget>();
+                        _clusterByNameScratch[name] = cluster;
+                        _clustersScratch.Add(cluster);
+                    }
+                    cluster.Add(target);
+                }
+            }
+            else
+            {
+                foreach (PingableTarget target in found)
+                {
+                    _clustersScratch.Add(new List<PingableTarget> { target });
+                }
+            }
 
-            foreach (List<PingableTarget> cluster in clusters)
+            foreach (List<PingableTarget> cluster in _clustersScratch)
             {
                 SpawnOrMerge(cluster, color, duration, enableArrow);
             }
