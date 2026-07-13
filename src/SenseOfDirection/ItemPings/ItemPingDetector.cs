@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using SenseOfDirection.Common;
+using SenseOfDirection.Labels;
 using UnityEngine;
 
 namespace SenseOfDirection.ItemPings
@@ -19,11 +21,24 @@ namespace SenseOfDirection.ItemPings
         public readonly Func<Vector3> GetCenter;
         public readonly Func<string> GetDisplayName;
 
-        public PingableTarget(GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName)
+        /// <summary>
+        /// The game's own icon for this target, when it has one at all - only
+        /// <c>Item</c>s (<c>Item.UIData.GetIcon()</c>, the art vanilla's own
+        /// inventory slots show) and the campfire (its HUD icon, already found
+        /// by <see cref="Labels.NativeAssets"/>) do. Null for everything else:
+        /// luggage carries only a display name, and creatures/hazards have no
+        /// UI representation in the game at all - nothing to borrow. Callers
+        /// (see <c>use-native-item-ping-icons</c>) fall back to the mod's own
+        /// generic item-ping icon for those.
+        /// </summary>
+        public readonly Func<Sprite> GetNativeIcon;
+
+        public PingableTarget(GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName, Func<Sprite> getNativeIcon = null)
         {
             GameObject = gameObject;
             GetCenter = getCenter;
             GetDisplayName = getDisplayName;
+            GetNativeIcon = getNativeIcon;
         }
     }
 
@@ -97,11 +112,11 @@ namespace SenseOfDirection.ItemPings
             var results = new List<PingableTarget>();
             Matched.Clear();
 
-            void Add(GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName)
+            void Add(GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName, Func<Sprite> getNativeIcon = null)
             {
                 if (Matched.Add(gameObject))
                 {
-                    results.Add(new PingableTarget(gameObject, getCenter, getDisplayName));
+                    results.Add(new PingableTarget(gameObject, getCenter, getDisplayName, getNativeIcon));
                 }
             }
 
@@ -165,7 +180,8 @@ namespace SenseOfDirection.ItemPings
                     return;
                 }
                 Item capturedItem = item;
-                Add(capturedItem.gameObject, () => capturedItem.Center(), () => capturedItem.GetItemName());
+                Add(capturedItem.gameObject, () => capturedItem.Center(), () => capturedItem.GetItemName(),
+                    () => NativeIconCache.ForItem(capturedItem));
             }
 
             IReadOnlyList<Item> cachedItems = registry.Items;
@@ -343,7 +359,8 @@ namespace SenseOfDirection.ItemPings
                     Campfire campfire = MapHandler.CurrentCampfire;
                     if (campfire != null && campfire.gameObject.activeInHierarchy && Matches(campfire.transform.position, itemRadiusSq))
                     {
-                        Add(campfire.gameObject, () => campfire.transform.position, () => "Campfire");
+                        Add(campfire.gameObject, () => campfire.transform.position, () => "Campfire",
+                            () => NativeAssets.CampfireIconSprite);
                     }
                 }
 

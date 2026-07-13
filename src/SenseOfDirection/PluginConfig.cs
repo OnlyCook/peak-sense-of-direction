@@ -55,9 +55,11 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> LuggagePingDetectionRadiusMeters;
         public readonly ConfigEntry<float> ItemPingDurationSeconds;
         public readonly ConfigEntry<bool> ShowItemPingName;
+        public readonly ConfigEntry<bool> OnlyShowItemPingNameWithoutIcon;
         public readonly ConfigEntry<bool> ShowItemPingDistance;
         public readonly ConfigEntry<bool> EnableItemPingOffScreenIndicator;
         public readonly ConfigEntry<bool> EnableItemPingGrouping;
+        public readonly ConfigEntry<bool> UseNativeItemPingIcons;
         public readonly ConfigEntry<bool> EnableItemPingHitAssist;
         public readonly ConfigEntry<float> ItemPingHitboxRadiusMeters;
         public readonly ConfigEntry<bool> EnableItemPingRayAssist;
@@ -333,6 +335,15 @@ namespace SenseOfDirection
                 "Item-Pings", "show-item-ping-name", true,
                 "Show the item/luggage's name above its highlight.");
 
+            OnlyShowItemPingNameWithoutIcon = config.Bind(
+                "Item-Pings", "only-show-item-ping-name-without-icon", false,
+                "Only used when show-item-ping-name and use-native-item-ping-icons " +
+                "are both on. Hides the name of anything whose own in-game icon is " +
+                "already being shown (the icon says what it is), while things without " +
+                "one - luggage, creatures, hazards - keep their name, so you can still " +
+                "tell what you pinged. A grouped ping keeps its count either way (a " +
+                "hidden name still shows \"3x\").");
+
             ShowItemPingDistance = config.Bind(
                 "Item-Pings", "show-item-ping-distance", true,
                 "Show a distance sub-line under the item/luggage highlight.");
@@ -347,6 +358,15 @@ namespace SenseOfDirection
                 "Group multiple nearby items of the same kind into a single " +
                 "highlight showing a count (e.g. \"3x Coconut\") instead of one " +
                 "highlight per item.");
+
+            UseNativeItemPingIcons = config.Bind(
+                "Item-Pings", "use-native-item-ping-icons", true,
+                "Show the item's own in-game icon (the art its inventory slot uses - " +
+                "e.g. an actual bandage for a pinged bandage) as the highlight's " +
+                "crosshair and its compass marker, instead of the mod's generic " +
+                "item-ping icon. Only items (and the campfire) have an icon in the " +
+                "game at all - luggage, creatures and hazards keep the generic icon " +
+                "either way.");
 
             EnableItemPingHitAssist = config.Bind(
                 "Item-Pings", "enable-item-ping-hit-assist", true,

@@ -13,12 +13,21 @@ namespace SenseOfDirection.Indicators
     /// </summary>
     public static class OffScreenArrow
     {
+        /// <summary>
+        /// The dart art's own footprint. Exposed because
+        /// <see cref="ItemPings.ItemPingWidget"/> swaps a (square, larger)
+        /// item icon into this same Image while
+        /// <c>use-native-item-ping-icons</c> is on, and needs to be able to put
+        /// the dart's own size back when it swaps out again.
+        /// </summary>
+        public static readonly Vector2 DartSize = new Vector2(19f, 21f);
+
         public static RectTransform Create(RectTransform parent, Color color)
         {
             var arrowGo = new GameObject("Arrow", typeof(RectTransform), typeof(Image), typeof(Shadow));
             var arrowRect = (RectTransform)arrowGo.transform;
             arrowRect.SetParent(parent, false);
-            arrowRect.sizeDelta = new Vector2(19f, 21f);
+            arrowRect.sizeDelta = DartSize;
 
             // Pivot at the shape's own geometric center, not its tail: this
             // rotates in place like a compass needle in a fixed bezel, so it
@@ -38,6 +47,10 @@ namespace SenseOfDirection.Indicators
             arrowImage.sprite = IconAssets.PingArrow;
             arrowImage.color = color;
             arrowImage.raycastTarget = false;
+            // Only matters for the item-ping swap above (the dart's own art is
+            // authored at this exact aspect) - keeps a non-square item icon
+            // from being stretched into whatever box it lands in.
+            arrowImage.preserveAspect = true;
 
             var arrowShadow = arrowGo.GetComponent<Shadow>();
             arrowShadow.effectColor = new Color(0f, 0f, 0f, 0.75f);

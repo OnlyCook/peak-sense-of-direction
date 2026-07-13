@@ -200,7 +200,9 @@ namespace SenseOfDirection.Indicators
                         // couldn't be verified visually until the real sprite
                         // shipped): the +90 offset renders backwards, -90 is
                         // correct - do not "simplify" this back to +90.
-                        anchor.ArrowWidget.localEulerAngles = new Vector3(0f, 0f, state.ArrowAngleDegrees - 90f);
+                        anchor.ArrowWidget.localEulerAngles = anchor.RotateArrowWidget
+                            ? new Vector3(0f, 0f, state.ArrowAngleDegrees - 90f)
+                            : Vector3.zero;
                     }
                 }
 

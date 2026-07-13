@@ -450,7 +450,8 @@ namespace SenseOfDirection.Compass
                     cfg.CompassShowDistances.Value,
                     elevation,
                     anchor.GetIsDead(),
-                    anchor.GetIsUnconscious());
+                    anchor.GetIsUnconscious(),
+                    anchor.GetCompassIcon());
             }
 
             ResolveMarkerOverlaps();
