@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using BepInEx.Logging;
 using HarmonyLib;
 using pworld.Scripts.Extensions;
@@ -54,11 +55,37 @@ namespace SenseOfDirection.Pings
 
         private static ManualLogSource _log;
 
+        /// <summary>
+        /// Reflection resolved once at patch time, not per ping/frame.
+        /// <c>AccessTools.Field</c> was being called on every spawned ping and
+        /// <c>Traverse</c> (which is reflection plus its own caching layer, and
+        /// still the slowest way to read a property) on every <c>canPing</c>
+        /// read - and <c>canPing</c> is read every frame the ping key is held,
+        /// not once per ping.
+        /// </summary>
+        private static FieldInfo _pingInstanceField;
+        private static Func<PointPinger, bool> _inCooldownGetter;
+
+        /// <summary>
+        /// Reused across pings: <see cref="TryGetPingHitPrefix"/> runs a
+        /// spherecast that can return many hits and then sorts them by
+        /// distance. The NonAlloc physics calls fill this instead of allocating
+        /// a fresh array per ping, and the comparison is a cached delegate
+        /// rather than a lambda allocated at each sort.
+        /// </summary>
+        private static readonly RaycastHit[] HitBuffer = new RaycastHit[256];
+        private static readonly IComparer<RaycastHit> ByDistance =
+            Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance));
+
         public static void Apply(Harmony harmony, ManualLogSource log)
         {
             _log = log;
             try
             {
+                _pingInstanceField = AccessTools.Field(typeof(PointPinger), "pingInstance");
+                _inCooldownGetter = AccessTools.MethodDelegate<Func<PointPinger, bool>>(
+                    AccessTools.PropertyGetter(typeof(PointPinger), "inCooldown"));
+
                 var receivePointRpc = AccessTools.Method(typeof(PointPinger), "ReceivePoint_Rpc");
                 harmony.Patch(receivePointRpc, prefix: new HarmonyMethod(typeof(PointPingerPatches), nameof(ReceivePointRpcPrefix)));
 
@@ -138,13 +165,32 @@ namespace SenseOfDirection.Pings
                         // layer. Skip past those to the first hit that isn't
                         // part of the local hand/held item (ISSUES.md: "you'll
                         // ping the held item instead").
-                        RaycastHit[] hits = sphereRadiusUnits > 0f
-                            ? Physics.SphereCastAll(ray, sphereRadiusUnits, 1000f, mask, QueryTriggerInteraction.Collide)
-                            : Physics.RaycastAll(ray, 1000f, mask, QueryTriggerInteraction.Collide);
-                        Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+                        RaycastHit[] hits = HitBuffer;
+                        int hitCount = sphereRadiusUnits > 0f
+                            ? Physics.SphereCastNonAlloc(ray, sphereRadiusUnits, HitBuffer, 1000f, mask, QueryTriggerInteraction.Collide)
+                            : Physics.RaycastNonAlloc(ray, HitBuffer, 1000f, mask, QueryTriggerInteraction.Collide);
 
-                        foreach (RaycastHit candidate in hits)
+                        // A filled buffer means the query had more hits than it
+                        // could hand back, and the ones it dropped are an
+                        // arbitrary subset - not the furthest ones. Along a
+                        // 1000m cast through a dense level that could quietly
+                        // throw away the very hit the ping should have landed
+                        // on, so fall back to the allocating all-hits form for
+                        // that (rare) case rather than mispositioning the ping
+                        // to save an allocation.
+                        if (hitCount == HitBuffer.Length)
                         {
+                            hits = sphereRadiusUnits > 0f
+                                ? Physics.SphereCastAll(ray, sphereRadiusUnits, 1000f, mask, QueryTriggerInteraction.Collide)
+                                : Physics.RaycastAll(ray, 1000f, mask, QueryTriggerInteraction.Collide);
+                            hitCount = hits.Length;
+                        }
+
+                        Array.Sort(hits, 0, hitCount, ByDistance);
+
+                        for (int i = 0; i < hitCount; i++)
+                        {
+                            RaycastHit candidate = hits[i];
                             if (!IsLocalHandOrHeldItem(candidate.collider))
                             {
                                 hit = candidate;
@@ -220,8 +266,11 @@ namespace SenseOfDirection.Pings
             {
                 return true;
             }
-            bool inCooldown = Traverse.Create(__instance).Property("inCooldown").GetValue<bool>();
-            __result = !inCooldown;
+            if (_inCooldownGetter == null)
+            {
+                return true;
+            }
+            __result = !_inCooldownGetter(__instance);
             return false;
         }
 
@@ -407,8 +456,7 @@ namespace SenseOfDirection.Pings
                 }
             }
 
-            var pingInstanceField = AccessTools.Field(typeof(PointPinger), "pingInstance");
-            if (pingInstanceField.GetValue(__instance) is GameObject existing && existing != null)
+            if (_pingInstanceField.GetValue(__instance) is GameObject existing && existing != null)
             {
                 UnityEngine.Object.DestroyImmediate(existing);
             }
@@ -416,7 +464,7 @@ namespace SenseOfDirection.Pings
             GameObject spawned = UnityEngine.Object.Instantiate(
                 __instance.pointPrefab, point,
                 Quaternion.LookRotation((point - pingerPosition).normalized, Vector3.up));
-            pingInstanceField.SetValue(__instance, spawned);
+            _pingInstanceField.SetValue(__instance, spawned);
 
             PointPing spawnedPing = spawned.GetComponent<PointPing>();
             spawnedPing.hitNormal = hitNormal;

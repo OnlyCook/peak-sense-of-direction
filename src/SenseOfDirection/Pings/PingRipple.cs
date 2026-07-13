@@ -26,7 +26,6 @@ namespace SenseOfDirection.Pings
         private const float BaseMaxRadius = 2f;
 
         private Renderer _renderer;
-        private Material _material;
         private Color _color;
         private Transform _pingTransform;
         private float _elapsed;
@@ -45,13 +44,47 @@ namespace SenseOfDirection.Pings
         /// </summary>
         private float _lastKnownPingScale = 1f;
 
+        /// <summary>
+        /// Mesh and material, resolved once instead of once per ripple.
+        /// <c>GameObject.CreatePrimitive</c> (what this used to spawn with)
+        /// builds a GameObject *and* a SphereCollider that was then immediately
+        /// destroyed again - a physics object created and torn down for
+        /// nothing, on the ping path - <c>Shader.Find</c> is a by-name lookup
+        /// through every loaded shader, and a <c>new Material</c> per ripple
+        /// makes the renderer set up a fresh shader variant each time. None of
+        /// that varies per ripple: only the color does, and that's per-instance
+        /// state a <see cref="MaterialPropertyBlock"/> carries without touching
+        /// the material at all.
+        /// </summary>
+        private static Mesh _sphereMesh;
+        private static Material _sharedMaterial;
+        private static MaterialPropertyBlock _propertyBlock;
+        private static readonly int ColorProperty = Shader.PropertyToID("_Color");
+
+        /// <summary>Resolves the shared mesh/material. Safe to call repeatedly; <see cref="Common.PingPrewarm"/> calls it before any ping does.</summary>
+        internal static void EnsureAssets()
+        {
+            if (_sphereMesh == null)
+            {
+                GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                _sphereMesh = primitive.GetComponent<MeshFilter>().sharedMesh;
+                Object.Destroy(primitive);
+            }
+            if (_sharedMaterial == null)
+            {
+                _sharedMaterial = new Material(Shader.Find("Sprites/Default"));
+            }
+            _propertyBlock ??= new MaterialPropertyBlock();
+        }
+
         public static void Spawn(Vector3 worldPosition, Color color, Transform pingTransform)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "SoD.PingRipple";
-            Object.Destroy(go.GetComponent<Collider>());
+            EnsureAssets();
+
+            var go = new GameObject("SoD.PingRipple", typeof(MeshFilter), typeof(MeshRenderer));
             go.transform.position = worldPosition;
             go.transform.localScale = Vector3.one * (StartRadius * 2f);
+            go.GetComponent<MeshFilter>().sharedMesh = _sphereMesh;
 
             var ripple = go.AddComponent<PingRipple>();
             ripple._pingTransform = pingTransform;
@@ -64,10 +97,16 @@ namespace SenseOfDirection.Pings
             _renderer = GetComponent<Renderer>();
             _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             _renderer.receiveShadows = false;
+            _renderer.sharedMaterial = _sharedMaterial;
+            ApplyColor(_color);
+        }
 
-            _material = new Material(Shader.Find("Sprites/Default"));
-            _material.color = _color;
-            _renderer.material = _material;
+        /// <summary>Per-ripple tint/alpha, applied without instancing a material per ripple (see <see cref="EnsureAssets"/>).</summary>
+        private void ApplyColor(Color color)
+        {
+            _renderer.GetPropertyBlock(_propertyBlock);
+            _propertyBlock.SetColor(ColorProperty, color);
+            _renderer.SetPropertyBlock(_propertyBlock);
         }
 
         private void Update()
@@ -84,7 +123,7 @@ namespace SenseOfDirection.Pings
 
             Color c = _color;
             c.a = (1f - t) * 0.5f;
-            _material.color = c;
+            ApplyColor(c);
 
             if (t >= 1f)
             {

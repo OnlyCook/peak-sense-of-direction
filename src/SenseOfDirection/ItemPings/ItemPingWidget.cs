@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
@@ -20,33 +22,89 @@ namespace SenseOfDirection.ItemPings
     /// compass uses for item pings) sits between the name and distance line so
     /// the widget reads as a crosshair on the pinged object rather than just
     /// floating text.
+    ///
+    /// Pooled (<see cref="Rent"/>/<see cref="Release"/>), because one of these
+    /// is built per pinged item group and thrown away a few seconds later:
+    /// building the hierarchy means five GameObjects carrying two TMP texts and
+    /// two Images, each of which allocates a mesh and pulls a material, and
+    /// pinging a pile of loot builds several of them in the same frame. Rented
+    /// widgets are re-bound (<see cref="Bind"/>) to a new target/color instead,
+    /// and <see cref="Prewarm"/> fills the pool while nothing is happening, so
+    /// even the very first ping of a session doesn't pay for the first one.
     /// </summary>
     public class ItemPingWidget
     {
-        public readonly IndicatorAnchor Anchor;
+        private static readonly Stack<ItemPingWidget> Pool = new Stack<ItemPingWidget>();
+
+        public IndicatorAnchor Anchor { get; private set; }
         public CanvasGroup CanvasGroup { get; }
 
+        private readonly RectTransform _root;
+        private readonly RectTransform _arrow;
+        private readonly RectTransform _crosshair;
+        private readonly RectTransform _labelGroup;
+        private readonly Image _arrowImage;
+        private readonly Image _crosshairImage;
         private readonly TMP_Text _nameText;
         private readonly TMP_Text _distanceText;
 
-        private ItemPingWidget(RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, RectTransform crosshairRect, RectTransform labelGroup, TMP_Text nameText, TMP_Text distanceText, System.Func<Vector3> getWorldPosition)
+        /// <summary>
+        /// Last text each label was measured at, and the half-width that came
+        /// out. <c>TMP_Text.GetPreferredValues()</c> runs a full text layout
+        /// pass, and <see cref="Refresh"/> is called every frame by
+        /// <see cref="ItemPingHighlight"/> - but the text only changes when the
+        /// item name or the rounded distance does, so measuring on every frame
+        /// was re-deriving a value that had not moved. Null means "not measured
+        /// yet", which no real label text can be.
+        /// </summary>
+        private string _measuredName;
+        private float _measuredNameHalfWidth;
+        private string _measuredDistance;
+        private float _measuredDistanceHalfWidth;
+
+        private int _lastDistanceMeters = int.MinValue;
+
+        private ItemPingWidget(
+            RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, Image arrowImage,
+            RectTransform crosshair, Image crosshairImage, RectTransform labelGroup,
+            TMP_Text nameText, TMP_Text distanceText)
         {
+            _root = root;
             CanvasGroup = canvasGroup;
+            _arrow = arrow;
+            _arrowImage = arrowImage;
+            _crosshair = crosshair;
+            _crosshairImage = crosshairImage;
+            _labelGroup = labelGroup;
             _nameText = nameText;
             _distanceText = distanceText;
-            // Root is a tiny 20x20 anchor point; the real footprint spans
-            // the name label above it down through the distance sub-line
-            // below. Refined every Refresh() call to the actual rendered
-            // text width instead of a generous static guess - an
-            // over-wide box here made overlap resolution trigger (and push
-            // labels away) far more than actually needed. LabelWidget =
-            // labelGroup (not root) so overlap resolution only ever nudges
-            // the name/distance text, never the arrow or the on-screen
-            // crosshair - both need to stay exactly on the tracked position.
-            Anchor = new IndicatorAnchor(getWorldPosition, root, arrow, crosshairRect) { OverlapSize = new Vector2(120f, 60f), LabelWidget = labelGroup };
         }
 
-        public static ItemPingWidget Create(System.Func<Vector3> getWorldPosition, Color color, bool enableArrow)
+        /// <summary>Takes a widget from the pool (building one only if it's empty) and binds it to a fresh target/color.</summary>
+        public static ItemPingWidget Rent(Func<Vector3> getWorldPosition, Color color, bool enableArrow)
+        {
+            ItemPingWidget widget = Pool.Count > 0 ? Pool.Pop() : Build();
+            widget.Bind(getWorldPosition, color, enableArrow);
+            return widget;
+        }
+
+        /// <summary>
+        /// Builds <paramref name="count"/> widgets up front and parks them in
+        /// the pool - see <see cref="Common.PingPrewarm"/>, which also drives a
+        /// throwaway text through each one so TMP has already built its mesh
+        /// and font atlas entries by the time a real ping needs them.
+        /// </summary>
+        public static void Prewarm(int count)
+        {
+            while (Pool.Count < count)
+            {
+                ItemPingWidget widget = Build();
+                widget.WarmText();
+                Pool.Push(widget);
+            }
+        }
+
+        private static ItemPingWidget Build()
         {
             RectTransform canvasTransform = IndicatorManager.Instance.CanvasTransform;
 
@@ -54,17 +112,22 @@ namespace SenseOfDirection.ItemPings
             var root = (RectTransform)rootGo.transform;
             root.SetParent(canvasTransform, false);
             root.sizeDelta = new Vector2(20f, 20f);
+            rootGo.SetActive(false);
 
             var canvasGroup = rootGo.AddComponent<CanvasGroup>();
             canvasGroup.alpha = 1f;
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
 
-            RectTransform arrowRect = enableArrow ? OffScreenArrow.Create(root, color) : null;
+            // Always built, shown or hidden per binding (enable-item-ping-off-
+            // screen-indicator is a live config toggle, and a pooled widget can
+            // be rented next under the opposite setting).
+            RectTransform arrowRect = OffScreenArrow.Create(root, Color.white);
+            Image arrowImage = arrowRect.GetComponent<Image>();
 
             // Home position (0,0) relative to root - overlap resolution
-            // nudges this transform, not root/arrow/crosshair (see
-            // LabelWidget above).
+            // nudges this transform, not root/arrow/crosshair (see the
+            // LabelWidget assignment in Bind).
             var labelGroupGo = new GameObject("LabelGroup", typeof(RectTransform));
             var labelGroupRect = (RectTransform)labelGroupGo.transform;
             labelGroupRect.SetParent(root, false);
@@ -77,7 +140,6 @@ namespace SenseOfDirection.ItemPings
 
             var nameText = nameGo.GetComponent<TextMeshProUGUI>();
             nameText.alignment = TextAlignmentOptions.Center;
-            nameText.color = color;
             nameText.fontSize = 20f;
             nameText.enableWordWrapping = false;
             nameText.overflowMode = TextOverflowModes.Overflow;
@@ -90,7 +152,6 @@ namespace SenseOfDirection.ItemPings
 
             var distanceText = distGo.GetComponent<TextMeshProUGUI>();
             distanceText.alignment = TextAlignmentOptions.Center;
-            distanceText.color = color;
             distanceText.fontSize = 16f;
             distanceText.enableWordWrapping = false;
 
@@ -108,19 +169,94 @@ namespace SenseOfDirection.ItemPings
 
             var crosshairIcon = crosshairGo.GetComponent<Image>();
             crosshairIcon.sprite = IconAssets.ItemPingDiamond;
-            crosshairIcon.color = color;
             crosshairIcon.raycastTarget = false;
             crosshairIcon.preserveAspect = true;
 
-            return new ItemPingWidget(root, canvasGroup, arrowRect, crosshairRect, labelGroupRect, nameText, distanceText, getWorldPosition);
+            return new ItemPingWidget(root, canvasGroup, arrowRect, arrowImage, crosshairRect, crosshairIcon, labelGroupRect, nameText, distanceText);
+        }
+
+        private void Bind(Func<Vector3> getWorldPosition, Color color, bool enableArrow)
+        {
+            _nameText.color = color;
+            _distanceText.color = color;
+            _crosshairImage.color = color;
+            _arrowImage.color = color;
+            _arrow.gameObject.SetActive(enableArrow);
+
+            _labelGroup.anchoredPosition = Vector2.zero;
+            CanvasGroup.alpha = 1f;
+            _root.gameObject.SetActive(true);
+
+            // Root is a tiny 20x20 anchor point; the real footprint spans
+            // the name label above it down through the distance sub-line
+            // below. Refined every Refresh() call to the actual rendered
+            // text width instead of a generous static guess - an
+            // over-wide box here made overlap resolution trigger (and push
+            // labels away) far more than actually needed. LabelWidget =
+            // labelGroup (not root) so overlap resolution only ever nudges
+            // the name/distance text, never the arrow or the on-screen
+            // crosshair - both need to stay exactly on the tracked position.
+            Anchor = new IndicatorAnchor(getWorldPosition, _root, enableArrow ? _arrow : null, _crosshair)
+            {
+                OverlapSize = new Vector2(120f, 60f),
+                LabelWidget = _labelGroup,
+                ReleaseWidget = Release,
+            };
+        }
+
+        /// <summary>
+        /// Handed back to the pool by <see cref="IndicatorManager.UnregisterAnchor"/>
+        /// (via <see cref="IndicatorAnchor.ReleaseWidget"/>) once this widget's
+        /// highlight has finished fading out.
+        /// </summary>
+        private void Release()
+        {
+            // A destroyed root (scene change, or something else tearing the
+            // canvas down) must not go back into the pool - the next renter
+            // would get a widget whose GameObjects no longer exist.
+            if (_root == null)
+            {
+                return;
+            }
+
+            Anchor = null;
+            _root.gameObject.SetActive(false);
+            CanvasGroup.alpha = 1f;
+            Pool.Push(this);
+        }
+
+        /// <summary>Drives one throwaway layout/mesh build per text so a prewarmed widget's first real Refresh isn't also TMP's first.</summary>
+        private void WarmText()
+        {
+            _nameText.text = "WARMUP";
+            _distanceText.text = "0m";
+            _nameText.ForceMeshUpdate();
+            _distanceText.ForceMeshUpdate();
+            _nameText.text = string.Empty;
+            _distanceText.text = string.Empty;
+            _measuredName = null;
+            _measuredDistance = null;
+            _lastDistanceMeters = int.MinValue;
         }
 
         public void Refresh(string displayName, float distanceMeters, bool showName, bool showDistance)
         {
             if (NativeAssets.Font != null)
             {
-                if (_nameText.font != NativeAssets.Font) _nameText.font = NativeAssets.Font;
-                if (_distanceText.font != NativeAssets.Font) _distanceText.font = NativeAssets.Font;
+                // Swapping the font changes how wide the same string renders,
+                // so any cached measurement taken under the old one is void
+                // (see MeasureHalfWidth) - this happens at most once per widget,
+                // the first time the game's own font is found.
+                if (_nameText.font != NativeAssets.Font)
+                {
+                    _nameText.font = NativeAssets.Font;
+                    _measuredName = null;
+                }
+                if (_distanceText.font != NativeAssets.Font)
+                {
+                    _distanceText.font = NativeAssets.Font;
+                    _measuredDistance = null;
+                }
             }
             if (NativeAssets.OutlineMaterial != null)
             {
@@ -129,7 +265,7 @@ namespace SenseOfDirection.ItemPings
             }
 
             _nameText.gameObject.SetActive(showName);
-            if (showName)
+            if (showName && !string.Equals(_nameText.text, displayName, StringComparison.Ordinal))
             {
                 _nameText.text = displayName;
             }
@@ -137,7 +273,17 @@ namespace SenseOfDirection.ItemPings
             _distanceText.gameObject.SetActive(showDistance);
             if (showDistance)
             {
-                _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
+                // Only ever rebuilt when the whole-metre reading actually
+                // changes: the string interpolation allocates, and assigning
+                // TMP_Text.text schedules a mesh rebuild, both of which used to
+                // happen every frame for every live item ping even while
+                // standing still.
+                int rounded = Mathf.RoundToInt(distanceMeters);
+                if (rounded != _lastDistanceMeters)
+                {
+                    _lastDistanceMeters = rounded;
+                    _distanceText.text = $"{rounded}m";
+                }
             }
 
             // The widget is centered on its anchor point, but IndicatorManager
@@ -148,15 +294,16 @@ namespace SenseOfDirection.ItemPings
             // the label's own left/right half was clipping past the physical
             // screen edge even though its anchor point was safely on-screen.
             // Widen the margin to always cover half the widest currently-shown
-            // label text, recomputed every refresh since text changes live.
+            // label text - re-measured only when that text changes (see
+            // _measuredName), not every frame.
             float widestHalf = 0f;
             if (showName)
             {
-                widestHalf = Mathf.Max(widestHalf, _nameText.GetPreferredValues().x * 0.5f);
+                widestHalf = Mathf.Max(widestHalf, MeasureHalfWidth(_nameText, ref _measuredName, ref _measuredNameHalfWidth));
             }
             if (showDistance)
             {
-                widestHalf = Mathf.Max(widestHalf, _distanceText.GetPreferredValues().x * 0.5f);
+                widestHalf = Mathf.Max(widestHalf, MeasureHalfWidth(_distanceText, ref _measuredDistance, ref _measuredDistanceHalfWidth));
             }
             Anchor.EdgeMarginPixels = Mathf.Max(48f, widestHalf + 12f);
 
@@ -182,6 +329,17 @@ namespace SenseOfDirection.ItemPings
             float bottom = showDistance ? -30f : 10f;
             Anchor.OverlapSize = new Vector2(widestHalf * 2f + 12f, top - bottom);
             Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
+        }
+
+        /// <summary>Half the rendered width of <paramref name="text"/>, re-measured only when its string has changed since the last call.</summary>
+        private static float MeasureHalfWidth(TMP_Text text, ref string measuredText, ref float measuredHalfWidth)
+        {
+            if (!string.Equals(measuredText, text.text, StringComparison.Ordinal))
+            {
+                measuredText = text.text;
+                measuredHalfWidth = text.GetPreferredValues().x * 0.5f;
+            }
+            return measuredHalfWidth;
         }
     }
 }

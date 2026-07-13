@@ -29,7 +29,7 @@ namespace SenseOfDirection.Pings
             // ping (ItemPingWidget, via ItemPingHighlight), so showing the
             // generic ping's arrow too just stacks two overlapping arrows
             // pointing at the same spot with different lifetimes.
-            link._widget = PingWidget.Create(() => link._worldPosition, color, enableArrow && !itemPingHandled);
+            link._widget = PingWidget.Rent(() => link._worldPosition, color, enableArrow && !itemPingHandled);
             link._widget.Refresh(0f, showDistance);
 
             // An item ping already got its own (more useful, named) compass

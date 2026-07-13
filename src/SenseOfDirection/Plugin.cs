@@ -1,6 +1,7 @@
 using BepInEx;
 using HarmonyLib;
 using SenseOfDirection.CampfireIndicator;
+using SenseOfDirection.Common;
 using SenseOfDirection.Compass;
 using SenseOfDirection.GhostFreeCam;
 using SenseOfDirection.Indicators;
@@ -55,6 +56,12 @@ namespace SenseOfDirection
 
             // Phase 7: same no-op-when-disabled pattern - internally checks EnableCompass.
             _ = CompassManager.Instance;
+
+            // Keeps the "what's pingable in this level" sweep (and every icon/
+            // widget/mesh a ping needs) off the ping path itself, so pinging
+            // never has to stop and build something first.
+            _ = PingableRegistry.Instance;
+            _ = PingPrewarm.Instance;
 
             // Temporary dev/QA aid (see ZombieDebugEsp's own doc comment) -
             // same no-op-when-disabled pattern, internally checks EnableZombieDebugEsp.

@@ -44,20 +44,41 @@ namespace SenseOfDirection.Indicators
         private const float OverlapOffsetSpeedPixelsPerSecond = 240f;
 
         /// <summary>
-        /// Pixels/second an anchor's widget position is smoothed towards its
-        /// freshly-computed <see cref="ScreenSpaceTracker"/> target at. Normal
-        /// on-screen tracking or off-screen edge-panning moves well under this
-        /// cap, so it's invisible there - it only kicks in for the one case it
-        /// exists for: the instant a tracked point crosses the on/off-screen
-        /// boundary, where the target position itself discontinuously jumps
-        /// from the real projected point to the clamped-edge point (or, worse,
-        /// near the exact behind-camera transition, to the opposite side of the
-        /// screen). Without this, that jump rendered as a hard snap instead of
-        /// a slide.
+        /// How long an anchor's widget takes to slide between its on-screen
+        /// form (sitting on the projected point) and its off-screen form
+        /// (clamped to the canvas edge) when the tracked point crosses that
+        /// boundary - the one moment where the target position genuinely jumps.
+        /// Short on purpose: it should read as the label morphing, not as the
+        /// label taking a trip.
         /// </summary>
-        private const float PositionSmoothSpeedPixelsPerSecond = 3000f;
+        private const float TransitionDurationSeconds = 0.18f;
 
-        private readonly Dictionary<IndicatorAnchor, Vector2> _smoothedPosition = new Dictionary<IndicatorAnchor, Vector2>();
+        /// <summary>
+        /// Per-anchor on/off-screen transition. Every frame the widget sits on
+        /// its exact tracked target - no continuous smoothing, because that's
+        /// what made an off-screen label lag behind the edge it's panning along
+        /// and made a mid-air jump from one edge to the opposite one (which
+        /// happens near the behind-camera transition, while the point stays
+        /// off-screen throughout) render as a slow crawl across the screen.
+        /// Instead, only a real <see cref="IndicatorState.IsOffScreen"/> flip
+        /// starts a transition: the widget's current position is frozen as the
+        /// start point and, for <see cref="TransitionDurationSeconds"/>, the
+        /// widget eases from it to the <em>live</em> target. Lerping towards the
+        /// live target (rather than chasing it at a fixed speed) means the
+        /// widget lands exactly on it when the transition ends, with nothing to
+        /// overshoot and nothing to counteract afterwards.
+        /// </summary>
+        private struct TransitionState
+        {
+            public bool WasOffScreen;
+            public Vector2 StartPosition;
+            public float Elapsed;
+
+            /// <summary>Last position actually applied to the widget - the start point if a flip happens next frame.</summary>
+            public Vector2 CurrentPosition;
+        }
+
+        private readonly Dictionary<IndicatorAnchor, TransitionState> _transitions = new Dictionary<IndicatorAnchor, TransitionState>();
 
         private readonly List<IndicatorAnchor> _overlapCandidates = new List<IndicatorAnchor>();
         private readonly List<Vector2> _overlapBasePositionsScratch = new List<Vector2>();
@@ -102,8 +123,13 @@ namespace SenseOfDirection.Indicators
             _overlapBasePosition.Remove(anchor);
             _overlapBoxPosition.Remove(anchor);
             _overlapOffset.Remove(anchor);
-            _smoothedPosition.Remove(anchor);
-            if (anchor.Widget != null)
+            _transitions.Remove(anchor);
+
+            if (anchor.ReleaseWidget != null)
+            {
+                anchor.ReleaseWidget();
+            }
+            else if (anchor.Widget != null)
             {
                 Destroy(anchor.Widget.gameObject);
             }
@@ -148,23 +174,19 @@ namespace SenseOfDirection.Indicators
                     // Dropped so a later reappearance snaps straight to its
                     // fresh target instead of sliding in from a stale
                     // position last seen possibly a while ago.
-                    _smoothedPosition.Remove(anchor);
+                    _transitions.Remove(anchor);
                     continue;
                 }
 
                 var state = ScreenSpaceTracker.Compute(camera, canvasSize, anchor.GetWorldPosition(), anchor.EdgeMarginPixels);
-
-                Vector2 smoothedPosition = _smoothedPosition.TryGetValue(anchor, out Vector2 previousPosition)
-                    ? Vector2.MoveTowards(previousPosition, state.CanvasPosition, Time.deltaTime * PositionSmoothSpeedPixelsPerSecond)
-                    : state.CanvasPosition;
-                _smoothedPosition[anchor] = smoothedPosition;
-                anchor.Widget.anchoredPosition = smoothedPosition;
+                Vector2 position = ResolveTransitionedPosition(anchor, state);
+                anchor.Widget.anchoredPosition = position;
 
                 if (anchor.OverlapSize.x > 0f && anchor.OverlapSize.y > 0f)
                 {
                     _overlapCandidates.Add(anchor);
-                    _overlapBasePosition[anchor] = smoothedPosition;
-                    _overlapBoxPosition[anchor] = smoothedPosition + anchor.OverlapCenterOffset;
+                    _overlapBasePosition[anchor] = position;
+                    _overlapBoxPosition[anchor] = position + anchor.OverlapCenterOffset;
                 }
 
                 if (anchor.ArrowWidget != null)
@@ -189,6 +211,51 @@ namespace SenseOfDirection.Indicators
             }
 
             ResolveLabelOverlaps();
+        }
+
+        /// <summary>
+        /// Where this anchor's widget goes this frame: its exact tracked target,
+        /// except during the brief ease that an on/off-screen flip kicks off (see
+        /// <see cref="TransitionState"/>). A flip mid-transition just re-starts
+        /// the ease from wherever the widget currently is, so a player swinging
+        /// in and out of view reverses smoothly instead of finishing a trip it
+        /// no longer wants to make.
+        /// </summary>
+        private Vector2 ResolveTransitionedPosition(IndicatorAnchor anchor, IndicatorState state)
+        {
+            Vector2 target = state.CanvasPosition;
+
+            if (!_transitions.TryGetValue(anchor, out TransitionState transition))
+            {
+                // First frame for this anchor: it has no previous position to
+                // come from, so it belongs on its target right away.
+                _transitions[anchor] = new TransitionState
+                {
+                    WasOffScreen = state.IsOffScreen,
+                    Elapsed = TransitionDurationSeconds,
+                    CurrentPosition = target,
+                };
+                return target;
+            }
+
+            if (transition.WasOffScreen != state.IsOffScreen)
+            {
+                transition.WasOffScreen = state.IsOffScreen;
+                transition.StartPosition = transition.CurrentPosition;
+                transition.Elapsed = 0f;
+            }
+
+            Vector2 position = target;
+            if (transition.Elapsed < TransitionDurationSeconds)
+            {
+                transition.Elapsed += Time.deltaTime;
+                float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(transition.Elapsed / TransitionDurationSeconds));
+                position = Vector2.Lerp(transition.StartPosition, target, t);
+            }
+
+            transition.CurrentPosition = position;
+            _transitions[anchor] = transition;
+            return position;
         }
 
         /// <summary>
@@ -239,7 +306,7 @@ namespace SenseOfDirection.Indicators
             }
             else
             {
-                targetOffsets = new Vector2[_overlapCandidates.Count];
+                targetOffsets = LabelOverlapResolver.ZeroOffsets(_overlapCandidates.Count);
             }
 
             for (int i = 0; i < _overlapCandidates.Count; i++)

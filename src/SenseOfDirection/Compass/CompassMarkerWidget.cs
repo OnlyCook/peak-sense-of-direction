@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using SenseOfDirection.Common;
 using SenseOfDirection.Labels;
 using TMPro;
@@ -73,6 +74,9 @@ namespace SenseOfDirection.Compass
         /// <summary>0 = name/distance straddle the icon at full spacing; 1 = pulled together, for a label staggered onto a row of its own. See <see cref="SetLabelCompaction"/>.</summary>
         private float _labelCompaction;
 
+        /// <summary>Last whole-metre distance the label was built for - see <see cref="Refresh"/>.</summary>
+        private int _lastDistanceMeters = int.MinValue;
+
         /// <summary>
         /// Lazily-instanced material for tinted (Ping/ItemPing) name/distance
         /// text so its outline can be darkened per-anchor-color without
@@ -112,6 +116,79 @@ namespace SenseOfDirection.Compass
             : isUnconscious
                 ? IconAssets.PlayerUnconsciousFace
                 : IconAssets.PlayerFace;
+
+        /// <summary>
+        /// Pooled per kind (the icon sprite/outline set is baked in at build
+        /// time, so a Ping marker can't be reused as a Player one). A marker is
+        /// thirteen GameObjects - eight outline Images, the icon, three TMP
+        /// texts - and pings create and destroy one per ping, per pinged item
+        /// group: rebuilding that hierarchy from scratch each time is exactly
+        /// the churn ISSUES.md' "never stutter when pinging" entry is about.
+        /// </summary>
+        private static readonly Dictionary<CompassMarkerKind, Stack<CompassMarkerWidget>> Pool =
+            new Dictionary<CompassMarkerKind, Stack<CompassMarkerWidget>>();
+
+        /// <summary>Takes a marker of this kind from the pool, building one only if it's empty.</summary>
+        public static CompassMarkerWidget Rent(RectTransform parent, CompassMarkerKind kind)
+        {
+            if (Pool.TryGetValue(kind, out Stack<CompassMarkerWidget> pooled) && pooled.Count > 0)
+            {
+                CompassMarkerWidget widget = pooled.Pop();
+                if (widget.Root != null)
+                {
+                    widget.Root.SetParent(parent, false);
+                    widget.Root.anchoredPosition = Vector2.zero;
+                    widget.LabelGroup.anchoredPosition = Vector2.zero;
+                    widget._labelCompaction = 0f;
+                    widget._lastDistanceMeters = int.MinValue;
+                    widget.Root.gameObject.SetActive(true);
+                    return widget;
+                }
+            }
+            return Create(parent, kind);
+        }
+
+        /// <summary>Parks a no-longer-shown marker back in its kind's pool instead of destroying it.</summary>
+        public static void Release(CompassMarkerWidget widget)
+        {
+            if (widget == null || widget.Root == null)
+            {
+                return;
+            }
+
+            widget.Root.gameObject.SetActive(false);
+            widget.CanvasGroup.alpha = 0f;
+
+            if (!Pool.TryGetValue(widget._kind, out Stack<CompassMarkerWidget> pooled))
+            {
+                pooled = new Stack<CompassMarkerWidget>();
+                Pool[widget._kind] = pooled;
+            }
+            pooled.Push(widget);
+        }
+
+        /// <summary>Builds markers of this kind up front and parks them in the pool - see <see cref="Common.PingPrewarm"/>.</summary>
+        public static void Prewarm(RectTransform parent, CompassMarkerKind kind, int count)
+        {
+            if (!Pool.TryGetValue(kind, out Stack<CompassMarkerWidget> pooled))
+            {
+                pooled = new Stack<CompassMarkerWidget>();
+                Pool[kind] = pooled;
+            }
+
+            while (pooled.Count < count)
+            {
+                CompassMarkerWidget widget = Create(parent, kind);
+                widget._nameText.text = "WARMUP";
+                widget._distanceText.text = "0m";
+                widget._nameText.ForceMeshUpdate();
+                widget._distanceText.ForceMeshUpdate();
+                widget._nameText.text = string.Empty;
+                widget._distanceText.text = string.Empty;
+                widget.Root.gameObject.SetActive(false);
+                pooled.Push(widget);
+            }
+        }
 
         public static CompassMarkerWidget Create(RectTransform parent, CompassMarkerKind kind)
         {
@@ -279,18 +356,6 @@ namespace SenseOfDirection.Compass
             ((RectTransform)_distanceText.transform).anchoredPosition = new Vector2(0f, distY);
         }
 
-        public void Destroy()
-        {
-            if (Root != null)
-            {
-                Object.Destroy(Root.gameObject);
-            }
-            if (_tintedTextMaterial != null)
-            {
-                Object.Destroy(_tintedTextMaterial);
-            }
-        }
-
         public void Refresh(
             float iconSizePixels, Color color, string name, float distanceMeters,
             bool showName, bool showDistance, CompassElevation elevation,
@@ -390,7 +455,16 @@ namespace SenseOfDirection.Compass
             _distanceText.gameObject.SetActive(showDistance);
             if (showDistance)
             {
-                _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
+                // Rebuilt only when the whole-metre reading changes - this runs
+                // every frame for every marker on the tape, and both the
+                // interpolation and the TMP text assignment (which schedules a
+                // mesh rebuild) are needless when the number hasn't moved.
+                int rounded = Mathf.RoundToInt(distanceMeters);
+                if (rounded != _lastDistanceMeters)
+                {
+                    _lastDistanceMeters = rounded;
+                    _distanceText.text = $"{rounded}m";
+                }
             }
 
             // Icon size is only known here (it's a live config value), so the

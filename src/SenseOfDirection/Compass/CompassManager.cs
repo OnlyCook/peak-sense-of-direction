@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
@@ -82,6 +81,12 @@ namespace SenseOfDirection.Compass
 
         private readonly List<CompassTick> _ticks = new List<CompassTick>();
         private readonly Dictionary<IndicatorAnchor, CompassMarkerWidget> _markers = new Dictionary<IndicatorAnchor, CompassMarkerWidget>();
+
+        /// <summary>Parent every compass marker hangs off - exposed so <see cref="Common.PingPrewarm"/> can build the pooled ping/item-ping markers ahead of the first ping that needs one.</summary>
+        internal RectTransform MarkerRoot => _root;
+
+        private readonly HashSet<IndicatorAnchor> _seenScratch = new HashSet<IndicatorAnchor>();
+        private readonly List<IndicatorAnchor> _staleScratch = new List<IndicatorAnchor>();
 
         private readonly List<IndicatorAnchor> _overlapCandidates = new List<IndicatorAnchor>();
         private readonly List<Vector2> _overlapBasePositionsScratch = new List<Vector2>();
@@ -333,7 +338,10 @@ namespace SenseOfDirection.Compass
 
         private void UpdateMarkers(float cameraYaw, float halfFov, float halfWidth, float baselineY, Vector3 camPos, PluginConfig cfg)
         {
-            var seen = new HashSet<IndicatorAnchor>();
+            // Reused rather than reallocated per frame (this runs every frame,
+            // for every registered anchor).
+            _seenScratch.Clear();
+            _staleScratch.Clear();
             _overlapCandidates.Clear();
 
             foreach (IndicatorAnchor anchor in IndicatorManager.Instance.Anchors)
@@ -342,7 +350,7 @@ namespace SenseOfDirection.Compass
                 {
                     continue;
                 }
-                seen.Add(anchor);
+                _seenScratch.Add(anchor);
 
                 bool wantsCompass = anchor.GetDisplayMode() != IndicatorDisplayMode.OffScreenOnly;
                 bool structurallyOk = anchor.IsActive() && anchor.IsCompassVisible();
@@ -353,7 +361,7 @@ namespace SenseOfDirection.Compass
                     {
                         continue;
                     }
-                    widget = CompassMarkerWidget.Create(_root, anchor.CompassKind);
+                    widget = CompassMarkerWidget.Rent(_root, anchor.CompassKind);
                     widget.CanvasGroup.alpha = 0f; // fades in below instead of popping in at full alpha
                     _markers[anchor] = widget;
                 }
@@ -455,13 +463,21 @@ namespace SenseOfDirection.Compass
             // this whole cleanup pass, letting the stale marker linger on the
             // compass indefinitely (root cause of the "entries permanently stay
             // on the compass" bug). Just always check for stale keys directly.
-            foreach (IndicatorAnchor stale in _markers.Keys.Where(a => !seen.Contains(a)).ToList())
+            foreach (IndicatorAnchor candidate in _markers.Keys)
+            {
+                if (!_seenScratch.Contains(candidate))
+                {
+                    _staleScratch.Add(candidate);
+                }
+            }
+
+            foreach (IndicatorAnchor stale in _staleScratch)
             {
                 CompassMarkerWidget widget = _markers[stale];
                 FadeMarkerAlpha(widget, 0f);
                 if (widget.CanvasGroup.alpha <= 0.01f)
                 {
-                    widget.Destroy();
+                    CompassMarkerWidget.Release(widget);
                     _markers.Remove(stale);
                     _markerBaseX.Remove(stale);
                     _markerSize.Remove(stale);
@@ -523,7 +539,7 @@ namespace SenseOfDirection.Compass
             }
             else
             {
-                targetOffsets = new Vector2[_overlapCandidates.Count];
+                targetOffsets = Indicators.LabelOverlapResolver.ZeroOffsets(_overlapCandidates.Count);
             }
 
             for (int i = 0; i < _overlapCandidates.Count; i++)

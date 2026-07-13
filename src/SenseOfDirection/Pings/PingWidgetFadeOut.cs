@@ -32,12 +32,28 @@ namespace SenseOfDirection.Pings
         private IndicatorAnchor _anchor;
         private float _elapsed;
 
+        /// <summary>
+        /// Reuses the runner already on the widget rather than adding a fresh
+        /// component each fade: ping widgets are pooled now (see
+        /// <see cref="PingWidget"/>), so the same GameObject fades out once per
+        /// ping it's ever rented for - adding a component each time would stack
+        /// up dead runners on it, and destroying the component instead would
+        /// race the pool (component destruction is deferred to the end of the
+        /// frame, but a rented widget can be back in use within the same one).
+        /// The runner just disables itself when done, ready to be re-armed.
+        /// </summary>
         public static void Begin(CanvasGroup canvasGroup, IndicatorAnchor anchor)
         {
             anchor.OverlapSize = Vector2.zero;
-            var runner = canvasGroup.gameObject.AddComponent<PingWidgetFadeOut>();
+            PingWidgetFadeOut runner = canvasGroup.GetComponent<PingWidgetFadeOut>();
+            if (runner == null)
+            {
+                runner = canvasGroup.gameObject.AddComponent<PingWidgetFadeOut>();
+            }
             runner._canvasGroup = canvasGroup;
             runner._anchor = anchor;
+            runner._elapsed = 0f;
+            runner.enabled = true;
         }
 
         private void Update()
@@ -48,7 +64,12 @@ namespace SenseOfDirection.Pings
 
             if (t >= 1f)
             {
+                // Before the unregister: that hands a pooled widget straight
+                // back to its pool, where it can be rented again in this very
+                // frame - this runner must already be inert by then.
+                enabled = false;
                 IndicatorManager.Instance.UnregisterAnchor(_anchor);
+                _anchor = null;
             }
         }
     }

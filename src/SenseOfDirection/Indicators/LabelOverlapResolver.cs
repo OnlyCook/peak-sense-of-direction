@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -64,6 +65,45 @@ namespace SenseOfDirection.Indicators
         /// <summary>Extra breathing room between two resolved boxes, beyond just touching edges.</summary>
         private const float Padding = 3f;
 
+        /// <summary>
+        /// Every working buffer below - including the one <see cref="ComputeOffsets"/>
+        /// hands back - is reused between calls rather than freshly allocated.
+        /// This runs every frame, twice (once for the screen labels, once for
+        /// the compass tape), over however many labels are live, and pings are
+        /// what put labels on screen: the garbage it produced therefore scaled
+        /// with exactly the thing ISSUES.md wants never to cost anything (the
+        /// more you ping, the more it allocated, the more often the GC ran).
+        ///
+        /// The returned array is shared and only valid until the next call -
+        /// both callers read it immediately, inside the same loop that asked
+        /// for it, which is what makes this safe.
+        /// </summary>
+        private static Vector2[] _offsets = new Vector2[16];
+        private static float[] _caps = new float[16];
+        private static readonly List<int> _live = new List<int>();
+        private static readonly Dictionary<int, int> _parent = new Dictionary<int, int>();
+        private static readonly Dictionary<int, List<int>> _clusters = new Dictionary<int, List<int>>();
+        private static readonly List<List<int>> _clusterValues = new List<List<int>>();
+        private static readonly List<List<int>> _intListPool = new List<List<int>>();
+        private static readonly List<int> _rowMembers = new List<int>();
+        private static float[] _cumulative = new float[16];
+        private static float[] _sums = new float[16];
+        private static int[] _counts = new int[16];
+        private static float[] _means = new float[16];
+        private static float[] _resolved = new float[16];
+
+        /// <summary>Sort state for <see cref="ClusterComparison"/> - a static delegate over static state, so ordering a cluster doesn't allocate a closure per cluster per frame.</summary>
+        private static IReadOnlyList<Vector2> _sortPositions;
+        private static bool _sortVertical;
+
+        private static readonly Comparison<int> ClusterComparison = (i, j) =>
+        {
+            int byMain = Main(_sortPositions[j], _sortVertical).CompareTo(Main(_sortPositions[i], _sortVertical));
+            return byMain != 0
+                ? byMain
+                : Cross(_sortPositions[i], _sortVertical).CompareTo(Cross(_sortPositions[j], _sortVertical));
+        };
+
         public static Vector2[] ComputeOffsets(
             IReadOnlyList<Vector2> basePositions,
             IReadOnlyList<Vector2> sizes,
@@ -72,12 +112,12 @@ namespace SenseOfDirection.Indicators
             float rowStaggerPixels = 0f,
             int maxRows = 1)
         {
-            var caps = new float[basePositions.Count];
-            for (int i = 0; i < caps.Length; i++)
+            EnsureCapacity(ref _caps, basePositions.Count);
+            for (int i = 0; i < basePositions.Count; i++)
             {
-                caps[i] = maxOffsetMagnitude;
+                _caps[i] = maxOffsetMagnitude;
             }
-            return ComputeOffsets(basePositions, sizes, axis, caps, rowStaggerPixels, maxRows);
+            return ComputeOffsets(basePositions, sizes, axis, _caps, rowStaggerPixels, maxRows);
         }
 
         /// <summary>
@@ -100,23 +140,33 @@ namespace SenseOfDirection.Indicators
             int maxRows = 1)
         {
             int count = basePositions.Count;
-            var offsets = new Vector2[count];
+            EnsureCapacity(ref _offsets, count);
+            for (int i = 0; i < count; i++)
+            {
+                _offsets[i] = Vector2.zero;
+            }
+
             bool vertical = axis == Axis.Vertical;
             if (rowStaggerPixels <= 0f)
             {
                 maxRows = 1;
             }
 
-            var live = new List<int>();
+            _live.Clear();
             for (int i = 0; i < count; i++)
             {
                 if (sizes[i].x > 0f && sizes[i].y > 0f)
                 {
-                    live.Add(i);
+                    _live.Add(i);
                 }
             }
 
-            foreach (List<int> cluster in FindClusters(live, basePositions, sizes))
+            FindClusters(_live, basePositions, sizes);
+
+            _sortPositions = basePositions;
+            _sortVertical = vertical;
+
+            foreach (List<int> cluster in _clusterValues)
             {
                 if (cluster.Count < 2)
                 {
@@ -127,13 +177,7 @@ namespace SenseOfDirection.Indicators
                 // topmost label (vertical) / the rightmost marker (horizontal).
                 // Ties broken by the other axis, so the order is fully determined
                 // by geometry rather than by registration order.
-                cluster.Sort((i, j) =>
-                {
-                    int byMain = Main(basePositions[j], vertical).CompareTo(Main(basePositions[i], vertical));
-                    return byMain != 0
-                        ? byMain
-                        : Cross(basePositions[i], vertical).CompareTo(Cross(basePositions[j], vertical));
-                });
+                cluster.Sort(ClusterComparison);
 
                 int rows = maxRows > 1
                     ? RowsNeeded(cluster, basePositions, sizes, maxOffsets, vertical, maxRows)
@@ -144,29 +188,61 @@ namespace SenseOfDirection.Indicators
                 // cluster as a whole - which is what makes them fit.
                 for (int row = 0; row < rows; row++)
                 {
-                    var rowMembers = new List<int>();
+                    _rowMembers.Clear();
                     for (int k = row; k < cluster.Count; k += rows)
                     {
-                        rowMembers.Add(cluster[k]);
+                        _rowMembers.Add(cluster[k]);
                     }
 
-                    float[] resolved = rowMembers.Count > 1
-                        ? IsotonicPlace(rowMembers, basePositions, sizes, vertical)
-                        : new[] { Main(basePositions[rowMembers[0]], vertical) };
-
-                    for (int k = 0; k < rowMembers.Count; k++)
+                    if (_rowMembers.Count > 1)
                     {
-                        int index = rowMembers[k];
+                        IsotonicPlace(_rowMembers, basePositions, sizes, vertical);
+                    }
+                    else
+                    {
+                        EnsureCapacity(ref _resolved, 1);
+                        _resolved[0] = Main(basePositions[_rowMembers[0]], vertical);
+                    }
+
+                    for (int k = 0; k < _rowMembers.Count; k++)
+                    {
+                        int index = _rowMembers[k];
                         float cap = maxOffsets[index];
-                        float delta = Mathf.Clamp(resolved[k] - Main(basePositions[index], vertical), -cap, cap);
-                        offsets[index] = vertical
+                        float delta = Mathf.Clamp(_resolved[k] - Main(basePositions[index], vertical), -cap, cap);
+                        _offsets[index] = vertical
                             ? new Vector2(-row * rowStaggerPixels, delta)
                             : new Vector2(delta, -row * rowStaggerPixels);
                     }
                 }
             }
 
-            return offsets;
+            _sortPositions = null;
+            return _offsets;
+        }
+
+        /// <summary>
+        /// All-zero offsets ("nobody moves"), for callers whose overlap
+        /// avoidance is switched off - they still smooth towards the returned
+        /// target every frame, so they need a real array, just not a fresh one
+        /// each frame. Same shared-buffer contract as <see cref="ComputeOffsets"/>:
+        /// valid until the next call.
+        /// </summary>
+        public static Vector2[] ZeroOffsets(int count)
+        {
+            EnsureCapacity(ref _offsets, count);
+            for (int i = 0; i < count; i++)
+            {
+                _offsets[i] = Vector2.zero;
+            }
+            return _offsets;
+        }
+
+        private static void EnsureCapacity<T>(ref T[] buffer, int count)
+        {
+            if (buffer.Length < count)
+            {
+                buffer = new T[Mathf.NextPowerOfTwo(count)];
+            }
         }
 
         /// <summary>
@@ -176,48 +252,50 @@ namespace SenseOfDirection.Indicators
         /// sequence must be non-increasing", which pool-adjacent-violators solves
         /// exactly by merging every violating run into its own mean.
         /// </summary>
-        private static float[] IsotonicPlace(List<int> members, IReadOnlyList<Vector2> basePositions, IReadOnlyList<Vector2> sizes, bool vertical)
+        /// <summary>Writes its result into the shared <see cref="_resolved"/> buffer (indices 0..members.Count), read by the caller straight away.</summary>
+        private static void IsotonicPlace(List<int> members, IReadOnlyList<Vector2> basePositions, IReadOnlyList<Vector2> sizes, bool vertical)
         {
             int n = members.Count;
-            var cumulative = new float[n];
+            EnsureCapacity(ref _cumulative, n);
+            EnsureCapacity(ref _sums, n);
+            EnsureCapacity(ref _counts, n);
+            EnsureCapacity(ref _means, n);
+            EnsureCapacity(ref _resolved, n);
+
+            _cumulative[0] = 0f;
             for (int k = 1; k < n; k++)
             {
-                cumulative[k] = cumulative[k - 1] + Separation(sizes[members[k - 1]], sizes[members[k]], vertical);
+                _cumulative[k] = _cumulative[k - 1] + Separation(sizes[members[k - 1]], sizes[members[k]], vertical);
             }
 
-            var sums = new float[n];
-            var counts = new int[n];
-            var means = new float[n];
             int blocks = 0;
 
             for (int k = 0; k < n; k++)
             {
-                float sum = Main(basePositions[members[k]], vertical) + cumulative[k];
+                float sum = Main(basePositions[members[k]], vertical) + _cumulative[k];
                 int size = 1;
 
-                while (blocks > 0 && means[blocks - 1] < sum / size)
+                while (blocks > 0 && _means[blocks - 1] < sum / size)
                 {
                     blocks--;
-                    sum += sums[blocks];
-                    size += counts[blocks];
+                    sum += _sums[blocks];
+                    size += _counts[blocks];
                 }
 
-                sums[blocks] = sum;
-                counts[blocks] = size;
-                means[blocks] = sum / size;
+                _sums[blocks] = sum;
+                _counts[blocks] = size;
+                _means[blocks] = sum / size;
                 blocks++;
             }
 
-            var resolved = new float[n];
             int at = 0;
             for (int b = 0; b < blocks; b++)
             {
-                for (int k = 0; k < counts[b]; k++, at++)
+                for (int k = 0; k < _counts[b]; k++, at++)
                 {
-                    resolved[at] = means[b] - cumulative[at];
+                    _resolved[at] = _means[b] - _cumulative[at];
                 }
             }
-            return resolved;
         }
 
         /// <summary>
@@ -241,13 +319,27 @@ namespace SenseOfDirection.Indicators
             return Mathf.Clamp(Mathf.CeilToInt(required / available), 1, maxRows);
         }
 
-        /// <summary>Connected components over "these two labels actually collide" (union-find).</summary>
-        private static IEnumerable<List<int>> FindClusters(List<int> live, IReadOnlyList<Vector2> basePositions, IReadOnlyList<Vector2> sizes)
+        /// <summary>
+        /// Connected components over "these two labels actually collide"
+        /// (union-find). Fills the shared <see cref="_clusterValues"/> with the
+        /// clusters found; the member lists themselves come from - and go back
+        /// to - <see cref="_intListPool"/>, so a frame's worth of clustering
+        /// allocates nothing once the pool has warmed up.
+        /// </summary>
+        private static void FindClusters(List<int> live, IReadOnlyList<Vector2> basePositions, IReadOnlyList<Vector2> sizes)
         {
-            var parent = new Dictionary<int, int>();
+            foreach (List<int> spent in _clusterValues)
+            {
+                spent.Clear();
+                _intListPool.Add(spent);
+            }
+            _clusterValues.Clear();
+            _clusters.Clear();
+            _parent.Clear();
+
             foreach (int i in live)
             {
-                parent[i] = i;
+                _parent[i] = i;
             }
 
             for (int a = 0; a < live.Count; a++)
@@ -260,27 +352,37 @@ namespace SenseOfDirection.Indicators
                         continue;
                     }
 
-                    int rootA = Find(parent, i);
-                    int rootB = Find(parent, j);
+                    int rootA = Find(_parent, i);
+                    int rootB = Find(_parent, j);
                     if (rootA != rootB)
                     {
-                        parent[rootA] = rootB;
+                        _parent[rootA] = rootB;
                     }
                 }
             }
 
-            var clusters = new Dictionary<int, List<int>>();
             foreach (int i in live)
             {
-                int root = Find(parent, i);
-                if (!clusters.TryGetValue(root, out List<int> members))
+                int root = Find(_parent, i);
+                if (!_clusters.TryGetValue(root, out List<int> members))
                 {
-                    members = new List<int>();
-                    clusters[root] = members;
+                    members = RentIntList();
+                    _clusters[root] = members;
+                    _clusterValues.Add(members);
                 }
                 members.Add(i);
             }
-            return clusters.Values;
+        }
+
+        private static List<int> RentIntList()
+        {
+            if (_intListPool.Count == 0)
+            {
+                return new List<int>();
+            }
+            List<int> list = _intListPool[_intListPool.Count - 1];
+            _intListPool.RemoveAt(_intListPool.Count - 1);
+            return list;
         }
 
         private static int Find(Dictionary<int, int> parent, int i)
