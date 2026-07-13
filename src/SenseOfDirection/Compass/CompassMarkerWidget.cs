@@ -17,11 +17,14 @@ namespace SenseOfDirection.Compass
     /// <summary>
     /// One marker on the compass tape: an icon (shape/sprite depends on the
     /// owning anchor's <see cref="CompassMarkerKind"/>, background-tinted to
-    /// that anchor's own color), an optional dead/unconscious status badge
-    /// (players only, same red/yellow convention <see cref="PlayerLabel"/>
-    /// already uses), an optional elevation arrow, and optional name/distance
-    /// sub-text. <see cref="CompassManager"/> owns creation/positioning/
-    /// per-frame refresh - this class is just the widget hierarchy.
+    /// that anchor's own color; player markers swap to a dead/unconscious
+    /// face sprite instead of layering a separate status badge - see
+    /// <see cref="ResolvePlayerFaceSprite"/> - so the compass never doubles
+    /// up dead/unconscious indicators the way <see cref="PlayerLabel"/>'s
+    /// on-screen badge does), an optional elevation arrow, and optional
+    /// name/distance sub-text. <see cref="CompassManager"/> owns creation/
+    /// positioning/per-frame refresh - this class is just the widget
+    /// hierarchy.
     /// </summary>
     public class CompassMarkerWidget
     {
@@ -60,7 +63,6 @@ namespace SenseOfDirection.Compass
         private readonly CompassMarkerKind _kind;
         private readonly Image _iconImage;
         private readonly Image[] _iconOutlines;
-        private readonly Image _statusBadge;
         private readonly TMP_Text _elevationArrow;
         private readonly TMP_Text _nameText;
         private readonly TMP_Text _distanceText;
@@ -81,7 +83,7 @@ namespace SenseOfDirection.Compass
 
         private CompassMarkerWidget(
             CompassMarkerKind kind, RectTransform root, CanvasGroup canvasGroup,
-            Image iconImage, Image[] iconOutlines, Image statusBadge, TMP_Text elevationArrow,
+            Image iconImage, Image[] iconOutlines, TMP_Text elevationArrow,
             RectTransform labelGroup, TMP_Text nameText, TMP_Text distanceText)
         {
             _kind = kind;
@@ -89,7 +91,6 @@ namespace SenseOfDirection.Compass
             CanvasGroup = canvasGroup;
             _iconImage = iconImage;
             _iconOutlines = iconOutlines;
-            _statusBadge = statusBadge;
             _elevationArrow = elevationArrow;
             LabelGroup = labelGroup;
             _nameText = nameText;
@@ -153,24 +154,6 @@ namespace SenseOfDirection.Compass
             var iconImage = iconGo.GetComponent<Image>();
             iconImage.preserveAspect = true;
             iconImage.sprite = ResolveIconSprite(kind);
-
-            Image statusBadge = null;
-            if (kind == CompassMarkerKind.Player)
-            {
-                var badgeGo = new GameObject("StatusBadge", typeof(RectTransform), typeof(Image));
-                var badgeRect = (RectTransform)badgeGo.transform;
-                badgeRect.SetParent(root, false);
-                badgeRect.sizeDelta = new Vector2(14f, 14f);
-                badgeRect.anchorMin = new Vector2(1f, 1f);
-                badgeRect.anchorMax = new Vector2(1f, 1f);
-                badgeRect.anchoredPosition = new Vector2(-3f, -3f);
-                statusBadge = badgeGo.GetComponent<Image>();
-                statusBadge.preserveAspect = true;
-                // Badge sprites are pre-colored (fixed tan fill), not tinted -
-                // actual sprite (dead/unconscious) assigned per-frame in Refresh.
-                statusBadge.color = Color.white;
-                statusBadge.gameObject.SetActive(false);
-            }
 
             // Plain Unicode arrow glyphs rather than a drawn triangle - deliberately
             // left on TMP's own default font asset (not NativeAssets.Font, the
@@ -238,7 +221,7 @@ namespace SenseOfDirection.Compass
             distanceText.fontSize = 14f;
             distanceText.color = new Color(1f, 1f, 1f, 0.9f);
 
-            return new CompassMarkerWidget(kind, root, canvasGroup, iconImage, iconOutlines, statusBadge, elevationArrow, labelGroupRect, nameText, distanceText);
+            return new CompassMarkerWidget(kind, root, canvasGroup, iconImage, iconOutlines, elevationArrow, labelGroupRect, nameText, distanceText);
         }
 
         /// <summary>
@@ -415,20 +398,6 @@ namespace SenseOfDirection.Compass
             // whichever compaction CompassManager last handed us.
             _iconSizePixels = iconSizePixels;
             ApplyLabelPositions();
-
-            if (_statusBadge != null)
-            {
-                bool showBadge = isDead || isUnconscious;
-                _statusBadge.gameObject.SetActive(showBadge);
-                if (showBadge)
-                {
-                    Sprite badgeSprite = isDead ? IconAssets.DeadBadge : IconAssets.UnconsciousBadge;
-                    if (badgeSprite != null && _statusBadge.sprite != badgeSprite)
-                    {
-                        _statusBadge.sprite = badgeSprite;
-                    }
-                }
-            }
 
             bool showArrow = elevation != CompassElevation.None;
             _elevationArrow.gameObject.SetActive(showArrow);

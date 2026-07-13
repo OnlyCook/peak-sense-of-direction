@@ -492,6 +492,26 @@ playtest:**
   networked body/lean state and the host-controlled subset of config
   (`enable-ghost-free-cam`, leash distance, unlimited-range) in sync across
   clients.
+- `GhostFreeCamCrosshair.cs` — small screen-center reticle (`show-crosshair`,
+  on by default), shown only while free-cam is actually engaged; parented
+  under `Indicators.IndicatorManager`'s existing overlay canvas rather than
+  a dedicated one. Reuses vanilla's own default aim-reticle sprite/color
+  (`GUIManager.reticleDefaultImage`/`reticleColorDefault`) rather than a
+  custom-drawn shape, so it looks native; vanilla itself force-hides that
+  reticle while dead/spectating, so this only borrows the sprite reference,
+  never vanilla's own reticle GameObject. Vanilla's spectate view otherwise
+  has no crosshair at all, so pinging while free-camming had nothing to aim
+  at.
+- `GhostFreeCamKeyHint.cs` — "<key badge> to go into/leave free-cam mode"
+  hint (`show-key-hint`, on by default), shown whenever the local player is
+  a ghost and the host has ghost free-cam enabled (hidden the rest of the
+  time, same lifecycle as `GhostFreeCamCrosshair`). Badge background is a
+  procedurally-drawn rounded square; both badge and label text use
+  `Labels.NativeAssets.Font`/`OutlineMaterial` (vanilla's own chunky ghost-
+  panel font). Laid out via `HorizontalLayoutGroup` + `ContentSizeFitter`
+  (root pivot centered) so it stays centered and never clips regardless of
+  label text length, and never shifts vertically between states. Vanilla's
+  own ghost panel never mentions this mod's toggle key at all.
 
 ### `Compass/` (Phase 7, done — top-of-screen compass tape)
 

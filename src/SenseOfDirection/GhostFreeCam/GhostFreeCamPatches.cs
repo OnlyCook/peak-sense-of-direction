@@ -142,9 +142,19 @@ namespace SenseOfDirection.GhostFreeCam
                 return;
             }
 
+            if (cfg.GhostFreeCamShowKeyHint.Value)
+            {
+                GhostFreeCamKeyHint.SetState(_active, cfg.GhostFreeCamToggleKey.Value);
+            }
+            else
+            {
+                GhostFreeCamKeyHint.Hide();
+            }
+
             if (!_active)
             {
                 _engagedLastFrame = false;
+                GhostFreeCamCrosshair.SetVisible(false);
                 return;
             }
 
@@ -156,8 +166,11 @@ namespace SenseOfDirection.GhostFreeCam
                 // vanilla's own Spectate() output on screen rather than
                 // freezing on a stale free-cam pose.
                 _engagedLastFrame = false;
+                GhostFreeCamCrosshair.SetVisible(false);
                 return;
             }
+
+            GhostFreeCamCrosshair.SetVisible(Plugin.Instance.Cfg.GhostFreeCamShowCrosshair.Value);
 
             Transform camTransform = __instance.transform;
 
@@ -267,6 +280,8 @@ namespace SenseOfDirection.GhostFreeCam
         {
             _active = false;
             _engagedLastFrame = false;
+            GhostFreeCamCrosshair.SetVisible(false);
+            GhostFreeCamKeyHint.Hide();
         }
 
         /// <summary>
