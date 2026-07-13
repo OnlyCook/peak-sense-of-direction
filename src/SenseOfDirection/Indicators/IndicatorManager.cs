@@ -76,6 +76,17 @@ namespace SenseOfDirection.Indicators
 
             /// <summary>Last position actually applied to the widget - the start point if a flip happens next frame.</summary>
             public Vector2 CurrentPosition;
+
+            /// <summary>
+            /// <see cref="IndicatorAnchor.OffScreenBlend"/> at the moment the
+            /// current transition started, and where it currently sits. Tracked
+            /// alongside the position for the same reason it is: a flip that
+            /// lands mid-transition starts from wherever the blend actually got
+            /// to, not from a clean 0/1, so reversing part-way eases back
+            /// instead of jumping.
+            /// </summary>
+            public float StartBlend;
+            public float CurrentBlend;
         }
 
         private readonly Dictionary<IndicatorAnchor, TransitionState> _transitions = new Dictionary<IndicatorAnchor, TransitionState>();
@@ -166,7 +177,7 @@ namespace SenseOfDirection.Indicators
                 // the anchor still stays registered (Compass.CompassManager reads
                 // the same anchor list for its own top-of-screen marker), it just
                 // doesn't get positioned or shown here.
-                bool showOffScreenWidget = anchor.GetDisplayMode() != IndicatorDisplayMode.CompassOnly;
+                bool showOffScreenWidget = anchor.GetPlacement() != IndicatorPlacement.CompassOnly;
                 bool active = camera != null && anchor.IsActive() && showOffScreenWidget;
                 anchor.Widget.gameObject.SetActive(active);
                 if (!active)
@@ -226,6 +237,7 @@ namespace SenseOfDirection.Indicators
         private Vector2 ResolveTransitionedPosition(IndicatorAnchor anchor, IndicatorState state)
         {
             Vector2 target = state.CanvasPosition;
+            float targetBlend = state.IsOffScreen ? 1f : 0f;
 
             if (!_transitions.TryGetValue(anchor, out TransitionState transition))
             {
@@ -236,7 +248,9 @@ namespace SenseOfDirection.Indicators
                     WasOffScreen = state.IsOffScreen,
                     Elapsed = TransitionDurationSeconds,
                     CurrentPosition = target,
+                    CurrentBlend = targetBlend,
                 };
+                anchor.OffScreenBlend = targetBlend;
                 return target;
             }
 
@@ -244,19 +258,24 @@ namespace SenseOfDirection.Indicators
             {
                 transition.WasOffScreen = state.IsOffScreen;
                 transition.StartPosition = transition.CurrentPosition;
+                transition.StartBlend = transition.CurrentBlend;
                 transition.Elapsed = 0f;
             }
 
             Vector2 position = target;
+            float blend = targetBlend;
             if (transition.Elapsed < TransitionDurationSeconds)
             {
                 transition.Elapsed += Time.deltaTime;
                 float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(transition.Elapsed / TransitionDurationSeconds));
                 position = Vector2.Lerp(transition.StartPosition, target, t);
+                blend = Mathf.Lerp(transition.StartBlend, targetBlend, t);
             }
 
             transition.CurrentPosition = position;
+            transition.CurrentBlend = blend;
             _transitions[anchor] = transition;
+            anchor.OffScreenBlend = blend;
             return position;
         }
 

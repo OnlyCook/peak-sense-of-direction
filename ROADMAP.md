@@ -459,8 +459,11 @@ re-resolves `MapHandler.CurrentCampfire` every frame (no Harmony hook on
 `GoToSegment` needed — this is simpler and self-correcting) and registers/
 re-registers an `IndicatorAnchor` for it, so the indicator automatically
 points at whichever campfire is next as the player advances segments. Two
-new `Campfire` config settings: `enable-campfire-indicator` (master switch,
-**default off** per maintainer preference) and `show-campfire-distance`.
+new `Campfire` config settings: `enable-campfire-indicator` (master switch)
+and `show-distance`. (Originally shipped **default off**; flipped to
+**default on** during the config rework - it's the most direct answer to the
+question the mod is named after, so it belongs in the out-of-the-box
+experience.)
 
 **In-game playtest (2026-07-08) turned up three fixes, all applied:**
 - Distance text wasn't using the native game font — `CampfireWidget.Refresh`
@@ -1175,6 +1178,12 @@ keeps its default `isNPCZombie = true` and is never linked to any player,
 so it's indistinguishable from (and arguably a *better* test subject than)
 a naturally-spawned Roots-biome zombie, with zero effect on the local
 player.
+
+**Update (config rework):** `spawn-debug-zombie-key` and its spawn code are
+**removed** - Phase 5b is done and the key isn't needed any more. The ESP
+(`enable-zombie-debug-esp`) is kept. The `Zombify()` finding above is left
+on record because it's a live trap for anyone who reaches for that console
+command again, not because the code still exists.
 
 **Two real bugs found via this tooling, both fixed:**
 1. **`MapHandler.CurrentCampfire` NullReferenceException outside a run.**

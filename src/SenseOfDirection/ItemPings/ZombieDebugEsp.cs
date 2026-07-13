@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Photon.Pun;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
 using TMPro;
@@ -60,29 +59,6 @@ namespace SenseOfDirection.ItemPings
             {
                 _nextScanTime = Time.time + 1f;
                 Rescan();
-            }
-
-            // Temporary dev/QA aid. Deliberately NOT Character.Zombify() -
-            // that console command RPCs RPCA_Zombify on the *local player's
-            // own* Character, which (per the maintainer hitting this
-            // directly) ends the run outright: RPC_Arise (fired right after
-            // the "MushroomZombie_Player" prefab spawns) calls
-            // spawnedFromCharacter.FinishZombifying() on whichever Character
-            // "arose" from - i.e. the player who called Zombify() dies for
-            // real, immediately. Spawning the same prefab directly via
-            // PhotonNetwork.Instantiate *without* ever firing the follow-up
-            // "RPC_Arise" call sidesteps that entirely: the spawned
-            // MushroomZombie keeps its default isNPCZombie = true (per its
-            // own field initializer) and is never linked to any player's
-            // body, so it behaves exactly like - and is indistinguishable
-            // from - a naturally-spawned Roots-biome zombie, which is what
-            // this mod actually needs to test against anyway.
-            if (Input.GetKeyDown(Plugin.Instance.Cfg.SpawnDebugZombieKey.Value) && Character.localCharacter != null)
-            {
-                Character local = Character.localCharacter;
-                Vector3 spawnPosition = local.Center + local.data.lookDirection_Flat * 3f;
-                Plugin.Instance.Log.LogInfo($"ZombieDebugEsp: spawning a debug MushroomZombie_Player at {spawnPosition}.");
-                PhotonNetwork.Instantiate("MushroomZombie_Player", spawnPosition, local.transform.rotation, 0);
             }
         }
 

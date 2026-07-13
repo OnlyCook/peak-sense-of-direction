@@ -78,6 +78,10 @@ namespace SenseOfDirection.ItemPings
         private const float CrosshairSizePixels = 30f;
         private const float NativeIconSizePixels = 44f;
 
+        /// <summary>Sizes the name/distance lines are tuned at; the `Fonts` section scales these rather than replacing them (see <see cref="HudFontScale"/>).</summary>
+        private const float NameFontSizeBase = 20f;
+        private const float DistanceFontSizeBase = 16f;
+
         private ItemPingWidget(
             RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, Image arrowImage,
             RectTransform crosshair, Image crosshairImage, RectTransform labelGroup,
@@ -154,7 +158,7 @@ namespace SenseOfDirection.ItemPings
 
             var nameText = nameGo.GetComponent<TextMeshProUGUI>();
             nameText.alignment = TextAlignmentOptions.Center;
-            nameText.fontSize = 20f;
+            nameText.fontSize = NameFontSizeBase;
             nameText.enableWordWrapping = false;
             nameText.overflowMode = TextOverflowModes.Overflow;
 
@@ -166,7 +170,7 @@ namespace SenseOfDirection.ItemPings
 
             var distanceText = distGo.GetComponent<TextMeshProUGUI>();
             distanceText.alignment = TextAlignmentOptions.Center;
-            distanceText.fontSize = 16f;
+            distanceText.fontSize = DistanceFontSizeBase;
             distanceText.enableWordWrapping = false;
 
             // Sits between the name and distance line (name bottom ~10px, distance
@@ -316,6 +320,24 @@ namespace SenseOfDirection.ItemPings
             {
                 if (_nameText.fontSharedMaterial != NativeAssets.OutlineMaterial) _nameText.fontSharedMaterial = NativeAssets.OutlineMaterial;
                 if (_distanceText.fontSharedMaterial != NativeAssets.OutlineMaterial) _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
+            }
+
+            // Live config values, so re-applied every frame rather than baked in
+            // at creation. Both cached measurements below are keyed on their
+            // string alone, so a size change voids them for the same reason a
+            // font swap does - the same string renders wider at a bigger size.
+            float offScreenBlend = Anchor != null ? Anchor.OffScreenBlend : 0f;
+            float nameFontSize = HudFontScale.Name(NameFontSizeBase, offScreenBlend);
+            if (!Mathf.Approximately(_nameText.fontSize, nameFontSize))
+            {
+                _nameText.fontSize = nameFontSize;
+                _measuredName = null;
+            }
+            float distanceFontSize = HudFontScale.Distance(DistanceFontSizeBase, offScreenBlend);
+            if (!Mathf.Approximately(_distanceText.fontSize, distanceFontSize))
+            {
+                _distanceText.fontSize = distanceFontSize;
+                _measuredDistance = null;
             }
 
             _nameText.gameObject.SetActive(showName);

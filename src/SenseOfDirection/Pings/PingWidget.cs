@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.Labels;
 using TMPro;
@@ -29,6 +30,9 @@ namespace SenseOfDirection.Pings
     public class PingWidget
     {
         private static readonly Stack<PingWidget> Pool = new Stack<PingWidget>();
+
+        /// <summary>Size the distance line is tuned at; the `Fonts` section scales this rather than replacing it (see <see cref="HudFontScale"/>).</summary>
+        private const float DistanceFontSizeBase = 16f;
 
         public IndicatorAnchor Anchor { get; private set; }
         public CanvasGroup CanvasGroup { get; }
@@ -109,7 +113,7 @@ namespace SenseOfDirection.Pings
 
             var distanceText = textGo.GetComponent<TextMeshProUGUI>();
             distanceText.alignment = TextAlignmentOptions.Center;
-            distanceText.fontSize = 16f;
+            distanceText.fontSize = DistanceFontSizeBase;
             distanceText.enableWordWrapping = false;
 
             return new PingWidget(root, canvasGroup, arrowRect, arrowImage, labelGroupRect, distanceText);
@@ -182,6 +186,17 @@ namespace SenseOfDirection.Pings
             if (NativeAssets.OutlineMaterial != null && _distanceText.fontSharedMaterial != NativeAssets.OutlineMaterial)
             {
                 _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
+            }
+
+            // Live config value, so it's re-applied every frame rather than
+            // baked in at creation. The measured width cached below is keyed on
+            // the string alone, so a size change has to void it too - the same
+            // "12m" renders wider at a bigger font.
+            float fontSize = HudFontScale.Distance(DistanceFontSizeBase, Anchor.OffScreenBlend);
+            if (!Mathf.Approximately(_distanceText.fontSize, fontSize))
+            {
+                _distanceText.fontSize = fontSize;
+                _measuredDistance = null;
             }
 
             _distanceText.gameObject.SetActive(showDistance);

@@ -184,8 +184,8 @@ namespace SenseOfDirection.Labels
                 _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
             }
 
-            _nameText.fontSize = nameFontSize;
-            _distanceText.fontSize = distanceFontSize;
+            _nameText.fontSize = HudFontScale.Name(nameFontSize, Anchor.OffScreenBlend);
+            _distanceText.fontSize = HudFontScale.Distance(distanceFontSize, Anchor.OffScreenBlend);
 
             _nameText.text = name;
             _nameText.color = nameColor;

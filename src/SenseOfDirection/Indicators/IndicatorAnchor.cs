@@ -78,6 +78,21 @@ namespace SenseOfDirection.Indicators
         public readonly RectTransform Widget;
 
         /// <summary>
+        /// How off-screen this anchor currently is: 0 while its tracked point is
+        /// on screen, 1 while it's clamped to the edge, and easing between the
+        /// two for the duration of an on/off-screen flip - the exact same curve
+        /// <see cref="IndicatorManager"/> slides the widget's position along, so
+        /// anything keyed off this moves in lockstep with it.
+        ///
+        /// Written by <see cref="IndicatorManager"/> every frame; widgets only
+        /// read it. Its one consumer today is per-area font scaling
+        /// (<see cref="Common.HudFontScale"/>): a label is one widget that
+        /// passes *through* both states rather than two separate widgets, so
+        /// on-screen and off-screen font scales have to be blended, not picked.
+        /// </summary>
+        public float OffScreenBlend;
+
+        /// <summary>
         /// What <see cref="IndicatorManager.UnregisterAnchor"/> should do with
         /// <see cref="Widget"/> when this anchor goes away. Null (default) means
         /// destroy it, which is right for a widget that's built once and lives
@@ -124,7 +139,7 @@ namespace SenseOfDirection.Indicators
         public CompassMarkerKind CompassKind = CompassMarkerKind.None;
 
         /// <summary>Governs whether <see cref="Widget"/>/<see cref="ArrowWidget"/> vs. the compass marker (or both) are shown for this anchor.</summary>
-        public Func<IndicatorDisplayMode> GetDisplayMode = () => IndicatorDisplayMode.OffScreenOnly;
+        public Func<IndicatorPlacement> GetPlacement = () => IndicatorPlacement.OffScreenOnly;
 
         /// <summary>Extra compass-only visibility gate (e.g. player labels' own toggle-key/distance-gate state) on top of <see cref="IsActive"/>.</summary>
         public Func<bool> IsCompassVisible = () => true;

@@ -60,7 +60,7 @@ namespace SenseOfDirection.CampfireIndicator
                     _widget.Anchor.IsActive = () => current != null && current.gameObject.activeInHierarchy;
 
                     _widget.Anchor.CompassKind = CompassMarkerKind.Campfire;
-                    _widget.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.CampfireCompassDisplayMode.Value;
+                    _widget.Anchor.GetPlacement = () => Plugin.Instance.Cfg.CampfirePlacement.Value;
                     _widget.Anchor.GetCompassLabel = () => "Campfire";
 
                     IndicatorManager.Instance.RegisterAnchor(_widget.Anchor);

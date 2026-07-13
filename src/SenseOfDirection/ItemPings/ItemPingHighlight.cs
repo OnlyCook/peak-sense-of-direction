@@ -112,7 +112,7 @@ namespace SenseOfDirection.ItemPings
             highlight._widget = ItemPingWidget.Rent(highlight.GetGroupCenter, color, enableArrow);
 
             highlight._widget.Anchor.CompassKind = CompassMarkerKind.ItemPing;
-            highlight._widget.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.ItemPingsCompassDisplayMode.Value;
+            highlight._widget.Anchor.GetPlacement = () => Plugin.Instance.Cfg.ItemPingPlacement.Value;
             highlight._widget.Anchor.GetCompassColor = () => color;
             // _currentLabel, not _currentDisplayName: the compass marker shows
             // the same icon the widget does, so the name is redundant there for
@@ -247,10 +247,17 @@ namespace SenseOfDirection.ItemPings
             Func<Sprite> getIcon = _valid[0].GetNativeIcon;
             _currentIcon = cfg.UseNativeItemPingIcons.Value && getIcon != null ? getIcon() : null;
 
-            _currentLabel = _currentIcon != null && cfg.OnlyShowItemPingNameWithoutIcon.Value
+            // HideWhenIconShown drops the name only for something whose own icon
+            // is actually being drawn - the icon already says what it is. A
+            // grouped ping keeps its count either way, so "3x" survives a hidden
+            // name; and anything with no icon to speak for it (luggage,
+            // creatures, hazards - or everything at all, when use-native-icons
+            // is off) falls through to its full name, exactly as in Always.
+            ItemPingNameMode nameMode = cfg.ItemPingNameMode.Value;
+            _currentLabel = nameMode == ItemPingNameMode.HideWhenIconShown && _currentIcon != null
                 ? _currentCountOnly
                 : _currentDisplayName;
-            bool showName = cfg.ShowItemPingName.Value && !string.IsNullOrEmpty(_currentLabel);
+            bool showName = nameMode != ItemPingNameMode.Never && !string.IsNullOrEmpty(_currentLabel);
 
             float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), GetGroupCenter()) * CharacterStats.unitsToMeters;
             _widget.Refresh(_currentLabel, distanceMeters, showName, cfg.ShowItemPingDistance.Value, _currentIcon);

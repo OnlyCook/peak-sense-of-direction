@@ -486,7 +486,7 @@ namespace SenseOfDirection.Pings
             // label is the more useful of the two.
             int itemPingCount = cfg.EnableItemPings.Value ? ItemPingSpawner.SpawnFor(point, pingColor, character) : 0;
 
-            if (cfg.EnablePingOffScreenIndicator.Value || cfg.ShowPingDistanceLabel.Value || cfg.PingsCompassDisplayMode.Value != IndicatorDisplayMode.OffScreenOnly)
+            if (cfg.EnablePingOffScreenIndicator.Value || cfg.ShowPingDistanceLabel.Value || cfg.PingPlacement.Value != IndicatorPlacement.OffScreenOnly)
             {
                 bool showPingDistance = cfg.ShowPingDistanceLabel.Value && itemPingCount == 0;
                 PingWidgetLink.Attach(spawned, pingColor, cfg.EnablePingOffScreenIndicator.Value, showPingDistance, itemPingCount > 0);

@@ -266,7 +266,7 @@ namespace SenseOfDirection.Compass
             }
             _root.gameObject.SetActive(true);
 
-            float tickExtraHeight = TickExtraHeight(cfg.CompassHeightPixels.Value);
+            float tickExtraHeight = TickExtraHeight(cfg.CompassMarkerGapPixels.Value);
             float baselineY = BaselineOffset(tickExtraHeight);
             ApplyLayout(cfg, baselineY);
 
@@ -352,7 +352,7 @@ namespace SenseOfDirection.Compass
                 }
                 _seenScratch.Add(anchor);
 
-                bool wantsCompass = anchor.GetDisplayMode() != IndicatorDisplayMode.OffScreenOnly;
+                bool wantsCompass = anchor.GetPlacement() != IndicatorPlacement.OffScreenOnly;
                 bool structurallyOk = anchor.IsActive() && anchor.IsCompassVisible();
 
                 if (!_markers.TryGetValue(anchor, out CompassMarkerWidget widget))
