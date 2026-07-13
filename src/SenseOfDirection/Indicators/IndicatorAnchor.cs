@@ -38,6 +38,27 @@ namespace SenseOfDirection.Indicators
         public Vector2 OverlapSize = Vector2.zero;
 
         /// <summary>
+        /// Where this anchor's <see cref="OverlapSize"/> box actually sits
+        /// relative to the tracked point. Most widgets aren't centred on it - a
+        /// player label runs from its crown badge (+42) down to its status badge
+        /// (-48), an item ping from its name (+38) down to its distance line
+        /// (-30) - and treating them as if they were made overlap resolution
+        /// both miss real collisions and invent ones that weren't there. Zero
+        /// (default) means "box is centred on the tracked point".
+        /// </summary>
+        public Vector2 OverlapCenterOffset = Vector2.zero;
+
+        /// <summary>
+        /// How far this anchor's label may be nudged from its tracked position
+        /// to clear an overlap. Anchors that move as a whole (a player label,
+        /// the campfire - see <see cref="LabelWidget"/>) can afford more than one
+        /// whose text slides away from an arrow/crosshair left standing at the
+        /// real position, and a stack of 90px-tall player labels needs more than
+        /// 56px each just to clear its neighbour.
+        /// </summary>
+        public float MaxOverlapOffset = LabelOverlapResolver.MaxOffsetMagnitude;
+
+        /// <summary>
         /// Optional child of <see cref="Widget"/>, sitting at local (0,0),
         /// that holds just this anchor's informational text (name/distance)
         /// - not its arrow/crosshair. When set, overlap resolution nudges

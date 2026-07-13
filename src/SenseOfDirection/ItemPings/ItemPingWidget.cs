@@ -165,8 +165,23 @@ namespace SenseOfDirection.ItemPings
             // fixed guess - keeps overlap detection matched to what's
             // actually on screen (e.g. a short "KING" vs. a wider
             // "2x COCONUT").
-            float widestWidth = showName || showDistance ? Mathf.Max(60f, widestHalf * 2f) : 0f;
-            Anchor.OverlapSize = new Vector2(widestWidth, 60f);
+            // Same widest-visible-text measurement drives the box's height and
+            // centre too: the name rides above the tracked point (anchored +24,
+            // 28 tall -> tops out at +38) and the distance line below it
+            // (anchored -18, 24 tall -> bottoms out at -30), so the box is not
+            // centred on the crosshair/arrow, which stay exactly on the tracked
+            // position regardless.
+            if (!showName && !showDistance)
+            {
+                Anchor.OverlapSize = Vector2.zero;
+                Anchor.OverlapCenterOffset = Vector2.zero;
+                return;
+            }
+
+            float top = showName ? 38f : -6f;
+            float bottom = showDistance ? -30f : 10f;
+            Anchor.OverlapSize = new Vector2(widestHalf * 2f + 12f, top - bottom);
+            Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
         }
     }
 }

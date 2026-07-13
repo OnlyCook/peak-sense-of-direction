@@ -65,6 +65,12 @@ namespace SenseOfDirection.Compass
         private readonly TMP_Text _nameText;
         private readonly TMP_Text _distanceText;
 
+        /// <summary>Last icon size passed to <see cref="Refresh"/> - a live config value, needed by <see cref="ApplyLabelPositions"/> whenever the compaction changes between refreshes.</summary>
+        private float _iconSizePixels = 26f;
+
+        /// <summary>0 = name/distance straddle the icon at full spacing; 1 = pulled together, for a label staggered onto a row of its own. See <see cref="SetLabelCompaction"/>.</summary>
+        private float _labelCompaction;
+
         /// <summary>
         /// Lazily-instanced material for tinted (Ping/ItemPing) name/distance
         /// text so its outline can be darkened per-anchor-color without
@@ -235,6 +241,61 @@ namespace SenseOfDirection.Compass
             return new CompassMarkerWidget(kind, root, canvasGroup, iconImage, iconOutlines, statusBadge, elevationArrow, labelGroupRect, nameText, distanceText);
         }
 
+        /// <summary>
+        /// How tightly this marker's name/distance lines sit together, smoothed
+        /// by <see cref="CompassManager"/> between 0 and 1.
+        ///
+        /// At 0 they straddle the icon, leaving an icon-sized gap between them.
+        /// That gap is exactly right on the tape's own row - the icon really is
+        /// sitting in it - but a label staggered down onto row 2 or 3 leaves its
+        /// icon behind on the tape, so the gap becomes a hole with nothing in it,
+        /// and a reader can't tell at a glance which distance line belongs to
+        /// which name. At 1 the two lines close up into a single block.
+        ///
+        /// Only the text moves: the icon, its outline, the status badge and the
+        /// elevation arrow are all children of Root, not LabelGroup, and stay on
+        /// the marker's real bearing. (An icon can never be staggered onto
+        /// another row for the same reason.)
+        /// </summary>
+        public void SetLabelCompaction(float compaction)
+        {
+            compaction = Mathf.Clamp01(compaction);
+            if (Mathf.Approximately(compaction, _labelCompaction))
+            {
+                return;
+            }
+
+            _labelCompaction = compaction;
+            ApplyLabelPositions();
+        }
+
+        /// <summary>
+        /// Places the name above / distance below, interpolated between the
+        /// icon-straddling layout (compaction 0) and the closed-up one
+        /// (compaction 1). Called on every <see cref="Refresh"/> and whenever the
+        /// compaction changes, so the two can't disagree about where the text is.
+        /// </summary>
+        private void ApplyLabelPositions()
+        {
+            // Spread: clear of the icon (which the elevation arrow sits beside,
+            // not above, so the name can sit directly over it).
+            float half = _iconSizePixels * 0.62f;
+            float spreadNameY = half + 12f;
+            float spreadDistY = -half - 4f;
+
+            // Closed up: just enough for the two text lines (22 and 20 tall) not
+            // to touch, independent of icon size - there's no icon between them
+            // any more.
+            const float CompactNameY = 11f;
+            const float CompactDistY = -11f;
+
+            float nameY = Mathf.Lerp(spreadNameY, CompactNameY, _labelCompaction);
+            float distY = Mathf.Lerp(spreadDistY, CompactDistY, _labelCompaction);
+
+            ((RectTransform)_nameText.transform).anchoredPosition = new Vector2(0f, nameY);
+            ((RectTransform)_distanceText.transform).anchoredPosition = new Vector2(0f, distY);
+        }
+
         public void Destroy()
         {
             if (Root != null)
@@ -337,23 +398,23 @@ namespace SenseOfDirection.Compass
                 if (_distanceText.fontSharedMaterial != NativeAssets.OutlineMaterial) _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
             }
 
-            // Elevation arrow sits beside the icon (see below), so the name
-            // label can sit directly above it without the two colliding.
-            float y = iconSizePixels * 0.62f;
             _nameText.gameObject.SetActive(showName && !string.IsNullOrEmpty(name));
             if (showName && !string.IsNullOrEmpty(name))
             {
                 _nameText.text = name;
-                ((RectTransform)_nameText.transform).anchoredPosition = new Vector2(0f, y + 12f);
             }
 
-            float distY = -(iconSizePixels * 0.62f);
             _distanceText.gameObject.SetActive(showDistance);
             if (showDistance)
             {
                 _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
-                ((RectTransform)_distanceText.transform).anchoredPosition = new Vector2(0f, distY - 4f);
             }
+
+            // Icon size is only known here (it's a live config value), so the
+            // label layout is (re)applied from it every refresh - including
+            // whichever compaction CompassManager last handed us.
+            _iconSizePixels = iconSizePixels;
+            ApplyLabelPositions();
 
             if (_statusBadge != null)
             {

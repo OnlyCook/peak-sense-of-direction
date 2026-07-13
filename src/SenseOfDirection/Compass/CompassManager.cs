@@ -90,8 +90,38 @@ namespace SenseOfDirection.Compass
         private readonly Dictionary<IndicatorAnchor, Vector2> _markerSize = new Dictionary<IndicatorAnchor, Vector2>();
         private readonly Dictionary<IndicatorAnchor, Vector2> _markerOverlapOffset = new Dictionary<IndicatorAnchor, Vector2>();
 
+        /// <summary>Per-marker 0..1 label compaction (see <see cref="CompassMarkerWidget.SetLabelCompaction"/>), smoothed towards 1 while the marker is staggered onto a row below the tape and back to 0 when it returns to it.</summary>
+        private readonly Dictionary<IndicatorAnchor, float> _markerLabelCompaction = new Dictionary<IndicatorAnchor, float>();
+
+        /// <summary>Per-second rate the label compaction eases at - matched to how long the row shift itself takes (a full stagger at <see cref="OverlapOffsetSpeedPixelsPerSecond"/>), so the lines close up as the label travels down rather than snapping shut on arrival.</summary>
+        private const float LabelCompactionSpeedPerSecond = OverlapOffsetSpeedPixelsPerSecond / MarkerRowStaggerPixels;
+
         /// <summary>Approximate vertical span of a marker's name-above/distance-below text, for overlap detection - see the horizontal-only note on <see cref="ResolveMarkerOverlaps"/>'s own use of it.</summary>
         private const float MarkerLabelHeight = 70f;
+
+        /// <summary>How far a marker's label may slide along the tape from its own icon. Wider than the shared 56px default: named markers are 160px boxes, so clearing even one neighbour needs more than that.</summary>
+        private const float MarkerMaxOverlapOffset = 90f;
+
+        /// <summary>
+        /// A crowded tape cannot declutter sideways at any cap - four named
+        /// markers need ~650px and the default tape is 640px wide - so a cluster
+        /// that doesn't fit drops alternate members onto a row below (and then a
+        /// third).
+        ///
+        /// Sized against what a staggered row actually renders, not against
+        /// <see cref="MarkerLabelHeight"/>: a label down here is compacted (see
+        /// <see cref="CompassMarkerWidget.SetLabelCompaction"/>), so it spans
+        /// only ~44px rather than the ~70px an on-tape label straddling its icon
+        /// does. 60 clears the row above with a comfortable margin while keeping
+        /// the stack from eating a third of the screen. Rows are placed
+        /// independently of each other (see <see cref="Indicators.LabelOverlapResolver"/>,
+        /// which spreads each row along the tape on its own), so this value only
+        /// decides how far a staggered label travels - it can't reintroduce a
+        /// real overlap within a row.
+        /// </summary>
+        private const float MarkerRowStaggerPixels = 60f;
+
+        private const int MarkerMaxRows = 3;
 
         private void Awake()
         {
@@ -436,6 +466,7 @@ namespace SenseOfDirection.Compass
                     _markerBaseX.Remove(stale);
                     _markerSize.Remove(stale);
                     _markerOverlapOffset.Remove(stale);
+                    _markerLabelCompaction.Remove(stale);
                 }
             }
         }
@@ -482,7 +513,13 @@ namespace SenseOfDirection.Compass
                     _overlapSizesScratch.Add(_markerSize[anchor]);
                 }
 
-                targetOffsets = Indicators.LabelOverlapResolver.ComputeOffsets(_overlapBasePositionsScratch, _overlapSizesScratch, Indicators.LabelOverlapResolver.Axis.Horizontal);
+                targetOffsets = Indicators.LabelOverlapResolver.ComputeOffsets(
+                    _overlapBasePositionsScratch,
+                    _overlapSizesScratch,
+                    Indicators.LabelOverlapResolver.Axis.Horizontal,
+                    MarkerMaxOverlapOffset,
+                    MarkerRowStaggerPixels,
+                    MarkerMaxRows);
             }
             else
             {
@@ -496,7 +533,22 @@ namespace SenseOfDirection.Compass
                 Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, targetOffsets[i], Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
                 _markerOverlapOffset[anchor] = smoothedOffset;
 
-                _markers[anchor].LabelGroup.anchoredPosition = smoothedOffset;
+                CompassMarkerWidget widget = _markers[anchor];
+                widget.LabelGroup.anchoredPosition = smoothedOffset;
+
+                // A label staggered onto row 2/3 has left its icon behind on the
+                // tape, so the icon-sized gap its name/distance lines straddle is
+                // now an empty hole - and which distance line belongs to which
+                // name stops being obvious. Close the two lines up while it's off
+                // the tape's own row, and open them back up when it returns.
+                // Derived from the *target* row, not the smoothed offset, so the
+                // compaction leads the move instead of chasing it, and eased at
+                // the same rate so both finish together.
+                float targetCompaction = targetOffsets[i].y <= -MarkerRowStaggerPixels * 0.5f ? 1f : 0f;
+                float currentCompaction = _markerLabelCompaction.TryGetValue(anchor, out float existingCompaction) ? existingCompaction : 0f;
+                float smoothedCompaction = Mathf.MoveTowards(currentCompaction, targetCompaction, Time.deltaTime * LabelCompactionSpeedPerSecond);
+                _markerLabelCompaction[anchor] = smoothedCompaction;
+                widget.SetLabelCompaction(smoothedCompaction);
             }
         }
 

@@ -46,7 +46,11 @@ namespace SenseOfDirection.Indicators
         private readonly List<IndicatorAnchor> _overlapCandidates = new List<IndicatorAnchor>();
         private readonly List<Vector2> _overlapBasePositionsScratch = new List<Vector2>();
         private readonly List<Vector2> _overlapSizesScratch = new List<Vector2>();
+        private readonly List<float> _overlapCapsScratch = new List<float>();
         private readonly Dictionary<IndicatorAnchor, Vector2> _overlapBasePosition = new Dictionary<IndicatorAnchor, Vector2>();
+
+        /// <summary>Each candidate's overlap <em>box</em> centre (tracked position + <see cref="IndicatorAnchor.OverlapCenterOffset"/>) - what the resolver reasons about, as opposed to the widget position it gets applied to.</summary>
+        private readonly Dictionary<IndicatorAnchor, Vector2> _overlapBoxPosition = new Dictionary<IndicatorAnchor, Vector2>();
         private readonly Dictionary<IndicatorAnchor, Vector2> _overlapOffset = new Dictionary<IndicatorAnchor, Vector2>();
 
         private void Awake()
@@ -80,6 +84,7 @@ namespace SenseOfDirection.Indicators
         {
             _anchors.Remove(anchor);
             _overlapBasePosition.Remove(anchor);
+            _overlapBoxPosition.Remove(anchor);
             _overlapOffset.Remove(anchor);
             if (anchor.Widget != null)
             {
@@ -133,6 +138,7 @@ namespace SenseOfDirection.Indicators
                 {
                     _overlapCandidates.Add(anchor);
                     _overlapBasePosition[anchor] = state.CanvasPosition;
+                    _overlapBoxPosition[anchor] = state.CanvasPosition + anchor.OverlapCenterOffset;
                 }
 
                 if (anchor.ArrowWidget != null)
@@ -163,15 +169,14 @@ namespace SenseOfDirection.Indicators
         /// Second pass, run after every anchor's own "natural" tracked
         /// position is already set above: nudges apart any labels (opted in
         /// via a nonzero <see cref="IndicatorAnchor.OverlapSize"/>) whose
-        /// boxes overlap, per <see cref="LabelOverlapResolver"/> - a single
-        /// fixed direction (always down), never based on list order or which
-        /// specific neighbor conflicts, so it can't misplace itself over time
-        /// as unrelated anchors elsewhere come and go. List order
-        /// (<see cref="_anchors"/>' own registration order) doubles as
-        /// priority - earlier-registered anchors never move for a
-        /// later-registered one. The resulting offset is smoothed towards
-        /// its target rather than applied directly, so a label sliding into/
-        /// out of overlap doesn't snap.
+        /// boxes overlap, per <see cref="LabelOverlapResolver"/> - each cluster
+        /// of colliding labels splits apart around its own middle, by the least
+        /// total movement that clears it. Purely geometric: it depends on no
+        /// list/registration order and on no particular conflicting neighbour,
+        /// so it can't misplace itself over time as unrelated anchors elsewhere
+        /// come and go. The resulting offset is smoothed towards its target
+        /// rather than applied directly, so a label sliding into/out of overlap
+        /// doesn't snap.
         /// </summary>
         private void ResolveLabelOverlaps()
         {
@@ -192,13 +197,19 @@ namespace SenseOfDirection.Indicators
             {
                 _overlapBasePositionsScratch.Clear();
                 _overlapSizesScratch.Clear();
+                _overlapCapsScratch.Clear();
                 foreach (IndicatorAnchor anchor in _overlapCandidates)
                 {
-                    _overlapBasePositionsScratch.Add(_overlapBasePosition[anchor]);
+                    _overlapBasePositionsScratch.Add(_overlapBoxPosition[anchor]);
                     _overlapSizesScratch.Add(anchor.OverlapSize);
+                    _overlapCapsScratch.Add(anchor.MaxOverlapOffset);
                 }
 
-                targetOffsets = LabelOverlapResolver.ComputeOffsets(_overlapBasePositionsScratch, _overlapSizesScratch, LabelOverlapResolver.Axis.Vertical);
+                // Vertical only, no row staggering: labels here have the whole
+                // screen height to spread into, and pushing them sideways instead
+                // (which is what a second "row" would mean on this axis) reads as
+                // a diagonal jumble rather than a stack.
+                targetOffsets = LabelOverlapResolver.ComputeOffsets(_overlapBasePositionsScratch, _overlapSizesScratch, LabelOverlapResolver.Axis.Vertical, _overlapCapsScratch);
             }
             else
             {
