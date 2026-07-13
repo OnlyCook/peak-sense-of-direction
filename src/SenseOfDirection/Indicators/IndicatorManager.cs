@@ -26,13 +26,47 @@ namespace SenseOfDirection.Indicators
                     var go = new GameObject("SenseOfDirection.IndicatorManager");
                     DontDestroyOnLoad(go);
                     _instance = go.AddComponent<IndicatorManager>();
+                    _instance.BuildLiveCanvas();
                 }
                 return _instance;
             }
         }
 
+        /// <summary>
+        /// A second, non-singleton manager driving the exact same anchor/widget
+        /// machinery into somewhere other than the real screen: used by the
+        /// config preview menu (<c>Ui.PreviewScene</c>), which renders the mod's
+        /// real widgets against a fake camera inside a panel.
+        ///
+        /// Everything below - edge clamping, the on/off-screen transition,
+        /// overlap resolution - is resolution-independent already
+        /// (<see cref="ScreenSpaceTracker"/> works in viewport space, and the
+        /// canvas size is a parameter, not <c>Screen.width/height</c>), so the
+        /// preview gets the real behaviour rather than a lookalike
+        /// reimplementation that could drift out of sync with it.
+        /// </summary>
+        /// <param name="surface">Widgets are parented here, and its rect size stands in for the screen.</param>
+        /// <param name="camera">Projected against instead of <see cref="Camera.main"/>.</param>
+        public static IndicatorManager CreateDetached(RectTransform surface, Camera camera)
+        {
+            var go = new GameObject("SenseOfDirection.IndicatorManager.Detached");
+            go.transform.SetParent(surface, false);
+
+            var manager = go.AddComponent<IndicatorManager>();
+            manager._detached = true;
+            manager._cameraOverride = camera;
+            manager.CanvasTransform = surface;
+            return manager;
+        }
+
         /// <summary>Parent every registered anchor's widget under this.</summary>
         public RectTransform CanvasTransform { get; private set; }
+
+        /// <summary>Set on a <see cref="CreateDetached"/> instance: it owns no canvas of its own and never touches the game's HUD sorting order.</summary>
+        private bool _detached;
+
+        /// <summary>Null on the live instance, which tracks <see cref="Camera.main"/>.</summary>
+        private Camera _cameraOverride;
 
         /// <summary>Read-only view for <see cref="Compass.CompassManager"/>, which drives its own top-of-screen markers off the same registered anchors instead of requiring a second registration call per mechanic.</summary>
         public IReadOnlyList<IndicatorAnchor> Anchors => _anchors;
@@ -101,7 +135,13 @@ namespace SenseOfDirection.Indicators
         private readonly Dictionary<IndicatorAnchor, Vector2> _overlapBoxPosition = new Dictionary<IndicatorAnchor, Vector2>();
         private readonly Dictionary<IndicatorAnchor, Vector2> _overlapOffset = new Dictionary<IndicatorAnchor, Vector2>();
 
-        private void Awake()
+        /// <summary>
+        /// The live instance's own full-screen overlay canvas. Called from the
+        /// <see cref="Instance"/> getter rather than <c>Awake</c>, so a
+        /// <see cref="CreateDetached"/> instance (which renders into a canvas
+        /// someone else owns) doesn't build one it would never use.
+        /// </summary>
+        private void BuildLiveCanvas()
         {
             var canvasGo = new GameObject("Canvas");
             canvasGo.transform.SetParent(transform, false);
@@ -151,12 +191,14 @@ namespace SenseOfDirection.Indicators
             // Sit just behind the game's own HUD canvas rather than a fixed
             // sky-high sorting order, so this overlay never draws over the
             // vanilla UI (pause menu, inventory bar, etc.) - only under it.
-            if (GUIManager.instance != null && GUIManager.instance.hudCanvas != null)
+            // A detached instance has no canvas of its own; it draws inside
+            // whatever the preview menu already put it in.
+            if (!_detached && GUIManager.instance != null && GUIManager.instance.hudCanvas != null)
             {
                 _canvas.sortingOrder = GUIManager.instance.hudCanvas.sortingOrder - 1;
             }
 
-            var camera = Camera.main;
+            Camera camera = _cameraOverride != null ? _cameraOverride : Camera.main;
             Vector2 canvasSize = CanvasTransform.rect.size;
 
             _overlapCandidates.Clear();

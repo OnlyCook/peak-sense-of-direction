@@ -84,9 +84,10 @@ namespace SenseOfDirection.Labels
             };
         }
 
-        public static PlayerLabel Create(System.Func<Vector3> getWorldPosition)
+        /// <param name="parent">Where the widget is built. Null (the live game) means the shared overlay canvas; the config preview menu passes its own stage instead.</param>
+        public static PlayerLabel Create(System.Func<Vector3> getWorldPosition, RectTransform parent = null)
         {
-            RectTransform canvasTransform = IndicatorManager.Instance.CanvasTransform;
+            RectTransform canvasTransform = parent != null ? parent : IndicatorManager.Instance.CanvasTransform;
 
             var rootGo = new GameObject("SoD.PlayerLabel", typeof(RectTransform));
             var root = (RectTransform)rootGo.transform;

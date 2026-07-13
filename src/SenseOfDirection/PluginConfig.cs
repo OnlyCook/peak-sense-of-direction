@@ -31,6 +31,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<IndicatorPlacement> PingPlacement;
         public readonly ConfigEntry<IndicatorPlacement> ItemPingPlacement;
         public readonly ConfigEntry<bool> EnableLabelOverlapAvoidance;
+        public readonly ConfigEntry<KeyCode> PreviewMenuKey;
 
         public readonly ConfigEntry<float> OnScreenNameFontScale;
         public readonly ConfigEntry<float> OnScreenDistanceFontScale;
@@ -163,6 +164,15 @@ namespace SenseOfDirection
                 "markers) apart so they stay readable when several land on top of each " +
                 "other, instead of stacking illegibly. Off restores every label/marker " +
                 "to its exact tracked position with no nudging at all.");
+
+            PreviewMenuKey = config.Bind(
+                "General", "preview-menu-key", KeyCode.F8,
+                "Key that opens the in-game settings menu: every visual setting in " +
+                "this mod, laid out over a live preview of what it actually does " +
+                "(player labels, pings, item pings, the campfire indicator and the " +
+                "compass, all drawn on a real screenshot and updating as you change " +
+                "them). Changes there are written straight to this config file. Set " +
+                "to None to disable the key entirely.");
 
             // ---- Fonts: three areas, each split into name vs. distance text.
             // Multipliers rather than absolute sizes on purpose: each widget's
