@@ -37,7 +37,7 @@ namespace SenseOfDirection.Pings
             // marker right on top of it would just be visual clutter, same
             // reasoning as suppressing its distance label above.
             link._widget.Anchor.CompassKind = itemPingHandled ? CompassMarkerKind.None : CompassMarkerKind.Ping;
-            link._widget.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.PingsCompassDisplayMode.Value;
+            link._widget.Anchor.GetPlacement = () => Plugin.Instance.Cfg.PingPlacement.Value;
             link._widget.Anchor.GetCompassColor = () => color;
 
             IndicatorManager.Instance.RegisterAnchor(link._widget.Anchor);

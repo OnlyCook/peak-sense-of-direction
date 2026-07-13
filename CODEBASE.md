@@ -306,7 +306,7 @@ the same anti-spam/ghost-ping gating the ping itself already went through.
   yet (no dedicated class found in the decompile to key off, unlike
   jellyfish - needs more research).
 - `ItemPingSpawner.cs` — orchestration: converts config radii, calls the
-  detector, groups results by display name when `enable-item-ping-grouping`
+  detector, groups results by display name when `enable-grouping`
   is on (a flat group-by-name, not the reference mod's iterative cluster
   search - everything found is already within one ping's detection radius of
   the same point, so nothing fancier is needed). Keeps a
@@ -333,7 +333,7 @@ the same anti-spam/ghost-ping gating the ping itself already went through.
   throwaway GameObject (not attached to the item/luggage's own GameObject,
   so it survives that being deactivated/destroyed - that's exactly the
   "no longer valid" signal it watches for): live group-center tracking,
-  `item-ping-duration-seconds` countdown (reset by `Refresh` on a merge),
+  `duration-seconds` countdown (reset by `Refresh` on a merge),
   early fade-out the instant every target in its group stops being valid.
   Reuses `Pings/PingWidgetFadeOut` unchanged (it only needs a
   `CanvasGroup`/`IndicatorAnchor` pair).
@@ -350,7 +350,7 @@ its spawn point (an unpicked coconut on a tree, berries on a bush, something
 freshly spawned from opened luggage) has its own collider *disabled* until
 first picked up - the same reason it can't be pushed either - so no
 `Physics` raycast/spherecast, however forgiving, can ever land on one.
-Gated by `enable-item-ping-ray-assist` (`item-ping-ray-assist-radius-meters`
+Gated by `enable-ray-assist` (`ray-assist-radius-meters`
 for the forgiveness radius).
 
 Its `Physics.SphereCast`/`Raycast` calls also now pass `QueryTriggerInteraction.
@@ -364,7 +364,7 @@ prefixes the *private* `PointPinger.TryGetPingHit` (the method that computes
 where a ping actually lands, RESEARCH.md Q6) to widen vanilla's `TerrainMap`-
 only raycast to also hit the `Default` layer items/luggage sit on
 (`HelperFunctions.AllPhysicalExceptCharacter`), optionally as a `SphereCast`
-(`item-ping-hitbox-radius-meters`, default 0.35m) rather than a plain ray for
+(`hitbox-radius-meters`, default 0.35m) rather than a plain ray for
 forgiveness - this is the actual fix for pings phasing through items instead
 of landing on them (a coconut up a tree, a small dropped item), since the
 ping's landing point itself is now often the item's own surface rather than
@@ -536,13 +536,19 @@ architectural reference only — same license situation as every other
 reference zip (no LICENSE file, all-rights-reserved by default, see
 RESEARCH.md's license table) — nothing here is copied from it.
 
-- `Indicators/IndicatorDisplayMode.cs` (new) / `IndicatorAnchor.cs` (extended) —
+- `Indicators/IndicatorPlacement.cs` (new) / `IndicatorAnchor.cs` (extended) —
   each mechanic's anchor now optionally carries a `CompassKind` plus
   color/label/dead/unconscious getters and a per-type `OffScreenOnly` /
-  `CompassOnly` / `Both` display-mode delegate, so `CompassManager` can
+  `CompassOnly` / `Both` `GetPlacement` delegate, so `CompassManager` can
   render its own marker for an anchor without any mechanic registering
-  twice. `IndicatorManager` gates the *original* off-screen widget/arrow on
-  this same mode (hidden entirely in `CompassOnly`) and exposes its anchor
+  twice. All four placement settings live together in the `General` config
+  section (`player-label-placement`, `campfire-placement`, `ping-placement`,
+  `item-ping-placement`): they route between the two shared rendering
+  surfaces rather than belonging to any one mechanic. Not to be confused with
+  `Player-Labels/display-mode` (`Labels/LabelDisplayMode.cs`) — placement is
+  *where* a thing is drawn, display mode is *when* player labels show.
+  `IndicatorManager` gates the *original* off-screen widget/arrow on
+  this same placement (hidden entirely in `CompassOnly`) and exposes its anchor
   list read-only for the compass to consume.
 - `CompassManager.cs` — singleton owning the tape's own `Canvas` (top-center
   anchored, sized/positioned every frame from config so width/height/offset
@@ -560,7 +566,7 @@ RESEARCH.md's license table) — nothing here is copied from it.
   minimal look instead - no background box, no "current heading" pointer
   (forward is always the tape's own center by construction), just ticks/
   markers floating over the world resting on one continuous baseline line.
-  `compass-requires-holding-item` (off by default) gates the whole tape on
+  `requires-holding-item` (off by default) gates the whole tape on
   `Character.localCharacter.data.currentItem` having a `CompassPointer`
   child component - PEAK has no dedicated "Compass" item class, it's a
   data-driven `Item` like any other, identified this way instead.
@@ -582,7 +588,7 @@ RESEARCH.md's license table) — nothing here is copied from it.
 - `Common/NativeIconCache.cs` — wraps the *game's* own item icons
   (`Item.UIData.GetIcon()`, a `Texture2D` — vanilla's inventory slots draw it
   through a `RawImage`) in `Sprite`s, which is what this mod's `Image`-based
-  UI needs, cached per source texture. Feeds `use-native-item-ping-icons`
+  UI needs, cached per source texture. Feeds `use-native-icons`
   (`ItemPings.PingableTarget.GetNativeIcon` → `ItemPingWidget`'s crosshair +
   `IndicatorAnchor.GetCompassIcon` → `CompassMarkerWidget`). Only `Item`s and
   the campfire have an icon in the game at all; luggage/creatures/hazards have
@@ -594,7 +600,7 @@ RESEARCH.md's license table) — nothing here is copied from it.
   changes, rather than a separate smiley overlay — plus a dead/unconscious
   status badge (`IconAssets.DeadBadge`/`UnconsciousBadge`, same art
   `Labels.PlayerLabel` uses, untinted), an elevation arrow (only shown once
-  `compass-elevation-threshold-meters` is exceeded - plain `↑`/`↓` glyphs on
+  `elevation-threshold-meters` is exceeded - plain `↑`/`↓` glyphs on
   TMP's own default font rather than a drawn triangle, deliberately *not*
   the game's stylized display font since a general-purpose font is far more
   likely to have those Unicode glyphs baked into its atlas), and optional
@@ -603,14 +609,14 @@ RESEARCH.md's license table) — nothing here is copied from it.
   which nudges `LabelGroup` as a whole, never `Root`/the icon itself).
 - `CompassTick.cs` — the 24 fixed heading marks (every 15°, N/E/S/W always
   lettered and taller/thicker than the plain degree ticks between them,
-  others blank unless `compass-show-degree-numbers` is on), created once
+  others blank unless `show-degree-numbers` is on), created once
   and repositioned/refaded every frame as the camera turns. True north gets
   `CompassTheme.NorthAccent` (dark red) instead of plain white, on both its
   tick line and its "N" label - the one splash of color on an otherwise
   monochrome tape, common real-world-compass convention.
 - `CompassLineColor.cs` (new) / `CompassTheme.LineColor` — the selectable
   base color (White [default]/LightGray/Gray/DarkGray/Black,
-  `Compass/compass-line-color`) every non-north tick line/label and the
+  `Compass/line-color`) every non-north tick line/label and the
   baseline stripe (`CompassManager`'s own `_baselineImage`) are tinted
   against; alpha per-element (cardinal vs. minor tick, baseline) is
   unchanged, only the RGB swaps. Re-applied every frame

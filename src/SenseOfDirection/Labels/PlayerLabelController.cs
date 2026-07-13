@@ -88,7 +88,7 @@ namespace SenseOfDirection.Labels
             label.Anchor.IsActive = () => character != null && character.gameObject.activeInHierarchy;
 
             label.Anchor.CompassKind = CompassMarkerKind.Player;
-            label.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.PlayerLabelsCompassDisplayMode.Value;
+            label.Anchor.GetPlacement = () => Plugin.Instance.Cfg.PlayerLabelPlacement.Value;
             label.Anchor.GetCompassColor = () => Plugin.Instance.Cfg.UseCharacterColor.Value
                 ? character.refs.customization.PlayerColor
                 : NativeAssets.DefaultTextColor;
@@ -101,7 +101,7 @@ namespace SenseOfDirection.Labels
             // (IsNativeLabelVisible) doesn't apply here, since there's no vanilla
             // compass to hand off to/from.
             label.Anchor.IsCompassVisible = () => _labelsVisible
-                && Vector3.Distance(CharacterPositions.LocalViewpoint(), CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters <= Plugin.Instance.Cfg.MaxDistanceMeters.Value;
+                && Vector3.Distance(CharacterPositions.LocalViewpoint(), CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters <= Plugin.Instance.Cfg.PlayerLabelMaxDistanceMeters.Value;
 
             IndicatorManager.Instance.RegisterAnchor(label.Anchor);
 
@@ -158,8 +158,8 @@ namespace SenseOfDirection.Labels
 
                 label.Refresh(
                     character.characterName, distanceMeters, isHost, isDead, isUnconscious,
-                    nameColor, cfg.NameFontSize.Value, cfg.DistanceFontSize.Value, targetAlpha,
-                    cfg.ShowDistanceLabel.Value, cfg.ShowStatusBadges.Value);
+                    nameColor, cfg.PlayerLabelNameFontSize.Value, cfg.PlayerLabelDistanceFontSize.Value, targetAlpha,
+                    cfg.ShowPlayerLabelDistance.Value, cfg.ShowStatusBadges.Value);
             }
         }
 
@@ -169,7 +169,7 @@ namespace SenseOfDirection.Labels
             {
                 return false;
             }
-            if (distanceMeters > cfg.MaxDistanceMeters.Value)
+            if (distanceMeters > cfg.PlayerLabelMaxDistanceMeters.Value)
             {
                 return false;
             }
@@ -238,7 +238,7 @@ namespace SenseOfDirection.Labels
                 return false;
             }
 
-            switch (cfg.DisplayMode.Value)
+            switch (cfg.PlayerLabelDisplayMode.Value)
             {
                 case LabelDisplayMode.AlwaysOn:
                     return true;
@@ -253,7 +253,7 @@ namespace SenseOfDirection.Labels
                     // ever registered while standing still. Doing the edge
                     // detection ourselves off the plain (unaffected) GetKey
                     // level-state read avoids that bug entirely.
-                    bool keyDownNow = Input.GetKey(cfg.UiToggleKey.Value);
+                    bool keyDownNow = Input.GetKey(cfg.PlayerLabelToggleKey.Value);
                     if (keyDownNow && !_toggleKeyWasDown)
                     {
                         _toggleVisible = !_toggleVisible;
@@ -263,7 +263,7 @@ namespace SenseOfDirection.Labels
                 }
 
                 case LabelDisplayMode.Hold:
-                    if (Input.GetKey(cfg.UiToggleKey.Value))
+                    if (Input.GetKey(cfg.PlayerLabelToggleKey.Value))
                     {
                         // Set on every held frame (including the press frame
                         // itself), so a quick tap is already covered by this

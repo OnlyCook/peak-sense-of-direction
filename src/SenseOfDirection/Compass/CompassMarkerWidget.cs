@@ -61,6 +61,10 @@ namespace SenseOfDirection.Compass
         /// <summary>TMP shader property name for the outline color, shared by the elevation arrow and (once tinted) the name/distance text materials.</summary>
         private const string OutlineColorProperty = "_OutlineColor";
 
+        /// <summary>Sizes the marker's name/distance lines are tuned at; the `Fonts` section scales these rather than replacing them (see <see cref="Common.HudFontScale"/>).</summary>
+        private const float NameFontSizeBase = 16f;
+        private const float DistanceFontSizeBase = 14f;
+
         private readonly CompassMarkerKind _kind;
         private readonly Image _iconImage;
         private readonly Image[] _iconOutlines;
@@ -281,7 +285,7 @@ namespace SenseOfDirection.Compass
             nameText.alignment = TextAlignmentOptions.Center;
             nameText.enableWordWrapping = false;
             nameText.overflowMode = TextOverflowModes.Overflow;
-            nameText.fontSize = 16f;
+            nameText.fontSize = NameFontSizeBase;
             nameText.color = Color.white;
             nameGo.SetActive(false);
 
@@ -295,7 +299,7 @@ namespace SenseOfDirection.Compass
             var distanceText = distGo.GetComponent<TextMeshProUGUI>();
             distanceText.alignment = TextAlignmentOptions.Center;
             distanceText.enableWordWrapping = false;
-            distanceText.fontSize = 14f;
+            distanceText.fontSize = DistanceFontSizeBase;
             distanceText.color = new Color(1f, 1f, 1f, 0.9f);
 
             return new CompassMarkerWidget(kind, root, canvasGroup, iconImage, iconOutlines, elevationArrow, labelGroupRect, nameText, distanceText);
@@ -448,6 +452,13 @@ namespace SenseOfDirection.Compass
                 if (_nameText.fontSharedMaterial != NativeAssets.OutlineMaterial) _nameText.fontSharedMaterial = NativeAssets.OutlineMaterial;
                 if (_distanceText.fontSharedMaterial != NativeAssets.OutlineMaterial) _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
             }
+
+            // Live config values, so re-applied every frame rather than baked in
+            // at creation. The compass has no on/off-screen state of its own - a
+            // marker is either on the tape or not drawn - so these are flat
+            // scales, not a blend like the edge-of-screen widgets use.
+            _nameText.fontSize = Common.HudFontScale.CompassName(NameFontSizeBase);
+            _distanceText.fontSize = Common.HudFontScale.CompassDistance(DistanceFontSizeBase);
 
             _nameText.gameObject.SetActive(showName && !string.IsNullOrEmpty(name));
             if (showName && !string.IsNullOrEmpty(name))

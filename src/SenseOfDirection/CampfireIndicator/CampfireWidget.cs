@@ -39,6 +39,9 @@ namespace SenseOfDirection.CampfireIndicator
             new Vector2(-1f, 1f),  new Vector2(0f, 1f),  new Vector2(1f, 1f),
         };
 
+        /// <summary>Size the distance line is tuned at; the `Fonts` section scales this rather than replacing it (see <see cref="Common.HudFontScale"/>).</summary>
+        private const float DistanceFontSizeBase = 18f;
+
         public readonly IndicatorAnchor Anchor;
 
         private readonly RectTransform _root;
@@ -94,7 +97,7 @@ namespace SenseOfDirection.CampfireIndicator
             var distanceText = textGo.GetComponent<TextMeshProUGUI>();
             distanceText.alignment = TextAlignmentOptions.Center;
             distanceText.color = Color.white;
-            distanceText.fontSize = 18f;
+            distanceText.fontSize = DistanceFontSizeBase;
             distanceText.enableWordWrapping = false;
 
             return new CampfireWidget(root, iconImage, outlineImages, distanceText, getWorldPosition);
@@ -154,6 +157,10 @@ namespace SenseOfDirection.CampfireIndicator
             {
                 _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
             }
+
+            // Live config value, so re-applied every frame rather than baked in
+            // at creation.
+            _distanceText.fontSize = Common.HudFontScale.Distance(DistanceFontSizeBase, Anchor.OffScreenBlend);
 
             _distanceText.gameObject.SetActive(showDistance);
             if (showDistance)
