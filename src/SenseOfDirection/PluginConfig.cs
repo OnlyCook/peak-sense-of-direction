@@ -88,6 +88,8 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> GhostFreeCamMoveSpeedMetersPerSecond;
         public readonly ConfigEntry<float> GhostFreeCamSprintMultiplier;
         public readonly ConfigEntry<bool> HideAllGhosts;
+        public readonly ConfigEntry<bool> GhostFreeCamShowCrosshair;
+        public readonly ConfigEntry<bool> GhostFreeCamShowKeyHint;
 
         public readonly ConfigEntry<bool> EnableDebugLogging;
         public readonly ConfigEntry<bool> EnableIndicatorTestHarness;
@@ -557,6 +559,19 @@ namespace SenseOfDirection
                 "hides every dead player's ghost body from your own view entirely. " +
                 "Doesn't affect anyone else, and doesn't affect your own ability to " +
                 "spectate/free-cam while dead yourself.");
+
+            GhostFreeCamShowCrosshair = config.Bind(
+                "Ghost-Free-Cam", "show-crosshair", true,
+                "Purely local. Shows a small reticle at the center of the screen " +
+                "while free-cam is engaged, so you have something to aim regular " +
+                "pings at (spectate mode otherwise has no crosshair at all).");
+
+            GhostFreeCamShowKeyHint = config.Bind(
+                "Ghost-Free-Cam", "show-key-hint", true,
+                "Purely local. Shows a key badge + short label near vanilla's own " +
+                "\"you are a ghost\" panel reminding you which key toggles free-cam " +
+                "(and whether it'll engage or disengage), since vanilla's UI never " +
+                "mentions this mod's keybind at all.");
 
             // Bound last so Debug is the last tab/section in ModConfig-style
             // settings UIs (section order follows bind order) - dev/QA
