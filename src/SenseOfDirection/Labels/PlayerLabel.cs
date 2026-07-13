@@ -40,6 +40,20 @@ namespace SenseOfDirection.Labels
         /// <summary>Vanilla's own fade rate (`Time.deltaTime * 5f`), matched here (UIPlayerNames.UpdateName).</summary>
         private const float FadeSpeedPerSecond = 5f;
 
+        /// <summary>
+        /// Four player labels standing on the same spot have to stack ~93px
+        /// apart to clear each other, i.e. ~140px from the middle of that stack
+        /// to either end - a 56px cap simply cannot separate a full party, so
+        /// they stayed piled up. This is the label's own tracked position moving
+        /// (name, distance and badges together), not text drifting away from an
+        /// icon left behind, so a shift of this size still reads as belonging to
+        /// its player.
+        /// </summary>
+        private const float MaxOverlapOffsetPixels = 140f;
+
+        /// <summary>Horizontal breathing room added to the measured text width.</summary>
+        private const float OverlapPaddingPixels = 12f;
+
         private PlayerLabel(
             RectTransform root, CanvasGroup canvasGroup,
             TMP_Text nameText, TMP_Text distanceText,
@@ -56,7 +70,18 @@ namespace SenseOfDirection.Labels
             _deadIcon = deadIcon;
             _unconsciousIcon = unconsciousIcon;
 
-            Anchor = new IndicatorAnchor(getWorldPosition, root) { OverlapSize = new Vector2(220f, 90f) };
+            // OverlapSize/OverlapCenterOffset are refined every Refresh() call
+            // below to what's actually rendered - a fixed 220x90 claimed the
+            // width of the longest name imaginable no matter what this label
+            // says, which made two comfortably-separated labels "collide" and
+            // shove each other for no reason. The whole widget moves (no
+            // LabelWidget child), so it can afford a larger cap than a label
+            // sliding away from an arrow that stays put.
+            Anchor = new IndicatorAnchor(getWorldPosition, root)
+            {
+                OverlapSize = new Vector2(220f, 90f),
+                MaxOverlapOffset = MaxOverlapOffsetPixels,
+            };
         }
 
         public static PlayerLabel Create(System.Func<Vector3> getWorldPosition)
@@ -181,6 +206,34 @@ namespace SenseOfDirection.Labels
             _unconsciousIcon.SetActive(showBadges && !isDead && isUnconscious);
 
             _canvasGroup.alpha = Mathf.MoveTowards(_canvasGroup.alpha, targetAlpha, Time.deltaTime * FadeSpeedPerSecond);
+
+            RefreshOverlapBox(showDistance, showBadges && isHost, showBadges && (isDead || isUnconscious));
+        }
+
+        /// <summary>
+        /// The overlap box (see <see cref="IndicatorAnchor.OverlapSize"/>/
+        /// <see cref="IndicatorAnchor.OverlapCenterOffset"/>) as this label is
+        /// currently rendered, rather than a fixed worst-case guess: as wide as
+        /// its widest visible line, and spanning only the elements actually
+        /// shown. Vertical extents come straight from the layout above - the
+        /// crown badge tops out at +42 (anchored +29, 26 tall), the status badge
+        /// bottoms out at -48 (anchored -35), the name caps at +25 and the
+        /// distance line at -24 - which means the box is <em>not</em> centred on
+        /// the tracked point, hence the centre offset.
+        /// </summary>
+        private void RefreshOverlapBox(bool showDistance, bool showHostBadge, bool showStatusBadge)
+        {
+            float width = _nameText.GetPreferredValues().x;
+            if (showDistance)
+            {
+                width = Mathf.Max(width, _distanceText.GetPreferredValues().x);
+            }
+
+            float top = showHostBadge ? 42f : 25f;
+            float bottom = showStatusBadge ? -48f : (showDistance ? -24f : -5f);
+
+            Anchor.OverlapSize = new Vector2(width + OverlapPaddingPixels, top - bottom);
+            Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
         }
     }
 }

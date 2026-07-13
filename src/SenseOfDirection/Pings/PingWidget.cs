@@ -95,11 +95,16 @@ namespace SenseOfDirection.Pings
             if (showDistance)
             {
                 _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
-                Anchor.OverlapSize = new Vector2(Mathf.Max(60f, _distanceText.GetPreferredValues().x + 12f), 40f);
+                // Just the distance line: 24 tall, anchored 22px below the
+                // tracked point (hence the centre offset - the arrow itself
+                // stays put and isn't part of the box).
+                Anchor.OverlapSize = new Vector2(_distanceText.GetPreferredValues().x + 12f, 28f);
+                Anchor.OverlapCenterOffset = new Vector2(0f, -22f);
             }
             else
             {
                 Anchor.OverlapSize = Vector2.zero;
+                Anchor.OverlapCenterOffset = Vector2.zero;
             }
         }
     }

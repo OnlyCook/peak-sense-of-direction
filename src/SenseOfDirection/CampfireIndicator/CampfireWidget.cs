@@ -56,8 +56,15 @@ namespace SenseOfDirection.CampfireIndicator
             _distanceText = distanceText;
             // Icon is always visible, so the box is never fully zero (unlike
             // Pings.PingWidget) - just shrunk to icon-only when the distance
-            // sub-line is hidden, refined every Refresh() call below.
-            Anchor = new IndicatorAnchor(getWorldPosition, root) { OverlapSize = new Vector2(28f, 28f) };
+            // sub-line is hidden, refined every Refresh() call below. The whole
+            // widget (icon and text together) moves, so like Labels.PlayerLabel
+            // it can afford a larger cap than a label sliding away from an arrow
+            // left standing at the tracked position.
+            Anchor = new IndicatorAnchor(getWorldPosition, root)
+            {
+                OverlapSize = new Vector2(28f, 28f),
+                MaxOverlapOffset = 110f,
+            };
         }
 
         public static CampfireWidget Create(System.Func<Vector3> getWorldPosition)
@@ -152,12 +159,21 @@ namespace SenseOfDirection.CampfireIndicator
             if (showDistance)
             {
                 _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
-                Anchor.OverlapSize = new Vector2(140f, 50f);
             }
-            else
-            {
-                Anchor.OverlapSize = new Vector2(28f, 28f);
-            }
+
+            // Box measured from what's actually drawn (28px icon, plus the
+            // distance line hanging below it at -22) rather than a fixed guess,
+            // so it neither invents collisions with a neighbour it's clear of nor
+            // misses one it isn't. Icon top is +14, distance line bottom -34,
+            // so the box doesn't sit centred on the tracked point.
+            float top = 14f;
+            float bottom = showDistance ? -34f : -14f;
+            float width = showDistance
+                ? Mathf.Max(28f, _distanceText.GetPreferredValues().x + 12f)
+                : 28f;
+
+            Anchor.OverlapSize = new Vector2(width, top - bottom);
+            Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
         }
     }
 }
