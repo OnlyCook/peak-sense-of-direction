@@ -113,7 +113,10 @@ namespace SenseOfDirection.GhostFreeCam
             _root.anchorMin = new Vector2(0.5f, 0f);
             _root.anchorMax = new Vector2(0.5f, 0f);
             _root.pivot = new Vector2(0.5f, 0f);
-            _root.anchoredPosition = new Vector2(0f, 130f);
+            // High enough above the bottom edge to clear vanilla's stamina
+            // bar, which sits bottom-center and would otherwise be drawn
+            // straight through this hint.
+            _root.anchoredPosition = new Vector2(0f, 200f);
 
             var layout = go.GetComponent<HorizontalLayoutGroup>();
             layout.childAlignment = TextAnchor.MiddleCenter;
