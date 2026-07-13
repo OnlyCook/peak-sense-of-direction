@@ -100,6 +100,18 @@ namespace SenseOfDirection.Indicators
         public readonly RectTransform ArrowWidget;
 
         /// <summary>
+        /// Whether <see cref="ArrowWidget"/> is spun to point at the tracked
+        /// position (true - it's a directional arrow) or left upright (false).
+        /// Item pings set this to false while showing the pinged item's own
+        /// icon there instead of the dart (<c>use-native-item-ping-icons</c>):
+        /// an item icon has no "point" to aim, and rotating one would just
+        /// leave e.g. a bandage lying on its side. The clamped edge position
+        /// still carries the direction, same as the widgets that never show an
+        /// arrow at all (player labels, the campfire).
+        /// </summary>
+        public bool RotateArrowWidget = true;
+
+        /// <summary>
         /// Optional child shown only while on-screen (the exact opposite of
         /// <see cref="ArrowWidget"/>) - e.g. the item-ping crosshair, which
         /// only makes sense overlaid on the actually-visible object, not
@@ -121,6 +133,18 @@ namespace SenseOfDirection.Indicators
 
         /// <summary>Null/empty means no name text is available for this anchor (e.g. a generic point ping).</summary>
         public Func<string> GetCompassLabel = () => null;
+
+        /// <summary>
+        /// Overrides the icon <see cref="CompassKind"/> would otherwise pick,
+        /// with one of the game's own sprites (item pings' <c>use-native-item-
+        /// ping-icons</c>: the pinged item's real inventory icon). Such a
+        /// sprite is real, pre-colored art rather than the mod's tintable
+        /// white-fill/black-outline shapes, so <see cref="CompassMarkerWidget"/>
+        /// draws it untinted - the same way it already treats the campfire's
+        /// native HUD icon. Null (default, and whenever the pinged thing has no
+        /// icon of its own) means "use the kind's own icon".
+        /// </summary>
+        public Func<Sprite> GetCompassIcon = () => null;
 
         public Func<bool> GetIsDead = () => false;
         public Func<bool> GetIsUnconscious = () => false;

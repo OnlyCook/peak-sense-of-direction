@@ -579,6 +579,14 @@ RESEARCH.md's license table) — nothing here is copied from it.
   anchor's color exactly (white × tint = tint) while leaving the outline
   untouched (black × tint = black); the two player-label status badges are
   pre-colored (fixed tan) and never tinted.
+- `Common/NativeIconCache.cs` — wraps the *game's* own item icons
+  (`Item.UIData.GetIcon()`, a `Texture2D` — vanilla's inventory slots draw it
+  through a `RawImage`) in `Sprite`s, which is what this mod's `Image`-based
+  UI needs, cached per source texture. Feeds `use-native-item-ping-icons`
+  (`ItemPings.PingableTarget.GetNativeIcon` → `ItemPingWidget`'s crosshair +
+  `IndicatorAnchor.GetCompassIcon` → `CompassMarkerWidget`). Only `Item`s and
+  the campfire have an icon in the game at all; luggage/creatures/hazards have
+  no UI art anywhere, so they keep the mod's own diamond.
 - `CompassMarkerWidget.cs` — one marker: a `CompassMarkerKind`-dependent icon
   tinted to the anchor's own color (player character color / ping color;
   campfire keeps its real sprite's own colors) — for the player marker the

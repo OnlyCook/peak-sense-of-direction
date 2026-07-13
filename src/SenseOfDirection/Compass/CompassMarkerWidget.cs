@@ -359,7 +359,7 @@ namespace SenseOfDirection.Compass
         public void Refresh(
             float iconSizePixels, Color color, string name, float distanceMeters,
             bool showName, bool showDistance, CompassElevation elevation,
-            bool isDead, bool isUnconscious)
+            bool isDead, bool isUnconscious, Sprite nativeIcon = null)
         {
             if (NativeAssets.Font != null)
             {
@@ -370,22 +370,41 @@ namespace SenseOfDirection.Compass
             // handled below, once whether this marker's text is tinted is
             // known.
 
-            var iconRect = (RectTransform)_iconImage.transform;
-            iconRect.sizeDelta = new Vector2(iconSizePixels, iconSizePixels);
-
-            // Campfire uses its own real HUD-icon colors - only the
-            // procedurally-generated placeholder shapes get tinted per-anchor.
-            _iconImage.color = _kind == CompassMarkerKind.Campfire ? Color.white : color;
-            if (_kind == CompassMarkerKind.Campfire && NativeAssets.CampfireIconSprite != null && _iconImage.sprite != NativeAssets.CampfireIconSprite)
+            // Which art this marker shows right now. Three of the four kinds can
+            // change sprite while the marker is alive, so this is resolved every
+            // frame rather than only at build time: a native icon handed in by
+            // the anchor (an item ping showing the pinged item's own inventory
+            // icon, use-native-item-ping-icons) wins over everything; a player's
+            // face swaps with its own dead/unconscious state; the campfire's HUD
+            // icon may only have been discovered by NativeAssets after the marker
+            // was built. And because markers are pooled per kind, an item-ping
+            // marker rented next by a plain (icon-less) target has to be able to
+            // get back to its own kind's icon too.
+            Sprite iconSprite = nativeIcon;
+            if (iconSprite == null)
             {
-                _iconImage.sprite = NativeAssets.CampfireIconSprite;
+                iconSprite = _kind == CompassMarkerKind.Player
+                    ? ResolvePlayerFaceSprite(isDead, isUnconscious)
+                    : ResolveIconSprite(_kind);
             }
 
-            // Campfire has no owning-player color to darken (it's not tied to
-            // any anchor's own color, same reasoning as the fill above), so
-            // its outline stays pure black; every other kind's outline is a
-            // darkened version of its own tint instead of a flat black line.
-            Color outlineColor = _kind == CompassMarkerKind.Campfire ? Color.black : ColorUtil.Darken(color);
+            // The mod's own icons are authored white-fill/black-outline
+            // specifically so Image.color can tint them per-anchor (see
+            // Common.IconAssets) - the game's own sprites are finished, colored
+            // art instead, so tinting them (or shadowing them in a darkened
+            // player color) would just muddy them. They get the plain
+            // white/black treatment the campfire's HUD icon already had.
+            bool nativeArt = nativeIcon != null || _kind == CompassMarkerKind.Campfire;
+
+            var iconRect = (RectTransform)_iconImage.transform;
+            iconRect.sizeDelta = new Vector2(iconSizePixels, iconSizePixels);
+            _iconImage.color = nativeArt ? Color.white : color;
+            if (iconSprite != null && _iconImage.sprite != iconSprite)
+            {
+                _iconImage.sprite = iconSprite;
+            }
+
+            Color outlineColor = nativeArt ? Color.black : ColorUtil.Darken(color);
             for (int i = 0; i < _iconOutlines.Length; i++)
             {
                 Image outline = _iconOutlines[i];
@@ -393,25 +412,9 @@ namespace SenseOfDirection.Compass
                 outlineRect.sizeDelta = new Vector2(iconSizePixels, iconSizePixels);
                 outlineRect.anchoredPosition = OutlineOffsets[i] * 1.5f;
                 outline.color = outlineColor;
-                if (_kind == CompassMarkerKind.Campfire && NativeAssets.CampfireIconSprite != null && outline.sprite != NativeAssets.CampfireIconSprite)
+                if (iconSprite != null && outline.sprite != iconSprite)
                 {
-                    outline.sprite = NativeAssets.CampfireIconSprite;
-                }
-            }
-
-            // Player marker's face swaps between normal/unconscious/dead art
-            // as the anchor's own state changes (icon + all outline copies
-            // need to stay in sync, same as the campfire swap above).
-            if (_kind == CompassMarkerKind.Player)
-            {
-                Sprite faceSprite = ResolvePlayerFaceSprite(isDead, isUnconscious);
-                if (faceSprite != null && _iconImage.sprite != faceSprite)
-                {
-                    _iconImage.sprite = faceSprite;
-                    foreach (Image outline in _iconOutlines)
-                    {
-                        outline.sprite = faceSprite;
-                    }
+                    outline.sprite = iconSprite;
                 }
             }
 

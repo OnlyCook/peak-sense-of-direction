@@ -45,7 +45,41 @@ namespace SenseOfDirection.ItemPings
         private ItemPingWidget _widget;
         private float _remainingSeconds;
         private bool _endingEarly;
+
+        /// <summary>Full label ("COCONUT" / "3x COCONUT"), and the bare count ("3x", null for a single target) that's left of it when the name itself is suppressed - see <see cref="_currentLabel"/>.</summary>
         private string _currentDisplayName;
+        private string _currentCountOnly;
+
+        /// <summary>
+        /// What's actually shown right now, on both the widget and the compass
+        /// marker (they must agree - a name hidden on one and shown on the other
+        /// would just look like a bug).
+        ///
+        /// Normally <see cref="_currentDisplayName"/>; with
+        /// <c>only-show-item-ping-name-without-icon</c> on, it drops to
+        /// <see cref="_currentCountOnly"/> for anything already showing its own
+        /// in-game icon, since the icon says what the thing is far more directly
+        /// than its name does. The count survives that: it's the one part of
+        /// the label an icon *can't* convey ("3x" vs. one bandage), so hiding
+        /// it along with the name would lose real information rather than a
+        /// redundant restatement. Null/empty means no name line at all - a
+        /// single pinged item with an icon, which is the whole point of the
+        /// setting.
+        /// </summary>
+        private string _currentLabel;
+
+        /// <summary>
+        /// The pinged thing's own in-game icon while <c>use-native-item-ping-
+        /// icons</c> is on and it has one (items and the campfire do; luggage,
+        /// creatures and hazards have no icon anywhere in the game). Null means
+        /// the widget/compass marker fall back to the mod's own generic
+        /// item-ping icon. Re-read each frame off the group's first still-valid
+        /// target - it can genuinely change while the highlight is up (the
+        /// front item of a group gets picked up and the next one takes over the
+        /// label), and resolving it is a dictionary hit, not an asset load (see
+        /// <see cref="Common.NativeIconCache"/>).
+        /// </summary>
+        private Sprite _currentIcon;
 
         /// <summary>
         /// Inputs the display name was last built from. The name only changes
@@ -80,7 +114,19 @@ namespace SenseOfDirection.ItemPings
             highlight._widget.Anchor.CompassKind = CompassMarkerKind.ItemPing;
             highlight._widget.Anchor.GetDisplayMode = () => Plugin.Instance.Cfg.ItemPingsCompassDisplayMode.Value;
             highlight._widget.Anchor.GetCompassColor = () => color;
-            highlight._widget.Anchor.GetCompassLabel = () => highlight._currentDisplayName;
+            // _currentLabel, not _currentDisplayName: the compass marker shows
+            // the same icon the widget does, so the name is redundant there for
+            // exactly the same targets (only-show-item-ping-name-without-icon).
+            highlight._widget.Anchor.GetCompassLabel = () => highlight._currentLabel;
+            highlight._widget.Anchor.GetCompassIcon = () => highlight._currentIcon;
+
+            // Before the anchor is registered (i.e. before anything can render
+            // this highlight), not left to the first Update - see ApplyVisuals.
+            highlight.CollectValidTargets();
+            if (highlight._valid.Count > 0 && Character.localCharacter != null)
+            {
+                highlight.ApplyVisuals();
+            }
 
             IndicatorManager.Instance.RegisterAnchor(highlight._widget.Anchor);
             return highlight;
@@ -162,6 +208,26 @@ namespace SenseOfDirection.ItemPings
                 return;
             }
 
+            ApplyVisuals();
+        }
+
+        /// <summary>
+        /// Pushes the group's current icon/label/distance into the widget (and,
+        /// via the fields the anchor's getters close over, into the compass
+        /// marker). Expects <see cref="_valid"/> to have been refilled already.
+        ///
+        /// Called from <see cref="Spawn"/> as well as <see cref="Update"/>,
+        /// which is what keeps a brand-new highlight from being visible for one
+        /// frame in its default state before the first Update resolves what it
+        /// actually shows: the widget is rented (and shown) during the ping RPC,
+        /// but MonoBehaviour.Update doesn't run until the next frame, so that
+        /// first rendered frame used to show the generic diamond and an
+        /// unsuppressed name, then snap to the item's real icon (and drop the
+        /// name under only-show-item-ping-name-without-icon) - read in-game as a
+        /// flicker on every first ping of an item.
+        /// </summary>
+        private void ApplyVisuals()
+        {
             PluginConfig cfg = Plugin.Instance.Cfg;
 
             // Game's own pickup prompts/UI show item names in all caps
@@ -174,11 +240,20 @@ namespace SenseOfDirection.ItemPings
                 _lastValidCount = _valid.Count;
                 _lastBaseName = baseName;
                 string upper = baseName.ToUpperInvariant();
-                _currentDisplayName = _valid.Count > 1 ? $"{_valid.Count}x {upper}" : upper;
+                _currentCountOnly = _valid.Count > 1 ? $"{_valid.Count}x" : null;
+                _currentDisplayName = _valid.Count > 1 ? $"{_currentCountOnly} {upper}" : upper;
             }
 
+            Func<Sprite> getIcon = _valid[0].GetNativeIcon;
+            _currentIcon = cfg.UseNativeItemPingIcons.Value && getIcon != null ? getIcon() : null;
+
+            _currentLabel = _currentIcon != null && cfg.OnlyShowItemPingNameWithoutIcon.Value
+                ? _currentCountOnly
+                : _currentDisplayName;
+            bool showName = cfg.ShowItemPingName.Value && !string.IsNullOrEmpty(_currentLabel);
+
             float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), GetGroupCenter()) * CharacterStats.unitsToMeters;
-            _widget.Refresh(_currentDisplayName, distanceMeters, cfg.ShowItemPingName.Value, cfg.ShowItemPingDistance.Value);
+            _widget.Refresh(_currentLabel, distanceMeters, showName, cfg.ShowItemPingDistance.Value, _currentIcon);
         }
 
         private void BeginFadeOut()

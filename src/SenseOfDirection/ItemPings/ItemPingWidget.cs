@@ -64,6 +64,20 @@ namespace SenseOfDirection.ItemPings
 
         private int _lastDistanceMeters = int.MinValue;
 
+        /// <summary>The pinging player's color, kept so the crosshair can go back to being tinted with it if it stops showing a native icon (see <see cref="Refresh"/>).</summary>
+        private Color _color = Color.white;
+
+        /// <summary>
+        /// Crosshair box size for the mod's own diamond, and for a native item
+        /// icon (<c>use-native-item-ping-icons</c>) respectively. The icons are
+        /// the game's own inventory art - busier, and drawn with padding inside
+        /// their own texture - so at the diamond's size they read as a smudge
+        /// rather than as the item. preserveAspect keeps non-square ones from
+        /// stretching into the wider box.
+        /// </summary>
+        private const float CrosshairSizePixels = 30f;
+        private const float NativeIconSizePixels = 44f;
+
         private ItemPingWidget(
             RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, Image arrowImage,
             RectTransform crosshair, Image crosshairImage, RectTransform labelGroup,
@@ -164,7 +178,7 @@ namespace SenseOfDirection.ItemPings
             var crosshairGo = new GameObject("Crosshair", typeof(RectTransform), typeof(Image));
             var crosshairRect = (RectTransform)crosshairGo.transform;
             crosshairRect.SetParent(root, false);
-            crosshairRect.sizeDelta = new Vector2(30f, 30f);
+            crosshairRect.sizeDelta = new Vector2(CrosshairSizePixels, CrosshairSizePixels);
             crosshairRect.anchoredPosition = Vector2.zero;
 
             var crosshairIcon = crosshairGo.GetComponent<Image>();
@@ -177,6 +191,7 @@ namespace SenseOfDirection.ItemPings
 
         private void Bind(Func<Vector3> getWorldPosition, Color color, bool enableArrow)
         {
+            _color = color;
             _nameText.color = color;
             _distanceText.color = color;
             _crosshairImage.color = color;
@@ -239,8 +254,47 @@ namespace SenseOfDirection.ItemPings
             _lastDistanceMeters = int.MinValue;
         }
 
-        public void Refresh(string displayName, float distanceMeters, bool showName, bool showDistance)
+        public void Refresh(string displayName, float distanceMeters, bool showName, bool showDistance, Sprite nativeIcon = null)
         {
+            // The mod's own diamond is authored white-fill/black-outline so it
+            // can be tinted to the pinging player's color (Common.IconAssets);
+            // the game's own item icon is finished, colored art, so it's shown
+            // untinted and a size up instead - the same reasoning the compass
+            // marker uses (Compass.CompassMarkerWidget.Refresh). Resolved every
+            // frame rather than at bind time because the widget is pooled and
+            // use-native-item-ping-icons is a live toggle - a widget rented next
+            // by a luggage/creature (no icon of its own) has to be able to get
+            // back to the diamond.
+            Sprite crosshairSprite = nativeIcon != null ? nativeIcon : IconAssets.ItemPingDiamond;
+            if (crosshairSprite != null && _crosshairImage.sprite != crosshairSprite)
+            {
+                _crosshairImage.sprite = crosshairSprite;
+            }
+            float crosshairSize = nativeIcon != null ? NativeIconSizePixels : CrosshairSizePixels;
+            _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
+            _crosshairImage.color = nativeIcon != null ? Color.white : _color;
+
+            // Off-screen, the same icon takes the place of the dart entirely
+            // (rather than the dart pointing at an unseen item): the item is
+            // what's worth recognizing at a glance, and its clamped edge
+            // position already says which way it is - so the arrow is left
+            // upright (RotateArrowWidget) instead of being spun, since an item
+            // icon has no "point" to aim and a rotated one just looks
+            // knocked over.
+            Sprite arrowSprite = nativeIcon != null ? nativeIcon : IconAssets.PingArrow;
+            if (arrowSprite != null && _arrowImage.sprite != arrowSprite)
+            {
+                _arrowImage.sprite = arrowSprite;
+            }
+            _arrow.sizeDelta = nativeIcon != null
+                ? new Vector2(NativeIconSizePixels, NativeIconSizePixels)
+                : OffScreenArrow.DartSize;
+            _arrowImage.color = nativeIcon != null ? Color.white : _color;
+            if (Anchor != null)
+            {
+                Anchor.RotateArrowWidget = nativeIcon == null;
+            }
+
             if (NativeAssets.Font != null)
             {
                 // Swapping the font changes how wide the same string renders,
