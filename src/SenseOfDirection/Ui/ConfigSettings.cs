@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using BepInEx.Configuration;
+using SenseOfDirection.Ui.Localization;
 using Unity.Mathematics;
 using UnityEngine;
 using Zorro.Settings;
@@ -28,6 +29,9 @@ namespace SenseOfDirection.Ui
 
         /// <summary>The config entry's own description, shown as a hover tooltip.</summary>
         string Tooltip { get; }
+
+        /// <summary>The entry's shipped default, formatted the same way its widget shows a value - shown under the hovered description.</summary>
+        string DefaultValueText { get; }
 
         Setting Setting { get; }
 
@@ -66,15 +70,44 @@ namespace SenseOfDirection.Ui
     internal static class ConfigSettingNaming
     {
         /// <summary>
-        /// <c>enable-player-labels</c> -> <c>ENABLE PLAYER LABELS</c>. Uppercase
-        /// to match how PEAK renders its own setting labels (and how
-        /// PEAKLib.ModConfig renders these same keys), hyphens to spaces because
-        /// the key convention exists precisely so multi-word keys stay readable.
+        /// The current-language name for <paramref name="entry"/> - see
+        /// <see cref="ConfigLocalizationTable"/>. Falls back to a mechanical
+        /// <c>enable-player-labels</c> -> <c>ENABLE PLAYER LABELS</c> derivation
+        /// (matching how PEAK renders its own setting labels) for any entry
+        /// whose section/key hasn't been added to the localization table yet,
+        /// so an in-progress config addition still renders something sane
+        /// rather than a blank row.
         /// </summary>
         internal static string DisplayName(ConfigEntryBase entry) =>
-            entry.Definition.Key.Replace('-', ' ').ToUpperInvariant();
+            ConfigLocalizationTable.TryGet(entry, out ConfigLocalizationEntry localized)
+                ? localized.Name
+                : entry.Definition.Key.Replace('-', ' ').ToUpperInvariant();
 
-        internal static string Tooltip(ConfigEntryBase entry) => entry.Description?.Description ?? string.Empty;
+        /// <summary>
+        /// The current-language description for <paramref name="entry"/>, with
+        /// the same un-translated-yet fallback as <see cref="DisplayName"/>.
+        /// Only a localized description is ever run through
+        /// <see cref="DescriptionPlaceholders"/> - the raw English fallback has
+        /// no placeholders to resolve, and it's meant to keep its literal
+        /// kebab-case/enum references as-is (see that class's own doc comment).
+        /// </summary>
+        internal static string Tooltip(ConfigEntryBase entry) =>
+            ConfigLocalizationTable.TryGet(entry, out ConfigLocalizationEntry localized)
+                ? DescriptionPlaceholders.Resolve(localized.Description)
+                : entry.Description?.Description ?? string.Empty;
+
+        /// <summary>
+        /// The current-language text for one enum value - see
+        /// <see cref="EnumLocalizationTable"/>. Falls back to a mechanical
+        /// <c>OffScreenOnly</c> -> <c>OFF SCREEN ONLY</c> derivation (matching
+        /// the spaced uppercase style <see cref="DisplayName"/> uses) for any
+        /// enum type/value not yet added to that table.
+        /// </summary>
+        internal static string EnumDisplayName(Enum value)
+        {
+            string mechanical = System.Text.RegularExpressions.Regex.Replace(value.ToString(), "(?<!^)([A-Z])", " $1").ToUpperInvariant();
+            return EnumLocalizationTable.Get(value.GetType(), value.ToString(), mechanical);
+        }
     }
 
     /// <summary>Backs a <c>ConfigEntry&lt;float&gt;</c> with the game's slider + number-box cell.</summary>
@@ -85,6 +118,7 @@ namespace SenseOfDirection.Ui
 
         public string DisplayName { get; }
         public string Tooltip { get; }
+        public string DefaultValueText { get; private set; }
         public Setting Setting => this;
 
         internal ConfigFloatSetting(ConfigEntry<float> entry, ISettingHandler handler)
@@ -101,6 +135,10 @@ namespace SenseOfDirection.Ui
             MinValue = range.x;
             MaxValue = range.y;
             Value = Mathf.Clamp(entry.Value, MinValue, MaxValue);
+
+            // Same Expose formatting the number box itself uses, so the default
+            // reads exactly like a value you could actually see it settle on.
+            DefaultValueText = Expose((float)entry.DefaultValue);
         }
 
         /// <summary>The one direction that matters: widget -> config -> live HUD + preview.</summary>
@@ -153,13 +191,14 @@ namespace SenseOfDirection.Ui
     /// dropdown - vanilla has no checkbox widget, every boolean setting in PEAK
     /// is an <see cref="OffOnSetting"/>, so this matches by construction.
     /// </summary>
-    internal class ConfigBoolSetting : OffOnSetting, IConfigBoundSetting
+    internal class ConfigBoolSetting : OffOnSetting, IConfigBoundSetting, ICustomLocalizedEnumSetting
     {
         private readonly ConfigEntry<bool> _entry;
         private readonly ISettingHandler _handler;
 
         public string DisplayName { get; }
         public string Tooltip { get; }
+        public string DefaultValueText { get; }
         public Setting Setting => this;
 
         internal ConfigBoolSetting(ConfigEntry<bool> entry, ISettingHandler handler)
@@ -168,6 +207,7 @@ namespace SenseOfDirection.Ui
             _handler = handler;
             DisplayName = ConfigSettingNaming.DisplayName(entry);
             Tooltip = ConfigSettingNaming.Tooltip(entry);
+            DefaultValueText = ConfigSettingNaming.EnumDisplayName(GetDefaultValue());
             Value = entry.Value ? OffOnMode.ON : OffOnMode.OFF;
         }
 
@@ -183,12 +223,35 @@ namespace SenseOfDirection.Ui
             (bool)_entry.DefaultValue ? OffOnMode.ON : OffOnMode.OFF;
 
         /// <summary>
-        /// Null, not a list: <c>EnumSettingUI</c> only asks for localized choices
-        /// when the setting implements <c>ILocalizedEnumSetting</c> (which this
-        /// deliberately doesn't), and otherwise falls back to the plain enum
-        /// names - "OFF"/"ON", exactly what vanilla's own toggles show.
+        /// Null, not a list: <c>EnumSettingUI</c> only asks for
+        /// <see cref="UnityEngine.Localization.LocalizedString"/> choices when the
+        /// setting implements <c>ILocalizedEnumSetting</c> (which this
+        /// deliberately doesn't - that needs real Unity Localization table
+        /// entries, which this mod has none of). Implementing
+        /// <see cref="ICustomLocalizedEnumSetting"/> instead, below, is what
+        /// actually localizes the dropdown.
         /// </summary>
         public override List<UnityEngine.Localization.LocalizedString> GetLocalizedChoices() => null;
+
+        /// <summary>OFF/ON, translated - see <see cref="Localization.Enums.OffOnModeLocalization"/>.</summary>
+        public List<string> GetCustomLocalizedChoices()
+        {
+            var choices = new List<string>();
+            foreach (string name in Enum.GetNames(typeof(OffOnMode)))
+            {
+                choices.Add(ConfigSettingNaming.EnumDisplayName((OffOnMode)Enum.Parse(typeof(OffOnMode), name)));
+            }
+            return choices;
+        }
+
+        /// <summary>No-op: the player's language is fixed for the life of the menu, so there's nothing to notify a listener about.</summary>
+        public void RegisterCustomLocalized(Action action)
+        {
+        }
+
+        public void DeregisterCustomLocalized(Action action)
+        {
+        }
 
         public void ResetToDefault() => SetValue((int)GetDefaultValue(), _handler, fromUI: false);
 
@@ -196,13 +259,14 @@ namespace SenseOfDirection.Ui
     }
 
     /// <summary>Backs a <c>ConfigEntry&lt;TEnum&gt;</c> with the game's dropdown cell.</summary>
-    internal class ConfigEnumSetting<T> : EnumSetting<T>, IConfigBoundSetting where T : unmanaged, Enum
+    internal class ConfigEnumSetting<T> : EnumSetting<T>, IConfigBoundSetting, ICustomLocalizedEnumSetting where T : unmanaged, Enum
     {
         private readonly ConfigEntry<T> _entry;
         private readonly ISettingHandler _handler;
 
         public string DisplayName { get; }
         public string Tooltip { get; }
+        public string DefaultValueText { get; }
         public Setting Setting => this;
 
         internal ConfigEnumSetting(ConfigEntry<T> entry, ISettingHandler handler)
@@ -211,6 +275,7 @@ namespace SenseOfDirection.Ui
             _handler = handler;
             DisplayName = ConfigSettingNaming.DisplayName(entry);
             Tooltip = ConfigSettingNaming.Tooltip(entry);
+            DefaultValueText = ConfigSettingNaming.EnumDisplayName((T)entry.DefaultValue);
             Value = entry.Value;
         }
 
@@ -224,8 +289,34 @@ namespace SenseOfDirection.Ui
 
         protected override T GetDefaultValue() => (T)_entry.DefaultValue;
 
-        /// <summary>See <see cref="ConfigBoolSetting.GetLocalizedChoices"/> - the plain enum names are what we want.</summary>
+        /// <summary>See <see cref="ConfigBoolSetting.GetLocalizedChoices"/> - <see cref="ICustomLocalizedEnumSetting"/> below does the actual localizing.</summary>
         public override List<UnityEngine.Localization.LocalizedString> GetLocalizedChoices() => null;
+
+        /// <summary>
+        /// Every value of <typeparamref name="T"/>, translated, in
+        /// <c>Enum.GetNames</c> order - which has to match <see cref="EnumSetting{T}.GetValue"/>'s
+        /// own int-indexed order, which is why every config enum in this mod is
+        /// a plain sequential 0-based one (no explicit values) rather than
+        /// arbitrary. See <see cref="EnumLocalizationTable"/>.
+        /// </summary>
+        public List<string> GetCustomLocalizedChoices()
+        {
+            var choices = new List<string>();
+            foreach (string name in Enum.GetNames(typeof(T)))
+            {
+                choices.Add(ConfigSettingNaming.EnumDisplayName((T)Enum.Parse(typeof(T), name)));
+            }
+            return choices;
+        }
+
+        /// <summary>See <see cref="ConfigBoolSetting.RegisterCustomLocalized"/>.</summary>
+        public void RegisterCustomLocalized(Action action)
+        {
+        }
+
+        public void DeregisterCustomLocalized(Action action)
+        {
+        }
 
         public void ResetToDefault() => SetValue(Convert.ToInt32(GetDefaultValue()), _handler, fromUI: false);
 

@@ -52,6 +52,9 @@ namespace SenseOfDirection.Ui
         /// <summary>The description box's un-hovered placeholder text - deliberately dimmer than every real description, which use <see cref="FooterColor"/>, so a glance at the box can tell "nothing hovered yet" from "here's what this setting does".</summary>
         internal static readonly Color PlaceholderTextColor = new Color(0.55f, 0.55f, 0.58f);
 
+        /// <summary>The hovered description's "default: ..." sub-line - lighter than <see cref="PlaceholderTextColor"/> so it doesn't read as a second placeholder, but still clearly a step down from the description text above it.</summary>
+        internal static readonly Color DefaultValueTextColor = new Color(0.68f, 0.70f, 0.75f);
+
         /// <summary>
         /// The color the settings list's rows dissolve into at a scrollable edge
         /// (see <see cref="ScrollFadeSprite"/>). It's the panel's own fill darkened

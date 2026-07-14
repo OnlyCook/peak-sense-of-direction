@@ -144,19 +144,19 @@ namespace SenseOfDirection
 
             CampfirePlacement = config.Bind(
                 "General", "campfire-placement", IndicatorPlacement.OffScreenOnly,
-                "Where the campfire indicator is drawn - same OffScreenOnly/CompassOnly/" +
-                "Both choice as player-label-placement, but OffScreenOnly by default.");
+                "Where the campfire indicator is drawn, using the same OffScreenOnly/" +
+                "CompassOnly/Both choice as player-label-placement (OffScreenOnly by default).");
 
             PingPlacement = config.Bind(
                 "General", "ping-placement", IndicatorPlacement.OffScreenOnly,
-                "Where pings are drawn - same OffScreenOnly/CompassOnly/Both choice as " +
-                "player-label-placement, but OffScreenOnly by default.");
+                "Where pings are drawn, using the same OffScreenOnly/CompassOnly/Both " +
+                "choice as player-label-placement (OffScreenOnly by default).");
 
             ItemPingPlacement = config.Bind(
                 "General", "item-ping-placement", IndicatorPlacement.OffScreenOnly,
-                "Where item/luggage/creature ping highlights are drawn - same " +
-                "OffScreenOnly/CompassOnly/Both choice as player-label-placement, but " +
-                "OffScreenOnly by default.");
+                "Where item/luggage/creature ping highlights are drawn, using the same " +
+                "OffScreenOnly/CompassOnly/Both choice as player-label-placement " +
+                "(OffScreenOnly by default).");
 
             EnableLabelOverlapAvoidance = config.Bind(
                 "General", "enable-label-overlap-avoidance", true,
@@ -235,9 +235,8 @@ namespace SenseOfDirection
 
             PlayerLabelToggleKey = config.Bind(
                 "Player-Labels", "toggle-key", KeyCode.G,
-                "Key that shows/hides player labels, per display-mode below. Plain " +
-                "KeyCode (not a modifier combo), since that's the only form " +
-                "PEAKLib.ModConfig's settings menu can render as a rebindable key.");
+                "Key that shows/hides player labels, per display-mode below. Only a " +
+                "single key can be bound here, not a combination like Ctrl+G.");
 
             PlayerLabelDisplayMode = config.Bind(
                 "Player-Labels", "display-mode", LabelDisplayMode.Toggle,
@@ -257,7 +256,7 @@ namespace SenseOfDirection
                 "Player-Labels", "max-distance-meters", 1000f,
                 new ConfigDescription(
                     "A player's label stops showing beyond this distance. The default is " +
-                    "high enough to cover essentially any sightline in a run - lower it if " +
+                    "high enough to cover essentially any sightline in a run; lower it if " +
                     "you'd rather only track teammates who are actually nearby.",
                     new AcceptableValueRange<float>(50f, 2000f)));
 
@@ -292,16 +291,16 @@ namespace SenseOfDirection
                 "Player-Labels", "replace-vanilla-labels", false,
                 "Hide the game's own close-range player name labels entirely, so " +
                 "Sense of Direction's labels are the only ones ever shown. Off by " +
-                "default - normally the two systems hand off to each other instead.");
+                "default; normally the two systems hand off to each other instead.");
 
             // ---- Campfire.
             EnableCampfireIndicator = config.Bind(
                 "Campfire", "enable-campfire-indicator", true,
                 "Show an always-on edge-of-screen indicator pointing at the current " +
                 "segment's campfire (the one you're trying to reach next), so you " +
-                "always know which way to go. On by default - this is the most direct " +
-                "answer to the question the mod is named after. Turn it off if you'd " +
-                "rather find your own way up and keep the rest of the mod.");
+                "always know which way to go. On by default, since this is the most " +
+                "direct answer to the question the mod is named after. Turn it off if " +
+                "you'd rather find your own way up and keep the rest of the mod.");
 
             ShowCampfireDistance = config.Bind(
                 "Campfire", "show-distance", true,
@@ -315,7 +314,7 @@ namespace SenseOfDirection
                 "Pings", "remove-visibility-cutoff", true,
                 "Vanilla silently refuses to even spawn a ping's visual once its " +
                 "pinging player is more than ~40-50m from you. On by default so far " +
-                "pings still show up at all - most of the other Pings settings only " +
+                "pings still show up at all. Most of the other Pings settings only " +
                 "matter once this is on.");
 
             EnablePingScaling = config.Bind(
@@ -340,7 +339,7 @@ namespace SenseOfDirection
                 "Pings", "enable-offscreen-indicator", true,
                 "Show an edge-of-screen arrow pointing toward an active ping when it's " +
                 "off-screen, same mechanism as the player-label/campfire indicators. " +
-                "Only the arrow - the distance line below is show-distance's own call. " +
+                "Only the arrow; the distance line below is show-distance's own call. " +
                 "Moot while General/ping-placement is CompassOnly, which hides the whole " +
                 "edge-of-screen widget anyway.");
 
@@ -378,7 +377,7 @@ namespace SenseOfDirection
             PingAudioVolumeMultiplier = config.Bind(
                 "Ping-Audio", "volume-multiplier", 0.85f,
                 new ConfigDescription(
-                    "Multiplier on the ping sound's own base (close-range) volume - the " +
+                    "Multiplier on the ping sound's own base (close-range) volume. The " +
                     "far-range audibility boost also makes it slightly too loud up close, " +
                     "so this trims that back down.",
                     new AcceptableValueRange<float>(0.3f, 1.5f)));
@@ -388,12 +387,12 @@ namespace SenseOfDirection
             // mechanism.
             EnablePingAntiSpam = config.Bind(
                 "Ping-Anti-Spam", "enable-anti-spam", true,
-                "Rate-limit how often *other* players' pings actually render/play once " +
+                "Rate-limits how often *other* players' pings actually render/play once " +
                 "they're pinging rapidly, so spamming the ping key isn't more disruptive " +
                 "than vanilla now that pings are bigger/louder. A short burst always goes " +
-                "through instantly; only once someone keeps spamming past that does \"slow " +
-                "mode\" kick in, queueing further pings to arrive at a throttled rate " +
-                "instead (never silently dropped, unless the queue itself is full - see " +
+                "through instantly; only once someone keeps spamming does \"slow mode\" " +
+                "kick in, queueing further pings to arrive at a throttled rate instead " +
+                "(never silently dropped, unless the queue itself is full; see " +
                 "max-queue-length). Never applies to your own pings.");
 
             PingAntiSpamFreeSpamCount = config.Bind(
@@ -429,7 +428,7 @@ namespace SenseOfDirection
             EnableItemPings = config.Bind(
                 "Item-Pings", "enable-item-pings", true,
                 "Highlight nearby items/luggage when you ping near them, with a name " +
-                "and distance label - a native replacement for the (now confirmed " +
+                "and distance label, as a native replacement for the (now confirmed " +
                 "broken against the current game version) memiczny-PingItems mod.");
 
             ItemPingDurationSeconds = config.Bind(
@@ -455,19 +454,19 @@ namespace SenseOfDirection
 
             UseNativeItemPingIcons = config.Bind(
                 "Item-Pings", "use-native-icons", true,
-                "Show the item's own in-game icon (the art its inventory slot uses - " +
+                "Show the item's own in-game icon (the art its inventory slot uses, " +
                 "e.g. an actual bandage for a pinged bandage) as the highlight's " +
                 "crosshair and its compass marker, instead of the mod's generic " +
                 "item-ping icon. Only items (and the campfire) have an icon in the " +
-                "game at all - luggage, creatures and hazards keep the generic icon " +
+                "game at all; luggage, creatures and hazards keep the generic icon " +
                 "either way.");
 
             ItemPingNameMode = config.Bind(
                 "Item-Pings", "name-mode", ItemPings.ItemPingNameMode.Always,
                 "Always (default): every highlight shows what it is. HideWhenIconShown: " +
                 "anything already showing its own in-game icon (see use-native-icons) " +
-                "drops its name, since the icon says what it is - luggage, creatures and " +
-                "hazards have no icon, so they keep theirs. Never: no names at all. A " +
+                "drops its name, since the icon says what it is (luggage, creatures and " +
+                "hazards have no icon, so they keep theirs). Never: no names at all. A " +
                 "grouped ping keeps its count regardless (a hidden name still shows \"3x\").");
 
             ShowItemPingDistance = config.Bind(
@@ -493,7 +492,7 @@ namespace SenseOfDirection
             LuggagePingDetectionRadiusMeters = config.Bind(
                 "Item-Ping-Detection", "luggage-radius-meters", 3.5f,
                 new ConfigDescription(
-                    "Same as item-radius-meters, but for luggage - larger by default " +
+                    "Same as item-radius-meters, but for luggage. Larger by default, " +
                     "since luggage is a bigger target.",
                     new AcceptableValueRange<float>(0.5f, 15f)));
 
@@ -501,7 +500,7 @@ namespace SenseOfDirection
                 "Item-Ping-Detection", "enable-hit-assist", true,
                 "Widen the ping's own aim raycast so it can land directly on an " +
                 "item/luggage's own collider (not just terrain/ground), instead of " +
-                "phasing through to whatever's behind it - fixes hard-to-ping items " +
+                "phasing through to whatever's behind it. Fixes hard-to-ping items " +
                 "like a coconut up a tree or a small dropped item. Off falls back to " +
                 "vanilla's own terrain-only ping raycast.");
 
@@ -511,8 +510,8 @@ namespace SenseOfDirection
                     "Only used when enable-hit-assist is on. Treats the ping raycast as a " +
                     "sphere of this radius instead of an infinitely-thin line, so aiming " +
                     "near (not pixel-perfect on) an item's collider still hits it. 0 " +
-                    "disables the sphere and uses a plain raycast (still widened to hit " +
-                    "items, just no forgiveness).",
+                    "disables the sphere, falling back to a plain (still item-widened) " +
+                    "raycast.",
                     new AcceptableValueRange<float>(0f, 1.5f)));
 
             EnableItemPingRayAssist = config.Bind(
@@ -521,7 +520,7 @@ namespace SenseOfDirection
                 "aim line, independent of physics entirely. Needed for items that " +
                 "aren't pushable/hittable until first picked up (an unpicked coconut " +
                 "on a tree, berries on a bush, something freshly spawned from opened " +
-                "luggage) - their collider is disabled until then, so no physics " +
+                "luggage); their collider is disabled until then, so no physics " +
                 "raycast (not even enable-hit-assist's) can ever land on them.");
 
             ItemPingRayAssistRadiusMeters = config.Bind(
@@ -535,7 +534,7 @@ namespace SenseOfDirection
             EnableCompass = config.Bind(
                 "Compass", "enable-compass", true,
                 "Master switch for the top-of-screen compass tape. Off hides it " +
-                "entirely regardless of any per-mechanic compass-display-mode setting.");
+                "entirely regardless of any individual mechanic's placement setting.");
 
             CompassWidthPixels = config.Bind(
                 "Compass", "width-pixels", 640f,
@@ -549,8 +548,8 @@ namespace SenseOfDirection
                 "Compass", "marker-gap-pixels", 40f,
                 new ConfigDescription(
                     "Vertical gap between the tick row and the marker baseline below it, " +
-                    "on top of a small fixed minimum - the default keeps everything tight " +
-                    "together. Raise this for more breathing room (e.g. after turning on " +
+                    "on top of a small fixed minimum. The default keeps everything tight " +
+                    "together; raise this for more breathing room (e.g. after turning on " +
                     "show-names).",
                     new AcceptableValueRange<float>(40f, 200f)));
 
@@ -587,7 +586,7 @@ namespace SenseOfDirection
                 "Compass", "elevation-threshold-meters", 3f,
                 new ConfigDescription(
                     "A marker only gets an up/down elevation arrow once its target " +
-                    "is at least this many meters above/below you - avoids a " +
+                    "is at least this many meters above/below you, which avoids a " +
                     "flickering arrow for things that are roughly level with you.",
                     new AcceptableValueRange<float>(0.5f, 30f)));
 
@@ -600,7 +599,7 @@ namespace SenseOfDirection
             CompassShowNames = config.Bind(
                 "Compass", "show-names", false,
                 "Show a name label above each compass marker that has one (players, " +
-                "item/creature pings, the campfire) - off by default to keep the " +
+                "item/creature pings, the campfire). Off by default to keep the " +
                 "tape simple; distances still show independently of this setting.");
 
             CompassShowDistances = config.Bind(
@@ -638,18 +637,17 @@ namespace SenseOfDirection
             // top-down as "what the room decides" then "what you decide".
             EnableGhostFreeCam = config.Bind(
                 "Ghost-Free-Cam", "enable-ghost-free-cam", true,
-                "Lets dead players fly a free camera around instead of being stuck in " +
+                "Lets dead players fly a free camera instead of being stuck in " +
                 "vanilla's third-person spectate view. Unlike every other setting in " +
-                "this mod, this one and the two below it are host-controlled, not " +
-                "purely local: only the room host's own value for these three " +
-                "settings ever takes effect for every player, mirroring enable-ghost-" +
-                "ping's requirement that both sides have this mod installed. Reason: " +
-                "letting each client fly however far they like, unlimited, would be " +
-                "an unfair (and effectively ESP-like) advantage other players in the " +
-                "same run never agreed to. If the host doesn't have this mod " +
-                "installed, ghost free-cam simply doesn't work for anyone, same as " +
-                "ghost pinging. Your own value here still matters if/when you end up " +
-                "being the host.");
+                "this mod, this one and the two below it are host-controlled: only " +
+                "the room host's own value for these three settings ever takes " +
+                "effect for every player, the same way enable-ghost-ping requires " +
+                "both sides to have this mod installed. That's because letting each " +
+                "client fly unlimited distances would be an unfair, effectively " +
+                "ESP-like advantage other players in the same run never agreed to. " +
+                "If the host doesn't have this mod installed, ghost free-cam simply " +
+                "doesn't work for anyone, same as ghost pinging. Your own value here " +
+                "still matters if you end up being the host.");
 
             GhostFreeCamMaxDistanceMeters = config.Bind(
                 "Ghost-Free-Cam", "max-distance-meters", 50f,
@@ -664,13 +662,13 @@ namespace SenseOfDirection
                 "Ghost-Free-Cam", "unlimited-range", false,
                 "Host-controlled, see enable-ghost-free-cam. Removes max-distance-" +
                 "meters' leash entirely, letting ghosts free-cam anywhere on the " +
-                "map. Off by default - the leash is what keeps this mechanic from " +
-                "being overpowered.");
+                "map. Off by default, since the leash is what keeps this mechanic " +
+                "from being overpowered.");
 
             GhostFreeCamToggleKey = config.Bind(
                 "Ghost-Free-Cam", "toggle-key", KeyCode.V,
                 "Purely local. Key that toggles free-fly camera mode on/off while " +
-                "you're dead and spectating - each player binds their own. Only does " +
+                "you're dead and spectating; each player binds their own. Only does " +
                 "anything while enable-ghost-free-cam ends up effectively on (see that " +
                 "setting for how that's decided).");
 
@@ -719,14 +717,14 @@ namespace SenseOfDirection
                 "Debug", "enable-indicator-test-harness", false,
                 "Spawn a handful of fixed dummy world points around the camera to " +
                 "visually verify the edge-of-screen indicator framework. Dev/QA " +
-                "tool only - leave off for normal play.");
+                "tool only; leave off for normal play.");
 
             EnableZombieDebugEsp = config.Bind(
                 "Debug", "enable-zombie-debug-esp", false,
                 "Dev/QA aid: always-visible edge-of-screen label for every " +
                 "naturally-spawned zombie in the level, through walls, to speed up " +
                 "testing zombie-ping detection without hunting a whole level for a " +
-                "rare spawn. Not a real feature - leave off for normal play.");
+                "rare spawn. Not a real feature; leave off for normal play.");
         }
     }
 }

@@ -75,8 +75,8 @@ namespace SenseOfDirection.Ui
         /// <summary>Nudges the whole footer row up slightly clear of the panel's bottom edge.</summary>
         private const float FooterYNudge = 5f;
 
-        /// <summary>Shown in the description box until a setting is actually hovered - see <see cref="SetDescription"/>.</summary>
-        private const string DescriptionPlaceholder = "HOVER A SETTING FOR ITS DESCRIPTION";
+        /// <summary>Shown in the description box until a setting is actually hovered - see <see cref="SetDescription"/>. Localized, so it's a property rather than a const.</summary>
+        private static string DescriptionPlaceholder => PreviewMenuLocalization.Current.DescriptionPlaceholder;
 
         // Preview left, settings in a full-height column on the right. The first
         // version stacked them (preview above, settings below), which left the
@@ -91,7 +91,23 @@ namespace SenseOfDirection.Ui
 
         private const float SettingsWidth = PanelWidth - PanelPadding * 2f - PreviewWidth - ColumnGap;
 
-        private const float DescriptionHeight = 96f;
+        /// <summary>
+        /// The description block's total budget. Sized with headroom above what
+        /// English needs, because <see cref="RelayoutDescriptionBlock"/> splits
+        /// this dynamically per-language (a translated description can run to
+        /// several more wrapped lines than its English original) rather than
+        /// assuming a fixed line count.
+        /// </summary>
+        private const float DescriptionHeight = 132f;
+
+        /// <summary>Height of the "default: ..." sub-line under the description text.</summary>
+        private const float DefaultValueLineHeight = 20f;
+
+        /// <summary>Between the description text and the default-value sub-line under it.</summary>
+        private const float DescriptionDefaultValueGap = 4f;
+
+        /// <summary>Floor for the description text's own height, so a single-line description doesn't collapse the split to nothing.</summary>
+        private const float MinDescriptionTextHeight = 24f;
 
         /// <summary>Between the preview frame and the hovered setting's description under it.</summary>
         private const float PreviewDescriptionGap = 16f;
@@ -147,7 +163,14 @@ namespace SenseOfDirection.Ui
         private Image _scrollFadeTop;
         private Image _scrollFadeBottom;
         private RectTransform _tabsRow;
+        private TMP_Text _titleText;
+        private TMP_Text _loadingText;
+        private TMP_Text _footerCloseText;
+        private TMP_Text _footerChangesText;
         private TMP_Text _descriptionText;
+        private TMP_Text _defaultValueText;
+        private float _descriptionCentreX;
+        private float _descriptionTop;
         private PreviewScene _scene;
         private PreviewMenuWindow _window;
 
@@ -317,6 +340,7 @@ namespace SenseOfDirection.Ui
 
                 _root.SetActive(true);
                 _window.SetRegistered(true);
+                RefreshLocalizedChrome();
                 ShowTab(_selectedTab);
 
                 return true;
@@ -391,11 +415,11 @@ namespace SenseOfDirection.Ui
             scaler.matchWidthOrHeight = 0.5f;
 
             // No dim of its own - it shares the menu's, see EnsureDimUi.
-            TMP_Text text = CreateText(
-                (RectTransform)_loadingRoot.transform, "LoadingText", "LOADING...",
+            _loadingText = CreateText(
+                (RectTransform)_loadingRoot.transform, "LoadingText", PreviewMenuLocalization.Current.Loading,
                 30f, PanelChrome.TitleColor, TextAlignmentOptions.Center);
 
-            var rect = (RectTransform)text.transform;
+            var rect = (RectTransform)_loadingText.transform;
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
@@ -461,9 +485,11 @@ namespace SenseOfDirection.Ui
             // mechanic is drawn (its placement), then everything else. Placement is
             // the setting that most changes what the preview looks like, so it
             // belongs where it's seen rather than buried at the bottom of a scroll.
+            PreviewMenuLocalization.Strings strings = PreviewMenuLocalization.Current;
+
             _tabs.Add(new PreviewTab
             {
-                Name = "PLAYER LABELS",
+                Name = strings.TabPlayerLabels,
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnablePlayerLabels, cfg.PlayerLabelPlacement, cfg.PlayerLabelDisplayMode,
@@ -476,7 +502,7 @@ namespace SenseOfDirection.Ui
 
             _tabs.Add(new PreviewTab
             {
-                Name = "PINGS",
+                Name = strings.TabPings,
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.RemoveVisibilityCutoff, cfg.PingPlacement, cfg.EnablePingScaling, cfg.PingScaleMultiplier,
@@ -487,7 +513,7 @@ namespace SenseOfDirection.Ui
 
             _tabs.Add(new PreviewTab
             {
-                Name = "ITEM PINGS",
+                Name = strings.TabItemPings,
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnableItemPings, cfg.ItemPingPlacement, cfg.ItemPingDurationSeconds, cfg.EnableItemPingGrouping,
@@ -498,7 +524,7 @@ namespace SenseOfDirection.Ui
 
             _tabs.Add(new PreviewTab
             {
-                Name = "CAMPFIRE",
+                Name = strings.TabCampfire,
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnableCampfireIndicator, cfg.CampfirePlacement, cfg.ShowCampfireDistance,
@@ -507,7 +533,7 @@ namespace SenseOfDirection.Ui
 
             _tabs.Add(new PreviewTab
             {
-                Name = "COMPASS",
+                Name = strings.TabCompass,
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnableCompass, cfg.CompassWidthPixels, cfg.CompassFovDegrees, cfg.CompassIconSizePixels,
@@ -523,7 +549,7 @@ namespace SenseOfDirection.Ui
             // preview deliberately crowds its labels together.
             _tabs.Add(new PreviewTab
             {
-                Name = "GENERAL",
+                Name = strings.TabGeneral,
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnableLabelOverlapAvoidance,
@@ -687,11 +713,13 @@ namespace SenseOfDirection.Ui
 
         private void BuildTitle(RectTransform panel, float top)
         {
-            TMP_Text title = CreateText(panel, "Title", "SENSE OF DIRECTION  QUICK SETUP", 34f, PanelChrome.TitleColor, TextAlignmentOptions.Center);
-            var rect = (RectTransform)title.transform;
+            _titleText = CreateText(panel, "Title", TitleText, 34f, PanelChrome.TitleColor, TextAlignmentOptions.Center);
+            var rect = (RectTransform)_titleText.transform;
             rect.sizeDelta = new Vector2(PanelWidth - PanelPadding * 2f, TitleHeight);
             rect.anchoredPosition = new Vector2(0f, top - TitleHeight * 0.5f + TitleNudge);
         }
+
+        private static string TitleText => "SENSE OF DIRECTION  " + PreviewMenuLocalization.Current.QuickSetup;
 
         private RectTransform BuildTabsRow(RectTransform panel, float top)
         {
@@ -892,11 +920,82 @@ namespace SenseOfDirection.Ui
         /// </summary>
         private void BuildDescription(RectTransform panel, float centreX, float top)
         {
+            _descriptionCentreX = centreX;
+            _descriptionTop = top;
+
             _descriptionText = CreateText(panel, "Description", DescriptionPlaceholder, 18f, PanelChrome.PlaceholderTextColor, TextAlignmentOptions.TopLeft);
-            var rect = (RectTransform)_descriptionText.transform;
-            rect.sizeDelta = new Vector2(PreviewWidth, DescriptionHeight);
-            rect.anchoredPosition = new Vector2(centreX, top - DescriptionHeight * 0.5f);
             _descriptionText.enableWordWrapping = true;
+
+            _defaultValueText = CreateText(panel, "DescriptionDefaultValue", string.Empty, 15f, PanelChrome.DefaultValueTextColor, TextAlignmentOptions.TopLeft);
+
+            RelayoutDescriptionBlock();
+        }
+
+        /// <summary>
+        /// Splits the description block's fixed <see cref="DescriptionHeight"/>
+        /// budget between the description text and the default-value line below
+        /// it, based on the tallest a description actually gets in the current
+        /// language - not a guess. A fixed split (tuned against English) is what
+        /// let a longer German/Russian/etc. description's third or fourth
+        /// wrapped line run straight through "DEFAULT: ..." instead of sitting
+        /// above it. Re-run by <see cref="RefreshLocalizedChrome"/> on every
+        /// open, so it stays correct for whatever language the game is actually
+        /// running in this session - not just whatever it was when the menu was
+        /// first built.
+        ///
+        /// Deliberately one fixed split for the whole menu, not one per
+        /// setting: the default-value line has to sit in the same place no
+        /// matter which row is hovered, or it would hop up and down as the
+        /// player moves the pointer down the list - see the original bug
+        /// report. Measuring the single longest description (across every tab,
+        /// not just the visible one - the split can't refresh mid-hover as the
+        /// player switches tabs) is what makes one fixed position safe for all
+        /// of them at once.
+        /// </summary>
+        private void RelayoutDescriptionBlock()
+        {
+            if (_descriptionText == null || _defaultValueText == null)
+            {
+                return;
+            }
+
+            float maxTextHeight = MeasureMaxDescriptionHeight();
+            float textHeight = Mathf.Clamp(
+                maxTextHeight, MinDescriptionTextHeight, DescriptionHeight - DefaultValueLineHeight - DescriptionDefaultValueGap);
+
+            var rect = (RectTransform)_descriptionText.transform;
+            rect.sizeDelta = new Vector2(PreviewWidth, textHeight);
+            rect.anchoredPosition = new Vector2(_descriptionCentreX, _descriptionTop - textHeight * 0.5f);
+
+            var defaultRect = (RectTransform)_defaultValueText.transform;
+            defaultRect.sizeDelta = new Vector2(PreviewWidth, DefaultValueLineHeight);
+            float defaultTop = _descriptionTop - textHeight - DescriptionDefaultValueGap;
+            defaultRect.anchoredPosition = new Vector2(_descriptionCentreX, defaultTop - DefaultValueLineHeight * 0.5f);
+        }
+
+        /// <summary>The tallest any setting's description wraps to, at the description box's own width/font - see <see cref="RelayoutDescriptionBlock"/>.</summary>
+        private float MeasureMaxDescriptionHeight()
+        {
+            float max = 0f;
+            foreach (PreviewTab tab in _tabs)
+            {
+                foreach (ConfigEntryBase entry in tab.Entries)
+                {
+                    string tooltip = ConfigSettingNaming.Tooltip(entry);
+                    if (string.IsNullOrEmpty(tooltip))
+                    {
+                        continue;
+                    }
+
+                    Vector2 size = _descriptionText.GetPreferredValues(tooltip, PreviewWidth, 0f);
+                    if (size.y > max)
+                    {
+                        max = size.y;
+                    }
+                }
+            }
+
+            return max;
         }
 
         /// <summary>
@@ -922,10 +1021,15 @@ namespace SenseOfDirection.Ui
 
             // One badge, not two: both keys do the same thing, and two adjacent
             // badges read as two separate hints whose captions went missing.
+            PreviewMenuLocalization.Strings strings = PreviewMenuLocalization.Current;
             string openKey = Plugin.Instance.Cfg.PreviewMenuKey.Value.ToString().ToUpperInvariant();
             AddKeyBadge(row, "ESC / " + openKey);
-            AddFooterLabel(row, "CLOSE");
-            AddFooterLabel(row, "     CHANGES SAVE INSTANTLY");
+            _footerCloseText = AddFooterLabel(row, strings.FooterClose);
+
+            // The leading spaces are a manual extra gap ahead of the row's normal
+            // 8px spacing - plain whitespace, so it renders the same width
+            // regardless of which language's string follows it.
+            _footerChangesText = AddFooterLabel(row, "     " + strings.FooterChangesSaveInstantly);
         }
 
         private void AddKeyBadge(RectTransform parent, string key)
@@ -956,13 +1060,75 @@ namespace SenseOfDirection.Ui
             layoutElement.preferredHeight = FooterHeight - 4f;
         }
 
-        private void AddFooterLabel(RectTransform parent, string content)
+        private TMP_Text AddFooterLabel(RectTransform parent, string content)
         {
             TMP_Text text = CreateText(parent, "FooterLabel", content, 16f, PanelChrome.FooterColor, TextAlignmentOptions.MidlineLeft);
 
             var layoutElement = text.gameObject.AddComponent<LayoutElement>();
             layoutElement.preferredWidth = text.GetPreferredValues(content).x;
             layoutElement.preferredHeight = FooterHeight;
+            return text;
+        }
+
+        /// <summary>
+        /// Re-applies every piece of this menu's own chrome that isn't already
+        /// refreshed some other way, to the current language - run on every
+        /// open, not just the menu's first build.
+        ///
+        /// <see cref="ShowTab"/> already rebuilds each row's own name/
+        /// description fresh on every open, so those two never went stale. The
+        /// menu's surrounding chrome (title, tab labels, footer, the preview
+        /// scene's item-ping names) is built exactly once, in <see cref="BuildUi"/>,
+        /// the very first time the menu is opened in a session - which used to
+        /// mean whatever language happened to be active at that one moment
+        /// (not necessarily the player's actual one, if this mod's Awake runs
+        /// before the game has finished settling on it) stuck for the rest of
+        /// the session. This is the fix: cheap enough (a handful of text
+        /// assignments plus one small preview rebuild) to just always re-run
+        /// on open rather than try to detect whether the language actually
+        /// changed since the last one.
+        /// </summary>
+        private void RefreshLocalizedChrome()
+        {
+            PreviewMenuLocalization.Strings strings = PreviewMenuLocalization.Current;
+
+            if (_titleText != null)
+            {
+                _titleText.text = TitleText;
+            }
+
+            if (_loadingText != null)
+            {
+                _loadingText.text = strings.Loading;
+            }
+
+            string[] tabNames =
+            {
+                strings.TabPlayerLabels, strings.TabPings, strings.TabItemPings,
+                strings.TabCampfire, strings.TabCompass, strings.TabGeneral,
+            };
+            for (int i = 0; i < _tabButtons.Count && i < tabNames.Length; i++)
+            {
+                _tabButtons[i].Label.text = tabNames[i];
+                if (i < _tabs.Count)
+                {
+                    _tabs[i].Name = tabNames[i];
+                }
+            }
+
+            if (_footerCloseText != null)
+            {
+                _footerCloseText.text = strings.FooterClose;
+            }
+
+            if (_footerChangesText != null)
+            {
+                _footerChangesText.text = "     " + strings.FooterChangesSaveInstantly;
+            }
+
+            RelayoutDescriptionBlock();
+
+            _scene?.RefreshLocalizedNames();
         }
 
         /// <summary>Tears down the previous tab's rows and spawns the selected one's. Cheap enough to do wholesale - a tab is a dozen rows at most, and only on an explicit click.</summary>
@@ -982,7 +1148,7 @@ namespace SenseOfDirection.Ui
                 Destroy(_settingsContent.GetChild(i).gameObject);
             }
             _boundSettings.Clear();
-            SetDescription(null);
+            SetDescription(null, null);
 
             foreach (ConfigEntryBase entry in _tabs[_selectedTab].Entries)
             {
@@ -1030,7 +1196,7 @@ namespace SenseOfDirection.Ui
             layoutElement.minHeight = SettingRowHeight;
         }
 
-        private void SetDescription(string description)
+        private void SetDescription(string description, string defaultValueText)
         {
             if (_descriptionText == null)
             {
@@ -1040,6 +1206,10 @@ namespace SenseOfDirection.Ui
             bool hasDescription = !string.IsNullOrEmpty(description);
             _descriptionText.text = hasDescription ? description : DescriptionPlaceholder;
             _descriptionText.color = hasDescription ? PanelChrome.FooterColor : PanelChrome.PlaceholderTextColor;
+
+            _defaultValueText.text = hasDescription && !string.IsNullOrEmpty(defaultValueText)
+                ? PreviewMenuLocalization.Current.DefaultValuePrefix + " " + defaultValueText
+                : string.Empty;
         }
 
         /// <summary>Text in the game's own chunky display font, so the menu reads as part of PEAK rather than as a debug overlay.</summary>

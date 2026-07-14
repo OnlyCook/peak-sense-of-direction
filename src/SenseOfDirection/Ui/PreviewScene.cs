@@ -172,10 +172,22 @@ namespace SenseOfDirection.Ui
             /// this preview is framed at an unlit campfire, about as high a
             /// spot as exists, so a player this far off at roughly the same
             /// height reads as being below, never above, the local camera.
+            ///
+            /// Its compass bearing is pinned at 100 degrees off the camera's
+            /// forward - past 90, the farthest <c>compass-fov-degrees</c> can
+            /// ever reach (its max is 180, i.e. a 90 degree half-FOV) - rather
+            /// than left to fall out of the <see cref="U"/> screen projection
+            /// like every other spec. That guarantees it's always outside the
+            /// compass's FOV no matter how that slider is set, so it exists
+            /// solely to demonstrate <c>compass-clamp-icons-to-edge</c>: hidden
+            /// with it off, clamped to the tape's right edge with it on -
+            /// rather than sometimes just showing up on the tape on its own
+            /// whenever the FOV happens to be wide enough to reach it.
             /// </summary>
             internal static readonly PlayerSpec PlayerOffRight = new PlayerSpec(
                 "SAM", u: 1.26f, v: 0.47f, meters: 240f,
-                color: new Color(0.45f, 0.80f, 0.40f), isHost: false, isDead: false, isUnconscious: false);
+                color: new Color(0.45f, 0.80f, 0.40f), isHost: false, isDead: false, isUnconscious: false,
+                compassBearingDegrees: 100f);
 
             // The three off-screen distances above are deliberately spread far
             // apart (84 / 156 / 240m): Player-Labels/max-distance-meters bottoms
@@ -261,7 +273,16 @@ namespace SenseOfDirection.Ui
             internal readonly bool IsDead;
             internal readonly bool IsUnconscious;
 
-            internal PlayerSpec(string name, float u, float v, float meters, Color color, bool isHost, bool isDead, bool isUnconscious)
+            /// <summary>
+            /// When set, this spec's world point is placed at this many degrees off
+            /// the camera's flat forward (world yaw, not the <see cref="U"/>/<see cref="V"/>
+            /// screen projection) rather than derived from <see cref="U"/> - see
+            /// <see cref="WorldPointAtBearing"/>. Null uses the normal
+            /// <see cref="WorldPoint"/> projection.
+            /// </summary>
+            internal readonly float? CompassBearingDegrees;
+
+            internal PlayerSpec(string name, float u, float v, float meters, Color color, bool isHost, bool isDead, bool isUnconscious, float? compassBearingDegrees = null)
             {
                 Name = name;
                 U = u;
@@ -271,6 +292,7 @@ namespace SenseOfDirection.Ui
                 IsHost = isHost;
                 IsDead = isDead;
                 IsUnconscious = isUnconscious;
+                CompassBearingDegrees = compassBearingDegrees;
             }
         }
 
@@ -830,6 +852,32 @@ namespace SenseOfDirection.Ui
             return cam.position + direction * distanceWorldUnits;
         }
 
+        /// <summary>
+        /// Places a point at a fixed world-space yaw offset from the camera's
+        /// flat forward, rather than <see cref="WorldPoint"/>'s screen-space (u,
+        /// v) projection - the compass reads bearing the same way (see
+        /// <see cref="Compass.CompassManager"/>'s own <c>Mathf.Atan2</c> off flat
+        /// camera-relative x/z), but the (u, v) projection can only ever
+        /// asymptotically approach, never exceed, 90 degrees off forward for any
+        /// finite u. That makes it unusable for a spec that has to stay outside
+        /// the compass's FOV regardless of how wide that FOV is configured -
+        /// hence this separate path, used only by specs that opt in via
+        /// <see cref="PlayerSpec.CompassBearingDegrees"/>.
+        /// </summary>
+        private Vector3 WorldPointAtBearing(float yawOffsetDegrees, float v, float meters)
+        {
+            Transform cam = _camera.transform;
+            Vector3 flatForward = new Vector3(cam.forward.x, 0f, cam.forward.z).normalized;
+            Vector3 flatDirection = Quaternion.AngleAxis(yawOffsetDegrees, Vector3.up) * flatForward;
+
+            float tanHalfFovY = Mathf.Tan(FieldOfView * 0.5f * Mathf.Deg2Rad);
+            float dy = (v - 0.5f) * 2f * tanHalfFovY;
+            Vector3 direction = (flatDirection + Vector3.up * dy).normalized;
+
+            float distanceWorldUnits = meters / Mathf.Max(0.0001f, CharacterStats.unitsToMeters);
+            return cam.position + direction * distanceWorldUnits;
+        }
+
         private void BuildWidgets()
         {
             _builtFor = StructuralState.Current();
@@ -847,7 +895,9 @@ namespace SenseOfDirection.Ui
 
         private void BuildPlayer(PlayerSpec spec)
         {
-            Vector3 world = WorldPoint(spec.U, spec.V, spec.Meters);
+            Vector3 world = spec.CompassBearingDegrees.HasValue
+                ? WorldPointAtBearing(spec.CompassBearingDegrees.Value, spec.V, spec.Meters)
+                : WorldPoint(spec.U, spec.V, spec.Meters);
             PlayerLabel label = PlayerLabel.Create(() => world, _stage);
 
             IndicatorAnchor anchor = label.Anchor;
@@ -997,8 +1047,8 @@ namespace SenseOfDirection.Ui
 
         private void BuildItemPings(PluginConfig cfg)
         {
-            Sprite coconutIcon = FindItemIcon("Coconut");
-            Sprite backpackIcon = FindItemIcon("Backpack");
+            (Sprite coconutIcon, string coconutName) = FindItem("Coconut", "Coconut");
+            (Sprite backpackIcon, string backpackName) = FindItem("Backpack", "Backpack");
 
             if (cfg.EnableItemPingGrouping.Value)
             {
@@ -1006,21 +1056,22 @@ namespace SenseOfDirection.Ui
                 // at the pair's centre, exactly as ItemPingHighlight would.
                 float centreU = (Cast.CoconutU + Cast.CoconutBU) * 0.5f;
                 float centreV = (Cast.CoconutV + Cast.CoconutBV) * 0.5f;
-                AddItemPing("Coconut", 2, centreU, centreV, Cast.CoconutMeters, coconutIcon, cfg);
+                AddItemPing(coconutName, 2, centreU, centreV, Cast.CoconutMeters, coconutIcon, cfg);
             }
             else
             {
-                AddItemPing("Coconut", 1, Cast.CoconutU, Cast.CoconutV, Cast.CoconutMeters, coconutIcon, cfg);
-                AddItemPing("Coconut", 1, Cast.CoconutBU, Cast.CoconutBV, Cast.CoconutBMeters, coconutIcon, cfg);
+                AddItemPing(coconutName, 1, Cast.CoconutU, Cast.CoconutV, Cast.CoconutMeters, coconutIcon, cfg);
+                AddItemPing(coconutName, 1, Cast.CoconutBU, Cast.CoconutBV, Cast.CoconutBMeters, coconutIcon, cfg);
             }
 
-            AddItemPing("Backpack", 1, Cast.BackpackU, Cast.BackpackV, Cast.BackpackMeters, backpackIcon, cfg);
+            AddItemPing(backpackName, 1, Cast.BackpackU, Cast.BackpackV, Cast.BackpackMeters, backpackIcon, cfg);
 
             // Null icon, always: luggage has none in the game at all. See the
             // Cast.Luggage* comment - that's the point of it being here. Colored
             // to match the ping hand (Cast.PingColor), not the visible teammate -
             // it's the same orange the hand itself uses in the screenshot.
-            AddItemPing("Luggage", 1, Cast.LuggageU, Cast.LuggageV, Cast.LuggageMeters, null, cfg, Cast.PingColor);
+            string luggageName = FindLuggageDisplayName(PreviewMenuLocalization.Current.LuggageName);
+            AddItemPing(luggageName, 1, Cast.LuggageU, Cast.LuggageV, Cast.LuggageMeters, null, cfg, Cast.PingColor);
         }
 
         private void AddItemPing(string baseName, int count, float u, float v, float meters, Sprite icon, PluginConfig cfg, Color? colorOverride = null)
@@ -1072,14 +1123,15 @@ namespace SenseOfDirection.Ui
             Plugin.Instance.Cfg.UseNativeItemPingIcons.Value ? entry.NativeIcon : null;
 
         /// <summary>
-        /// The pinged item's real in-game icon, pulled off any loaded
-        /// <see cref="Item"/> prefab of that kind - the same art
-        /// <c>use-native-icons</c> shows in a real item ping. Null if that item
-        /// isn't loaded in this session, in which case the preview simply falls
-        /// back to the mod's own generic icon, exactly as it would for a
-        /// creature or a piece of luggage.
+        /// The pinged item's real in-game icon and its native, already-localized
+        /// display name (<c>Item.GetItemName()</c> - the same call a real item
+        /// ping uses, see <see cref="ItemPings.ItemPingDetector"/>), pulled off
+        /// any loaded <see cref="Item"/> prefab of that kind. Falls back to
+        /// <paramref name="fallbackName"/> (English) and no icon if that item
+        /// isn't loaded in this session - exactly the same degrade path
+        /// use-native-icons has for a creature or a piece of luggage.
         /// </summary>
-        private static Sprite FindItemIcon(string itemName)
+        private static (Sprite Icon, string Name) FindItem(string itemName, string fallbackName)
         {
             foreach (Item item in Resources.FindObjectsOfTypeAll<Item>())
             {
@@ -1090,11 +1142,32 @@ namespace SenseOfDirection.Ui
 
                 if (item.name.IndexOf(itemName, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    return NativeIconCache.ForItem(item);
+                    return (NativeIconCache.ForItem(item), item.GetItemName());
                 }
             }
 
-            return null;
+            return (null, fallbackName);
+        }
+
+        /// <summary>
+        /// Luggage's native, already-localized display name (<c>Luggage.GetName()</c>,
+        /// the same call <see cref="ItemPings.ItemPingDetector"/> uses for a real
+        /// luggage ping) off any loaded <see cref="Luggage"/> instance in the
+        /// current level. Falls back to <paramref name="fallbackName"/> (English)
+        /// if none is loaded - luggage has no prefab to fall back on the way an
+        /// <see cref="Item"/> does, only live instances.
+        /// </summary>
+        private static string FindLuggageDisplayName(string fallbackName)
+        {
+            foreach (Luggage luggage in Resources.FindObjectsOfTypeAll<Luggage>())
+            {
+                if (luggage != null)
+                {
+                    return luggage.GetName();
+                }
+            }
+
+            return fallbackName;
         }
 
         private void Update()
@@ -1252,6 +1325,29 @@ namespace SenseOfDirection.Ui
             PluginConfig cfg = Plugin.Instance.Cfg;
             BuildPing(cfg);
             BuildItemPings(cfg);
+        }
+
+        /// <summary>
+        /// Re-resolves the item-ping demo entries' native names (COCONUT/
+        /// BACKPACK/LUGGAGE) - called by <see cref="PreviewMenu"/> on every
+        /// open. <see cref="BuildItemPings"/> otherwise only ever runs once
+        /// (at first build) or when <see cref="StructuralState"/> changes,
+        /// neither of which has anything to do with the player's language -
+        /// so a preview built before the game had settled on its actual
+        /// current language would otherwise show whatever language happened
+        /// to be active at that one moment, forever, for the rest of the
+        /// session. Same teardown/rebuild <see cref="RebuildIfNeeded"/> uses.
+        /// </summary>
+        internal void RefreshLocalizedNames()
+        {
+            foreach (ItemPingWidget widget in _itemPings)
+            {
+                _indicators.UnregisterAnchor(widget.Anchor);
+            }
+            _itemPings.Clear();
+            _itemEntries.Clear();
+
+            BuildItemPings(Plugin.Instance.Cfg);
         }
     }
 }

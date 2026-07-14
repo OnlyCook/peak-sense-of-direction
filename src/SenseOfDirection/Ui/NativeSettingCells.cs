@@ -74,7 +74,7 @@ namespace SenseOfDirection.Ui
         /// <paramref name="parent"/>. Null if the setting's type has no native
         /// widget - the caller skips it rather than rendering a broken row.
         /// </summary>
-        internal static GameObject CreateRow(RectTransform parent, IConfigBoundSetting bound, ISettingHandler handler, Action<string> onHover, RectTransform rootCanvas)
+        internal static GameObject CreateRow(RectTransform parent, IConfigBoundSetting bound, ISettingHandler handler, Action<string, string> onHover, RectTransform rootCanvas)
         {
             GameObject controlPrefab = bound.Setting.GetSettingUICell();
             if (controlPrefab == null)
@@ -87,7 +87,7 @@ namespace SenseOfDirection.Ui
 
             BuildLabel(rowRect, bound.DisplayName);
             BuildControl(rowRect, controlPrefab, bound, handler, rootCanvas);
-            AttachHoverDescription(rowGo, bound.Tooltip, onHover);
+            AttachHoverDescription(rowGo, bound.Tooltip, bound.DefaultValueText, onHover);
 
             return rowGo;
         }
@@ -104,7 +104,7 @@ namespace SenseOfDirection.Ui
         /// own rebind cell out of a mutilated FloatSettingCell.) Ours is styled off
         /// the dropdown's white box so the two read as the same family.
         /// </summary>
-        internal static GameObject CreateKeyBindRow(RectTransform parent, ConfigEntry<KeyCode> entry, Action<string> onHover)
+        internal static GameObject CreateKeyBindRow(RectTransform parent, ConfigEntry<KeyCode> entry, Action<string, string> onHover)
         {
             string displayName = ConfigSettingNaming.DisplayName(entry);
 
@@ -113,7 +113,7 @@ namespace SenseOfDirection.Ui
 
             BuildLabel(rowRect, displayName);
             BuildKeyBindControl(rowRect, entry);
-            AttachHoverDescription(rowGo, ConfigSettingNaming.Tooltip(entry), onHover);
+            AttachHoverDescription(rowGo, ConfigSettingNaming.Tooltip(entry), entry.DefaultValue.ToString().ToUpperInvariant(), onHover);
 
             return rowGo;
         }
@@ -391,7 +391,7 @@ namespace SenseOfDirection.Ui
         /// leaving the user to guess from the key name alone (or go read the
         /// config file, which the whole menu exists to avoid).
         /// </summary>
-        private static void AttachHoverDescription(GameObject rowGo, string tooltip, Action<string> onHover)
+        private static void AttachHoverDescription(GameObject rowGo, string tooltip, string defaultValueText, Action<string, string> onHover)
         {
             if (string.IsNullOrEmpty(tooltip) || onHover == null)
             {
@@ -400,6 +400,7 @@ namespace SenseOfDirection.Ui
 
             var hover = rowGo.AddComponent<SettingRowHover>();
             hover.Tooltip = tooltip;
+            hover.DefaultValueText = defaultValueText;
             hover.OnHover = onHover;
         }
     }
@@ -429,7 +430,7 @@ namespace SenseOfDirection.Ui
         internal void BeginListening()
         {
             IsCapturing = true;
-            SetCaption("PRESS A KEY...");
+            SetCaption(PreviewMenuLocalization.Current.PressAKey);
         }
 
         internal void ShowCurrentKey() => SetCaption(Entry.Value.ToString().ToUpperInvariant());
@@ -480,10 +481,11 @@ namespace SenseOfDirection.Ui
     internal class SettingRowHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         internal string Tooltip;
-        internal Action<string> OnHover;
+        internal string DefaultValueText;
+        internal Action<string, string> OnHover;
 
-        public void OnPointerEnter(PointerEventData eventData) => OnHover?.Invoke(Tooltip);
+        public void OnPointerEnter(PointerEventData eventData) => OnHover?.Invoke(Tooltip, DefaultValueText);
 
-        public void OnPointerExit(PointerEventData eventData) => OnHover?.Invoke(null);
+        public void OnPointerExit(PointerEventData eventData) => OnHover?.Invoke(null, null);
     }
 }
