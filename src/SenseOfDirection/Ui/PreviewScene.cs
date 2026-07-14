@@ -34,12 +34,14 @@ namespace SenseOfDirection.Ui
     /// Two consequences of that trick are worth knowing:
     ///
     /// <list type="bullet">
-    /// <item>The stage is a full 1920x1080 rect scaled down into the panel's
-    /// frame, rather than a small canvas in its own right. Font sizes, edge
-    /// margins and the compass's pixel width are all absolute, so a stage that
-    /// was literally 1000px wide would render everything ~2x too big relative to
-    /// a real screen. At a logical 1920x1080 the preview is a faithful
-    /// miniature.</item>
+    /// <item>The stage is a full 1920x1080 rect shown scaled down inside the
+    /// panel's frame, rather than a small canvas in its own right. Font sizes,
+    /// edge margins and the compass's pixel width are all absolute, so a stage
+    /// that was literally 1000px wide would render everything ~2x too big
+    /// relative to a real screen. At a logical 1920x1080 the preview is a
+    /// faithful miniature - and, since the stage really is screen-sized, the
+    /// magnifier (<see cref="BuildLoupe"/>) can show any patch of it at exactly
+    /// the size it will be in game.</item>
     /// <item>Anchors sit at world distances of
     /// <c>meters / CharacterStats.unitsToMeters</c>, i.e. in real world units,
     /// because the shared code converts back the same way. The distances on the
@@ -57,7 +59,42 @@ namespace SenseOfDirection.Ui
         /// <summary>Matches the settings panel's own rounding, so the two read as one menu.</summary>
         private const float FrameCornerRadius = 18f;
 
+        /// <summary>
+        /// The magnifier's window, in the menu's own design pixels - and therefore
+        /// also, exactly, the patch of the 1920x1080 stage it shows: the whole
+        /// point of it is that its contents are at 1:1 scale, so one design pixel
+        /// of lens is one design pixel of stage. See <see cref="UpdateLoupe"/>.
+        /// </summary>
+        private static readonly Vector2 LoupeSize = new Vector2(300f, 300f);
+
+        private const float LoupeCornerRadius = 14f;
+        private const float LoupeBorderThickness = 5f;
+
+        /// <summary>Short enough that the lens feels attached to the cursor rather than chasing it, long enough that crossing the frame's edge isn't a hard pop.</summary>
+        private const float LoupeFadeDuration = 0.12f;
+
+        /// <summary>
+        /// The stage's off-screen home. Anywhere the game's own world isn't, since
+        /// the render camera (<see cref="BuildStageCanvas"/>) points at this spot and
+        /// would otherwise have PEAK's terrain in the shot behind the preview.
+        /// </summary>
+        private static readonly Vector3 StageWorldOrigin = new Vector3(0f, 100000f, 0f);
+
+        private RectTransform _frame;
+        private Vector2 _frameSize;
         private RectTransform _stage;
+
+        /// <summary>The stage's own canvas/camera/target - the preview is rendered here and only *displayed* in the menu. See <see cref="BuildStageCanvas"/>.</summary>
+        private GameObject _stageCanvasObject;
+        private Camera _renderCamera;
+        private RenderTexture _renderTexture;
+
+        private RawImage _surface;
+        private RectTransform _loupeRoot;
+        private RawImage _loupeContent;
+        private CanvasGroup _loupeGroup;
+        private float _loupeAlpha;
+
         private Camera _camera;
         private GameObject _cameraObject;
         private IndicatorManager _indicators;
@@ -259,14 +296,17 @@ namespace SenseOfDirection.Ui
 
         internal static PreviewScene Create(RectTransform parent, Vector2 frameSize, Vector2 anchoredPosition)
         {
-            // The frame is the window you look through; the stage behind it is a
-            // full-size 1920x1080 screen scaled to fit. The frame masks anything
-            // the stage draws outside it - which includes edge-clamped indicators
-            // sitting exactly on the stage's border.
+            // The frame is the window you look through. What it shows is not the
+            // stage itself but a *render* of it (see BuildStageCanvas), because the
+            // magnifier needs to draw the same scene twice at two different scales -
+            // once shrunk to fit the frame, once at 1:1 inside the lens - and a UI
+            // subtree can only exist in one place at one size. A RenderTexture can be
+            // sampled as many times as we like.
             //
             // A stencil Mask with a rounded sprite rather than a RectMask2D: it
             // gives the preview the same rounded corners as the panel it sits in,
-            // which a rect mask can't do.
+            // which a rect mask can't do. It also clips the lens, so the lens can
+            // never spill out over the panel.
             var frameGo = new GameObject("PreviewFrame", typeof(RectTransform), typeof(Image), typeof(Mask));
             var frame = (RectTransform)frameGo.transform;
             frame.SetParent(parent, false);
@@ -279,23 +319,10 @@ namespace SenseOfDirection.Ui
             frameGo.GetComponent<Mask>().showMaskGraphic = false;
 
             var scene = frameGo.AddComponent<PreviewScene>();
+            scene._frame = frame;
+            scene._frameSize = frameSize;
 
-            var stageGo = new GameObject("Stage", typeof(RectTransform));
-            scene._stage = (RectTransform)stageGo.transform;
-            scene._stage.SetParent(frame, false);
-
-            // Centre-anchored, like the mod's own live overlay canvas. This is not
-            // cosmetic: IndicatorManager positions every widget by anchoredPosition
-            // measured from the canvas *centre*, and a RectTransform created in code
-            // defaults to a bottom-left anchor - which silently shoved every label
-            // half a screen down and left.
-            scene._stage.anchorMin = new Vector2(0.5f, 0.5f);
-            scene._stage.anchorMax = new Vector2(0.5f, 0.5f);
-            scene._stage.pivot = new Vector2(0.5f, 0.5f);
-            scene._stage.anchoredPosition = Vector2.zero;
-            scene._stage.sizeDelta = StageSize;
-            scene._stage.localScale = Vector3.one * (frameSize.x / StageSize.x);
-
+            scene.BuildStageCanvas();
             scene.BuildBackground();
             scene.BuildCamera();
 
@@ -303,7 +330,296 @@ namespace SenseOfDirection.Ui
             scene._compass = CompassManager.CreateDetached(scene._stage, scene._camera, () => scene._indicators.Anchors);
 
             scene.BuildWidgets();
+
+            scene.BuildSurface();
+            scene.BuildLoupe();
+
+            // The stage lives outside the menu's hierarchy, so it doesn't get
+            // switched off with it - OnEnable/OnDisable do that by hand, and this is
+            // the initial sync. See SyncStageActive.
+            scene.SyncStageActive();
             return scene;
+        }
+
+        /// <summary>
+        /// The stage and the camera that renders it, both parked far away from
+        /// PEAK's own world.
+        ///
+        /// The stage used to be a child of the frame, scaled down to fit it. It
+        /// can't be any more: the magnifier has to show the same widgets at 1:1
+        /// while the frame still shows them shrunk, and no UI object can be in two
+        /// places at two sizes. So the stage renders itself, once, into a texture,
+        /// and both the frame and the lens are just views of that texture - the
+        /// frame showing all of it, the lens a 1:1 crop.
+        ///
+        /// A world-space canvas with a dedicated orthographic camera, rather than a
+        /// screen-space one: only a camera can write to a RenderTexture, and an
+        /// overlay canvas is drawn straight to the backbuffer where nothing can
+        /// sample it. The camera's frustum is a thin box around the canvas and
+        /// nothing else - hence <see cref="StageWorldOrigin"/>, which just has to be
+        /// somewhere the game's map isn't, or the terrain would render into the
+        /// preview behind the screenshot.
+        /// </summary>
+        private void BuildStageCanvas()
+        {
+            _stageCanvasObject = new GameObject("SoD.PreviewStage");
+            DontDestroyOnLoad(_stageCanvasObject);
+            _stageCanvasObject.transform.position = StageWorldOrigin;
+
+            var canvas = _stageCanvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+
+            var canvasRect = (RectTransform)_stageCanvasObject.transform;
+            canvasRect.sizeDelta = StageSize;
+
+            var stageGo = new GameObject("Stage", typeof(RectTransform));
+            _stage = (RectTransform)stageGo.transform;
+            _stage.SetParent(canvasRect, false);
+
+            // Centre-anchored, like the mod's own live overlay canvas. This is not
+            // cosmetic: IndicatorManager positions every widget by anchoredPosition
+            // measured from the canvas *centre*, and a RectTransform created in code
+            // defaults to a bottom-left anchor - which silently shoved every label
+            // half a screen down and left.
+            _stage.anchorMin = new Vector2(0.5f, 0.5f);
+            _stage.anchorMax = new Vector2(0.5f, 0.5f);
+            _stage.pivot = new Vector2(0.5f, 0.5f);
+            _stage.anchoredPosition = Vector2.zero;
+            _stage.sizeDelta = StageSize;
+
+            var cameraGo = new GameObject("SoD.PreviewStageCamera");
+            cameraGo.transform.SetParent(_stageCanvasObject.transform, false);
+
+            // Square in front of the canvas, looking back at it. One world unit is
+            // one stage pixel (the canvas is left at scale 1), so a half-height of
+            // 540 frames exactly the 1080 tall stage.
+            cameraGo.transform.localPosition = new Vector3(0f, 0f, -10f);
+            cameraGo.transform.localRotation = Quaternion.identity;
+
+            _renderCamera = cameraGo.AddComponent<Camera>();
+            _renderCamera.orthographic = true;
+            _renderCamera.orthographicSize = StageSize.y * 0.5f;
+            _renderCamera.aspect = StageSize.x / StageSize.y;
+            _renderCamera.nearClipPlane = 0.1f;
+            _renderCamera.farClipPlane = 20f;
+            _renderCamera.clearFlags = CameraClearFlags.SolidColor;
+
+            // Opaque, not transparent: alpha-blended UI rendered onto a transparent
+            // clear leaves the *alpha* channel of every antialiased edge wrong, and
+            // the frame shows this texture over the panel, where that would read as
+            // a halo. The screenshot covers the whole stage anyway, so there's
+            // nothing for a transparent background to be useful for.
+            _renderCamera.backgroundColor = Color.black;
+
+            canvas.worldCamera = _renderCamera;
+
+            EnsureRenderTexture();
+        }
+
+        /// <summary>
+        /// The stage's render target, sized off the real screen rather than fixed at
+        /// 1920x1080: the lens shows a 1:1 crop of it, so its resolution is exactly
+        /// how sharp the magnified view is. Matching the screen's own height means a
+        /// stage pixel and a screen pixel are the same size, which is the whole
+        /// claim the magnifier makes.
+        /// </summary>
+        private void EnsureRenderTexture()
+        {
+            int height = Mathf.Clamp(Screen.height, 540, 2160);
+            int width = Mathf.RoundToInt(height * StageSize.x / StageSize.y);
+
+            if (_renderTexture != null && _renderTexture.width == width && _renderTexture.height == height)
+            {
+                return;
+            }
+
+            if (_renderTexture != null)
+            {
+                _renderCamera.targetTexture = null;
+                _renderTexture.Release();
+                Destroy(_renderTexture);
+            }
+
+            // A depth buffer, even though nothing here is 3D: a world-space canvas's
+            // UI shaders ZTest against it, unlike an overlay canvas's.
+            _renderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32)
+            {
+                name = "SoD.PreviewStage",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+
+            _renderCamera.targetTexture = _renderTexture;
+
+            if (_surface != null)
+            {
+                _surface.texture = _renderTexture;
+            }
+            if (_loupeContent != null)
+            {
+                _loupeContent.texture = _renderTexture;
+            }
+        }
+
+        /// <summary>The frame's own view of the stage: all of it, shrunk to fit.</summary>
+        private void BuildSurface()
+        {
+            var go = new GameObject("Surface", typeof(RectTransform), typeof(RawImage));
+            var rect = (RectTransform)go.transform;
+            rect.SetParent(_frame, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            _surface = go.GetComponent<RawImage>();
+            _surface.texture = _renderTexture;
+
+            // The one raycast target in the preview - it's what "is the cursor over
+            // the preview" is answered against, and it also keeps a click meant for
+            // the picture from falling through to the dim behind the panel.
+            _surface.raycastTarget = true;
+        }
+
+        /// <summary>
+        /// The magnifier: a second view of the same texture, cropped to the patch
+        /// under the cursor and drawn at 1:1.
+        ///
+        /// The frame shows a 1920x1080 stage in ~1040 design pixels, so everything in
+        /// it - a label's font, the compass's tick spacing, the gap an off-screen
+        /// arrow keeps from the edge - is a little over half the size it will
+        /// actually be in game. That's fine for judging a layout and useless for
+        /// judging whether a font size is readable, which is exactly what several of
+        /// these settings are for. The lens answers that: what's inside it is the
+        /// size it will be on the player's own screen.
+        /// </summary>
+        private void BuildLoupe()
+        {
+            var rootGo = new GameObject("Loupe", typeof(RectTransform), typeof(CanvasGroup));
+            _loupeRoot = (RectTransform)rootGo.transform;
+            _loupeRoot.SetParent(_frame, false);
+            CentreAnchor(_loupeRoot, LoupeSize);
+
+            _loupeGroup = rootGo.GetComponent<CanvasGroup>();
+            _loupeGroup.alpha = 0f;
+
+            // Never a raycast target, any of it: the lens sits directly under the
+            // cursor by construction, so anything in it that swallowed a raycast
+            // would take the hover away from the surface underneath and the lens
+            // would flicker itself out of existence.
+            _loupeGroup.blocksRaycasts = false;
+            _loupeGroup.interactable = false;
+
+            var maskGo = new GameObject("Mask", typeof(RectTransform), typeof(Image), typeof(Mask));
+            var maskRect = (RectTransform)maskGo.transform;
+            maskRect.SetParent(_loupeRoot, false);
+            CentreAnchor(maskRect, LoupeSize);
+
+            var maskImage = maskGo.GetComponent<Image>();
+            maskImage.sprite = PanelChrome.MaskSprite(64, LoupeCornerRadius);
+            maskImage.type = Image.Type.Sliced;
+            maskImage.raycastTarget = false;
+            maskGo.GetComponent<Mask>().showMaskGraphic = false;
+
+            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(RawImage));
+            var contentRect = (RectTransform)contentGo.transform;
+            contentRect.SetParent(maskRect, false);
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = Vector2.zero;
+            contentRect.offsetMax = Vector2.zero;
+
+            _loupeContent = contentGo.GetComponent<RawImage>();
+            _loupeContent.texture = _renderTexture;
+            _loupeContent.raycastTarget = false;
+
+            // Drawn over the content, last, rather than peeking out from behind it.
+            var ringGo = new GameObject("Ring", typeof(RectTransform), typeof(Image));
+            var ringRect = (RectTransform)ringGo.transform;
+            ringRect.SetParent(_loupeRoot, false);
+            CentreAnchor(ringRect, LoupeSize);
+
+            var ringImage = ringGo.GetComponent<Image>();
+            ringImage.sprite = RingSprite();
+            ringImage.type = Image.Type.Sliced;
+            ringImage.raycastTarget = false;
+        }
+
+        /// <summary>
+        /// The lens's outline, as one hollow rounded-rect sprite.
+        ///
+        /// The obvious way to draw it - a solid rounded plate behind the lens, a
+        /// little bigger on every side, with its margin showing as a ring - is the
+        /// way this was first built, and it's subtly wrong at the corners: the ring's
+        /// thickness there is the gap between two arcs of *different* radii, which is
+        /// narrower than the straight sections' thickness however carefully the two
+        /// radii are picked. Measuring thickness inward from the shape's own boundary
+        /// instead - the distance field below, one texture, no nesting - makes it the
+        /// same all the way round by construction, corners included.
+        /// </summary>
+        private static Sprite RingSprite()
+        {
+            if (_ringSprite != null)
+            {
+                return _ringSprite;
+            }
+
+            const int Size = 64;
+
+            var texture = new Texture2D(Size, Size, TextureFormat.ARGB32, false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+
+            Color color = PanelChrome.PanelBorderColor;
+            var pixels = new Color[Size * Size];
+
+            for (int y = 0; y < Size; y++)
+            {
+                for (int x = 0; x < Size; x++)
+                {
+                    float fx = x + 0.5f, fy = y + 0.5f;
+                    float cx = Mathf.Clamp(fx, LoupeCornerRadius, Size - LoupeCornerRadius);
+                    float cy = Mathf.Clamp(fy, LoupeCornerRadius, Size - LoupeCornerRadius);
+                    float dist = Mathf.Sqrt((fx - cx) * (fx - cx) + (fy - cy) * (fy - cy));
+
+                    // Inside the rounded rect, minus the same shape shrunk by the
+                    // ring's thickness: what's left is the ring, and its thickness is
+                    // measured perpendicular to the boundary everywhere.
+                    float outer = Mathf.Clamp01(LoupeCornerRadius - dist + 0.5f);
+                    float inner = Mathf.Clamp01(LoupeCornerRadius - dist - LoupeBorderThickness + 0.5f);
+
+                    pixels[y * Size + x] = new Color(color.r, color.g, color.b, outer - inner);
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+
+            var slice = new Vector4(LoupeCornerRadius, LoupeCornerRadius, LoupeCornerRadius, LoupeCornerRadius);
+            _ringSprite = Sprite.Create(
+                texture, new Rect(0, 0, Size, Size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, slice);
+
+            return _ringSprite;
+        }
+
+        private static Sprite _ringSprite;
+
+        /// <summary>
+        /// Anchors and pivots a rect to its parent's centre, which is the space the
+        /// lens is positioned in (see <see cref="UpdateLoupe"/>, which measures the
+        /// cursor from the frame's centre). Spelled out rather than left to the
+        /// RectTransform's own defaults - the stage was once shoved half a screen
+        /// down and left by exactly that assumption. See <see cref="BuildStageCanvas"/>.
+        /// </summary>
+        private static void CentreAnchor(RectTransform rect, Vector2 size)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = size;
         }
 
         private void BuildBackground()
@@ -389,13 +705,46 @@ namespace SenseOfDirection.Ui
             _camera.nearClipPlane = 0.05f;
         }
 
+        private void OnEnable() => SyncStageActive();
+
+        private void OnDisable() => SyncStageActive();
+
+        /// <summary>
+        /// The stage is deliberately outside the menu's own hierarchy (it has to be,
+        /// to be rendered by a camera), which means closing the menu no longer
+        /// switches it off. Left alone it would go on rendering a 1080p texture and
+        /// running the detached indicator/compass managers' per-frame work for a
+        /// menu nobody is looking at. Follows this component's own enabled state
+        /// instead, which is exactly the menu's.
+        /// </summary>
+        private void SyncStageActive()
+        {
+            if (_stageCanvasObject == null)
+            {
+                return;
+            }
+
+            _stageCanvasObject.SetActive(isActiveAndEnabled);
+        }
+
         private void OnDestroy()
         {
-            // The camera is a root object of our own making (see BuildCamera), so
-            // nothing else will clean it up with the menu.
+            // Both of these are root objects of our own making (see BuildCamera /
+            // BuildStageCanvas), so nothing else will clean them up with the menu.
             if (_cameraObject != null)
             {
                 Destroy(_cameraObject);
+            }
+
+            if (_stageCanvasObject != null)
+            {
+                Destroy(_stageCanvasObject);
+            }
+
+            if (_renderTexture != null)
+            {
+                _renderTexture.Release();
+                Destroy(_renderTexture);
             }
         }
 
@@ -696,6 +1045,8 @@ namespace SenseOfDirection.Ui
         private void Update()
         {
             NativeAssets.TryFindAll();
+            EnsureRenderTexture();
+            UpdateLoupe();
             RebuildIfNeeded();
 
             PluginConfig cfg = Plugin.Instance.Cfg;
@@ -719,6 +1070,68 @@ namespace SenseOfDirection.Ui
                 bool showName = cfg.ItemPingNameMode.Value != ItemPingNameMode.Never && !string.IsNullOrEmpty(label);
                 entry.Widget.Refresh(label, entry.Meters, showName, cfg.ShowItemPingDistance.Value, CurrentIcon(entry));
             }
+        }
+
+        /// <summary>
+        /// Tracks the lens to the cursor and crops it to the patch of stage under it.
+        ///
+        /// The crop is where the 1:1 claim is actually made, and it's made by doing
+        /// nothing clever: the lens is <see cref="LoupeSize"/> design pixels of the
+        /// menu, and it shows exactly that many pixels of a stage that is itself a
+        /// 1920x1080 screen. Both are scaled to the player's real resolution by the
+        /// same canvas scaler, so what lands on the monitor is the size the HUD will
+        /// be on it.
+        ///
+        /// Both the lens and its crop are clamped, and to different bounds on
+        /// purpose: the lens stays wholly inside the frame (a half-clipped lens
+        /// reads as a bug), and the crop stays wholly inside the stage (sampling
+        /// past the edge would smear the border pixels across the lens). In the
+        /// interior - which is nearly all of it - neither clamp is doing anything
+        /// and what's under the cursor is dead centre in the lens. In the last few
+        /// pixels of an edge the two part company slightly, and the lens holds
+        /// still while showing the corner it's over, which is what you want when
+        /// what you're inspecting *is* the edge - an edge-clamped off-screen
+        /// indicator, say.
+        /// </summary>
+        private void UpdateLoupe()
+        {
+            if (_loupeRoot == null)
+            {
+                return;
+            }
+
+            // Null camera: the menu's canvas is a screen-space overlay, where screen
+            // points and canvas points are the same space.
+            Vector2 mouse = Input.mousePosition;
+            bool hovered = RectTransformUtility.ScreenPointToLocalPointInRectangle(_frame, mouse, null, out Vector2 local)
+                && _frame.rect.Contains(local);
+
+            if (hovered)
+            {
+                Vector2 uv = new Vector2(local.x / _frameSize.x, local.y / _frameSize.y) + Vector2.one * 0.5f;
+                Vector2 crop = new Vector2(LoupeSize.x / StageSize.x, LoupeSize.y / StageSize.y);
+                Vector2 origin = uv - crop * 0.5f;
+
+                _loupeContent.uvRect = new Rect(
+                    Mathf.Clamp(origin.x, 0f, 1f - crop.x),
+                    Mathf.Clamp(origin.y, 0f, 1f - crop.y),
+                    crop.x, crop.y);
+
+                // Right up against the frame's own edge - no inset for the ring. The
+                // lens is at its most useful exactly here, over an edge-clamped
+                // off-screen indicator, so this is the last place to hold it back
+                // from.
+                Vector2 limit = (_frameSize - LoupeSize) * 0.5f;
+                _loupeRoot.anchoredPosition = new Vector2(
+                    Mathf.Clamp(local.x, -limit.x, limit.x),
+                    Mathf.Clamp(local.y, -limit.y, limit.y));
+            }
+
+            // Unscaled: the menu freezes the game, and a fade on a frozen clock never
+            // finishes.
+            float step = LoupeFadeDuration <= 0f ? 1f : Time.unscaledDeltaTime / LoupeFadeDuration;
+            _loupeAlpha = Mathf.MoveTowards(_loupeAlpha, hovered ? 1f : 0f, step);
+            _loupeGroup.alpha = _loupeAlpha;
         }
 
         private void RefreshPlayer(PlayerLabel label, PlayerSpec spec, PluginConfig cfg)
