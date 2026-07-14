@@ -99,7 +99,7 @@ namespace SenseOfDirection.Ui
             /// about what use-character-color does.
             /// </summary>
             internal static readonly PlayerSpec PlayerOnScreen = new PlayerSpec(
-                "MAYA", u: 0.347f, v: 0.528f, meters: 18f,
+                "MAYA", u: 0.347f, v: 0.585f, meters: 18f,
                 color: new Color(87f / 255f, 68f / 255f, 154f / 255f), isHost: true, isDead: false, isUnconscious: false);
 
             // The two off the left edge sit at almost the same bearing on purpose:
@@ -115,9 +115,16 @@ namespace SenseOfDirection.Ui
                 "RIVER", u: -0.30f, v: 0.47f, meters: 156f,
                 color: new Color(0.72f, 0.47f, 0.85f), isHost: false, isDead: true, isUnconscious: false);
 
-            /// <summary>Off the right edge, alone: the uncrowded case, next to the deliberately crowded left one.</summary>
+            /// <summary>
+            /// Off the right edge, alone: the uncrowded case, next to the
+            /// deliberately crowded left one. Placed slightly *below* screen
+            /// centre (not slightly above, as an earlier version had it) -
+            /// this preview is framed at an unlit campfire, about as high a
+            /// spot as exists, so a player this far off at roughly the same
+            /// height reads as being below, never above, the local camera.
+            /// </summary>
             internal static readonly PlayerSpec PlayerOffRight = new PlayerSpec(
-                "SAM", u: 1.26f, v: 0.53f, meters: 240f,
+                "SAM", u: 1.26f, v: 0.47f, meters: 240f,
                 color: new Color(0.45f, 0.80f, 0.40f), isHost: false, isDead: false, isUnconscious: false);
 
             // The three off-screen distances above are deliberately spread far
@@ -133,9 +140,28 @@ namespace SenseOfDirection.Ui
             internal const float CampfireMeters = 42f;
 
             /// <summary>The vanilla ping hand baked into the screenshot: the 3D marker is the game's, the distance label and off-screen arrow around it are ours.</summary>
-            internal const float PingU = 0.795f;
-            internal const float PingV = 0.383f;
+            internal const float PingU = 0.807f;
+
+            /// <summary>
+            /// Sits low against the hand's own base rather than centred on its
+            /// body - the mod's own distance label always renders a fixed 22px
+            /// below its tracked point (see <see cref="Pings.PingWidget"/>), which
+            /// is a small offset relative to how tall the hand is in the shot, so
+            /// getting the label to actually read as sitting at the hand's foot
+            /// (rather than floating over its middle) means anchoring low, not
+            /// just nudging slightly.
+            /// </summary>
+            internal const float PingV = 0.300f;
             internal const float PingMeters = 24f;
+
+            /// <summary>
+            /// The ping hand's own color, sampled off the screenshot itself - it's
+            /// orange there regardless of who threw it, so the ping's label/
+            /// highlight color has to be its own constant rather than reusing
+            /// <see cref="PlayerOnScreen"/>'s purple (which would otherwise make it
+            /// look like the mod mismatched the ping to the wrong player's color).
+            /// </summary>
+            internal static readonly Color PingColor = new Color(0.95f, 0.50f, 0.12f);
 
             /// <summary>The pair of coconuts - the grouping demo (one "2x COCONUT" highlight, or two separate ones).</summary>
             internal const float CoconutU = 0.528f;
@@ -385,16 +411,34 @@ namespace SenseOfDirection.Ui
             // The shared code multiplies distances back up by unitsToMeters, so
             // the point has to be placed in world units for the labels to read the
             // meters actually asked for here.
-            float depth = meters / Mathf.Max(0.0001f, CharacterStats.unitsToMeters);
+            //
+            // Placed along the ray towards (u, v) at exactly that many world units
+            // from the camera - not "depth along forward, then offset sideways",
+            // which was the original approach and only puts the point at the
+            // right *distance* for a point dead-centre (u=v=0.5). Off-axis (any
+            // off-screen anchor, which is the whole point of placing one outside
+            // 0..1) that earlier version's sideways offset added extra length on
+            // top of the forward depth, so the point ended up farther from the
+            // camera than `meters` actually said - which is exactly why the
+            // compass (which measures real Vector3.Distance to this point) used to
+            // report a bigger number than the off-screen label (which was just
+            // told `meters` directly and printed it verbatim), and why a point
+            // barely off-centre vertically could read as implausibly far above/
+            // below the camera once its distance ballooned. The ray direction
+            // alone decides where a point projects on screen, so tracking along
+            // it doesn't change *where* it lands - only that its distance from the
+            // camera now actually matches the number it's meant to represent.
+            float tanHalfFovY = Mathf.Tan(FieldOfView * 0.5f * Mathf.Deg2Rad);
+            float tanHalfFovX = tanHalfFovY * _camera.aspect;
 
-            float halfHeight = Mathf.Tan(FieldOfView * 0.5f * Mathf.Deg2Rad) * depth;
-            float halfWidth = halfHeight * _camera.aspect;
+            float dx = (u - 0.5f) * 2f * tanHalfFovX;
+            float dy = (v - 0.5f) * 2f * tanHalfFovY;
 
             Transform cam = _camera.transform;
-            return cam.position
-                   + cam.forward * depth
-                   + cam.right * ((u - 0.5f) * 2f * halfWidth)
-                   + cam.up * ((v - 0.5f) * 2f * halfHeight);
+            Vector3 direction = (cam.forward + cam.right * dx + cam.up * dy).normalized;
+
+            float distanceWorldUnits = meters / Mathf.Max(0.0001f, CharacterStats.unitsToMeters);
+            return cam.position + direction * distanceWorldUnits;
         }
 
         private void BuildWidgets()
@@ -532,9 +576,11 @@ namespace SenseOfDirection.Ui
         {
             Vector3 world = WorldPoint(Cast.PingU, Cast.PingV, Cast.PingMeters);
 
-            // Colored as the visible teammate's ping, matching the mod's own rule
-            // that a ping wears its pinging player's character color.
-            Color color = Cast.PlayerOnScreen.Color;
+            // Cast.PingColor, not the visible teammate's own color: the hand baked
+            // into the screenshot is orange regardless of who's pinging, so the
+            // label has to match the hand actually shown rather than whichever
+            // player's color the preview otherwise demonstrates elsewhere.
+            Color color = Cast.PingColor;
             _ping = PingWidget.CreateDetached(_stage, () => world, color, cfg.EnablePingOffScreenIndicator.Value);
 
             IndicatorAnchor anchor = _ping.Anchor;
@@ -567,14 +613,16 @@ namespace SenseOfDirection.Ui
             AddItemPing("Backpack", 1, Cast.BackpackU, Cast.BackpackV, Cast.BackpackMeters, backpackIcon, cfg);
 
             // Null icon, always: luggage has none in the game at all. See the
-            // Cast.Luggage* comment - that's the point of it being here.
-            AddItemPing("Luggage", 1, Cast.LuggageU, Cast.LuggageV, Cast.LuggageMeters, null, cfg);
+            // Cast.Luggage* comment - that's the point of it being here. Colored
+            // to match the ping hand (Cast.PingColor), not the visible teammate -
+            // it's the same orange the hand itself uses in the screenshot.
+            AddItemPing("Luggage", 1, Cast.LuggageU, Cast.LuggageV, Cast.LuggageMeters, null, cfg, Cast.PingColor);
         }
 
-        private void AddItemPing(string baseName, int count, float u, float v, float meters, Sprite icon, PluginConfig cfg)
+        private void AddItemPing(string baseName, int count, float u, float v, float meters, Sprite icon, PluginConfig cfg, Color? colorOverride = null)
         {
             Vector3 world = WorldPoint(u, v, meters);
-            Color color = Cast.PlayerOnScreen.Color;
+            Color color = colorOverride ?? Cast.PlayerOnScreen.Color;
 
             ItemPingWidget widget = ItemPingWidget.CreateDetached(_stage, () => world, color, cfg.EnableItemPingOffScreenIndicator.Value);
 

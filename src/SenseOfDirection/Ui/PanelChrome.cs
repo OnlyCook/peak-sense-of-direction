@@ -45,7 +45,12 @@ namespace SenseOfDirection.Ui
         /// tinted chip is what made the selected tab the hardest one to read.
         /// </summary>
         internal static readonly Color SelectedFillColor = new Color(1f, 0.82f, 0.22f, 0.97f);
-        internal static readonly Color SelectedTextColor = new Color(1f, 0.99f, 0.94f);
+
+        /// <summary>Darkened off pure white (which read as glaring against the tab's own amber fill) but kept light enough to still contrast with it.</summary>
+        internal static readonly Color SelectedTextColor = new Color(0.85f, 0.78f, 0.55f);
+
+        /// <summary>The description box's un-hovered placeholder text - deliberately dimmer than every real description, which use <see cref="FooterColor"/>, so a glance at the box can tell "nothing hovered yet" from "here's what this setting does".</summary>
+        internal static readonly Color PlaceholderTextColor = new Color(0.55f, 0.55f, 0.58f);
 
         internal const float PanelCornerRadius = 26f;
         internal const float PanelBorderThickness = 11f;

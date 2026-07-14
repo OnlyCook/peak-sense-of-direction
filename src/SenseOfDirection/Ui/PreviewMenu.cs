@@ -69,6 +69,15 @@ namespace SenseOfDirection.Ui
 
         private const float KeyBadgeTextNudge = 3f;
 
+        /// <summary>Same low-empty-descender-space quirk as <see cref="KeyBadgeTextNudge"/>, applied to the tab buttons' own labels.</summary>
+        private const float TabTextNudge = 3f;
+
+        /// <summary>Nudges the whole footer row up slightly clear of the panel's bottom edge.</summary>
+        private const float FooterYNudge = 5f;
+
+        /// <summary>Shown in the description box until a setting is actually hovered - see <see cref="SetDescription"/>.</summary>
+        private const string DescriptionPlaceholder = "HOVER A SETTING FOR ITS DESCRIPTION";
+
         // Preview left, settings in a full-height column on the right. The first
         // version stacked them (preview above, settings below), which left the
         // settings barely two rows tall - every row crammed against the next with
@@ -708,8 +717,8 @@ namespace SenseOfDirection.Ui
             var labelRect = (RectTransform)label.transform;
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = Vector2.zero;
-            labelRect.offsetMax = Vector2.zero;
+            labelRect.offsetMin = new Vector2(0f, TabTextNudge);
+            labelRect.offsetMax = new Vector2(0f, TabTextNudge);
 
             int captured = index;
             go.GetComponent<Button>().onClick.AddListener(() => ShowTab(captured));
@@ -780,7 +789,7 @@ namespace SenseOfDirection.Ui
         /// </summary>
         private void BuildDescription(RectTransform panel, float centreX, float top)
         {
-            _descriptionText = CreateText(panel, "Description", string.Empty, 18f, PanelChrome.FooterColor, TextAlignmentOptions.TopLeft);
+            _descriptionText = CreateText(panel, "Description", DescriptionPlaceholder, 18f, PanelChrome.PlaceholderTextColor, TextAlignmentOptions.TopLeft);
             var rect = (RectTransform)_descriptionText.transform;
             rect.sizeDelta = new Vector2(PreviewWidth, DescriptionHeight);
             rect.anchoredPosition = new Vector2(centreX, top - DescriptionHeight * 0.5f);
@@ -799,7 +808,7 @@ namespace SenseOfDirection.Ui
             var row = (RectTransform)rowGo.transform;
             row.SetParent(panel, false);
             row.sizeDelta = new Vector2(PanelWidth - PanelPadding * 2f, FooterHeight);
-            row.anchoredPosition = new Vector2(0f, -PanelHeight * 0.5f + PanelPadding * 0.5f + FooterHeight * 0.5f);
+            row.anchoredPosition = new Vector2(0f, -PanelHeight * 0.5f + PanelPadding * 0.5f + FooterHeight * 0.5f + FooterYNudge);
 
             var layout = rowGo.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = 8f;
@@ -813,7 +822,7 @@ namespace SenseOfDirection.Ui
             string openKey = Plugin.Instance.Cfg.PreviewMenuKey.Value.ToString().ToUpperInvariant();
             AddKeyBadge(row, "ESC / " + openKey);
             AddFooterLabel(row, "CLOSE");
-            AddFooterLabel(row, "     HOVER A SETTING FOR ITS DESCRIPTION     CHANGES SAVE INSTANTLY");
+            AddFooterLabel(row, "     CHANGES SAVE INSTANTLY");
         }
 
         private void AddKeyBadge(RectTransform parent, string key)
@@ -920,10 +929,14 @@ namespace SenseOfDirection.Ui
 
         private void SetDescription(string description)
         {
-            if (_descriptionText != null)
+            if (_descriptionText == null)
             {
-                _descriptionText.text = description ?? string.Empty;
+                return;
             }
+
+            bool hasDescription = !string.IsNullOrEmpty(description);
+            _descriptionText.text = hasDescription ? description : DescriptionPlaceholder;
+            _descriptionText.color = hasDescription ? PanelChrome.FooterColor : PanelChrome.PlaceholderTextColor;
         }
 
         /// <summary>Text in the game's own chunky display font, so the menu reads as part of PEAK rather than as a debug overlay.</summary>
