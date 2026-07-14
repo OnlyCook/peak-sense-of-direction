@@ -70,8 +70,8 @@
        would be an order of magnitude larger in the DLL for no visible gain.
        Optional: the menu falls back to a flat backdrop if it isn't present. -->
   <ItemGroup>
-    <EmbeddedResource Include="Icons/preview-background.jpg" Condition="Exists('Icons/preview-background.jpg')">
-      <LogicalName>SenseOfDirection.Icons.preview-background.jpg</LogicalName>
+    <EmbeddedResource Include="Icons/preview-backdrop.jpg" Condition="Exists('Icons/preview-backdrop.jpg')">
+      <LogicalName>SenseOfDirection.Icons.preview-backdrop.jpg</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

@@ -106,6 +106,19 @@ namespace SenseOfDirection.Ui
         private CampfireWidget _campfire;
         private PingWidget _ping;
 
+        /// <summary>The live 3D hand the ping's widgets are drawn around - see <see cref="PreviewPingMarker"/>. Null if the game couldn't supply the prefab, in which case the preview simply has no hand in it.</summary>
+        private PreviewPingMarker _pingMarker;
+
+        /// <summary>
+        /// The screenshot. Shown twice, and only ever one of them at a time: as the
+        /// stage's own <c>Background</c> image, and (when there's a hand to render)
+        /// hung behind that hand in its own world, where the two get composited into
+        /// one opaque picture that is then laid over the first. See
+        /// <see cref="PreviewPingMarker.BuildBackdrop"/> for why the hand can't just
+        /// be blended over the UI copy.
+        /// </summary>
+        private Sprite _background;
+
         /// <summary>The structural config values the scene is currently built for - see <see cref="RebuildIfNeeded"/>.</summary>
         private StructuralState _builtFor;
 
@@ -176,8 +189,15 @@ namespace SenseOfDirection.Ui
             internal const float CampfireV = 0.428f;
             internal const float CampfireMeters = 42f;
 
-            /// <summary>The vanilla ping hand baked into the screenshot: the 3D marker is the game's, the distance label and off-screen arrow around it are ours.</summary>
-            internal const float PingU = 0.807f;
+            /// <summary>
+            /// The ping. The hand there is the game's own <c>PointPing</c>, rendered
+            /// live (<see cref="PreviewPingMarker"/>) rather than baked into the
+            /// screenshot; the distance label and off-screen arrow around it are ours.
+            /// Sits a little left of where the baked-in hand used to: that one was
+            /// drawn from its fingertip, this one grows out of its bottom-right corner,
+            /// so its body hangs to the left of the anchor rather than around it.
+            /// </summary>
+            internal const float PingU = 0.785f;
 
             /// <summary>
             /// Sits low against the hand's own base rather than centred on its
@@ -326,6 +346,12 @@ namespace SenseOfDirection.Ui
             scene.BuildBackground();
             scene.BuildCamera();
 
+            // Between the screenshot and every widget, in that order - which is the
+            // order the stage's children are created in, so this is just where it
+            // falls. In game the hand is in the world and the HUD is over it; here
+            // the hand is one layer of the picture, and the HUD is over that.
+            scene.BuildPingMarker();
+
             scene._indicators = IndicatorManager.CreateDetached(scene._stage, scene._camera);
             scene._compass = CompassManager.CreateDetached(scene._stage, scene._camera, () => scene._indicators.Anchors);
 
@@ -427,6 +453,14 @@ namespace SenseOfDirection.Ui
         {
             int height = Mathf.Clamp(Screen.height, 540, 2160);
             int width = Mathf.RoundToInt(height * StageSize.x / StageSize.y);
+
+            // The hand renders into its own texture at the same resolution - it's a
+            // layer of the same picture, so it has to be as sharp as the rest of it
+            // under the magnifier.
+            if (_pingMarker != null)
+            {
+                _pingMarker.EnsureTexture(width, height);
+            }
 
             if (_renderTexture != null && _renderTexture.width == width && _renderTexture.height == height)
             {
@@ -635,10 +669,10 @@ namespace SenseOfDirection.Ui
             var image = go.GetComponent<Image>();
             image.raycastTarget = false;
 
-            Sprite background = LoadBackground();
-            if (background != null)
+            _background = LoadBackground();
+            if (_background != null)
             {
-                image.sprite = background;
+                image.sprite = _background;
             }
             else
             {
@@ -648,11 +682,17 @@ namespace SenseOfDirection.Ui
             }
         }
 
-        /// <summary>The screenshot, embedded in the DLL (see the .csproj) - no loose asset to ship or lose.</summary>
+        /// <summary>
+        /// The screenshot, embedded in the DLL (see the .csproj) - no loose asset to
+        /// ship or lose. It is the scene with *no ping hand in it*: the hand in the
+        /// preview is a real one, rendered live (<see cref="PreviewPingMarker"/>),
+        /// and a second one baked into the picture would sit next to it doing
+        /// nothing while every ping setting moved the other.
+        /// </summary>
         private static Sprite LoadBackground()
         {
             using Stream stream = Assembly.GetExecutingAssembly()
-                .GetManifestResourceStream("SenseOfDirection.Icons.preview-background.jpg");
+                .GetManifestResourceStream("SenseOfDirection.Icons.preview-backdrop.jpg");
             if (stream == null)
             {
                 return null;
@@ -921,6 +961,21 @@ namespace SenseOfDirection.Ui
             _indicators.RegisterAnchor(anchor);
         }
 
+        /// <summary>
+        /// The hand itself. Pointed from the visible teammate's own head - it's the
+        /// only character in the shot, so it's the one whose ping this reads as -
+        /// which is what decides the way the hand tilts (see
+        /// <see cref="PreviewPingMarker"/>).
+        /// </summary>
+        private void BuildPingMarker()
+        {
+            _pingMarker = PreviewPingMarker.TryCreate(
+                _stage, _camera,
+                WorldPoint(Cast.PingU, Cast.PingV, Cast.PingMeters),
+                WorldPoint(Cast.PlayerOnScreen.U, Cast.PlayerOnScreen.V, Cast.PlayerOnScreen.Meters),
+                Cast.PingColor, _background);
+        }
+
         private void BuildPing(PluginConfig cfg)
         {
             Vector3 world = WorldPoint(Cast.PingU, Cast.PingV, Cast.PingMeters);
@@ -1064,6 +1119,11 @@ namespace SenseOfDirection.Ui
             _campfire.Refresh(Cast.CampfireMeters, cfg.ShowCampfireDistance.Value);
             _ping.Refresh(Cast.PingMeters, cfg.ShowPingDistanceLabel.Value);
 
+            if (_pingMarker != null)
+            {
+                _pingMarker.Refresh(cfg);
+            }
+
             foreach (ItemEntry entry in _itemEntries)
             {
                 string label = CurrentLabel(entry);
@@ -1116,6 +1176,18 @@ namespace SenseOfDirection.Ui
                     Mathf.Clamp(origin.x, 0f, 1f - crop.x),
                     Mathf.Clamp(origin.y, 0f, 1f - crop.y),
                     crop.x, crop.y);
+
+                // The hand is clickable, and clicking it throws the ping again -
+                // the ripple is a one-second thing, so a preview that only showed it
+                // once, when the menu opened, would be a preview of a setting nobody
+                // ever sees fire. The stage's uv *is* the camera's viewport, so it
+                // can be hit-tested against the hand as it stands right now, at
+                // whatever size the scale settings currently give it.
+                if (_pingMarker != null && !KeyRebindControl.IsCapturing
+                    && Input.GetMouseButtonDown(0) && _pingMarker.HitTest(uv))
+                {
+                    _pingMarker.EmitRipple();
+                }
 
                 // Right up against the frame's own edge - no inset for the ring. The
                 // lens is at its most useful exactly here, over an edge-clamped
