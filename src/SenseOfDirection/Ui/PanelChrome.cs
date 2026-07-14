@@ -52,6 +52,21 @@ namespace SenseOfDirection.Ui
         /// <summary>The description box's un-hovered placeholder text - deliberately dimmer than every real description, which use <see cref="FooterColor"/>, so a glance at the box can tell "nothing hovered yet" from "here's what this setting does".</summary>
         internal static readonly Color PlaceholderTextColor = new Color(0.55f, 0.55f, 0.58f);
 
+        /// <summary>
+        /// The color the settings list's rows dissolve into at a scrollable edge
+        /// (see <see cref="ScrollFadeSprite"/>). It's the panel's own fill darkened
+        /// by roughly what the list's plate - a 20%-black Image over that fill -
+        /// darkens it, so a row sliding under the fade reads as sinking into the
+        /// plate rather than under a grey smear laid on top of it. Alpha is the
+        /// fade's peak strength at the very edge; the sprite ramps down from there.
+        ///
+        /// Opaque at that peak, deliberately: anything less leaves the plate's own
+        /// rounded corner showing faintly *through* the fade, which is exactly the
+        /// artifact a translucent version of this had.
+        /// </summary>
+        internal static readonly Color ScrollFadeColor = new Color(
+            PanelFillColor.r * 0.8f, PanelFillColor.g * 0.8f, PanelFillColor.b * 0.8f, 1f);
+
         internal const float PanelCornerRadius = 26f;
         internal const float PanelBorderThickness = 11f;
 
@@ -79,6 +94,7 @@ namespace SenseOfDirection.Ui
         // Never evicted - only a handful of distinct sizes occur in a session.
         private static readonly Dictionary<(int width, int height, int frame), Sprite> _panelSprites = new();
         private static readonly Dictionary<(int size, int radius), Sprite> _maskSprites = new();
+        private static readonly Dictionary<(int width, int height, int radius), Sprite> _scrollFadeSprites = new();
         private static Sprite _badgeSprite;
         private static Texture2D _grainTexture;
 
@@ -180,6 +196,74 @@ namespace SenseOfDirection.Ui
             Sprite sprite = MakeRoundedSprite(size, radius, borderThickness: 0f, fill: Color.white, border: Color.white);
             _maskSprites[key] = sprite;
             return sprite;
+        }
+
+        /// <summary>
+        /// A vertical alpha ramp - opaque along the bottom edge, transparent at the
+        /// top - laid over a scrollable list's edge to fade the rows out into the
+        /// plate they sit on (the "there's more below/above" cue). The top edge's
+        /// copy is the same sprite flipped, so only one has to be baked per size.
+        ///
+        /// Smoothstepped rather than linear: a straight ramp has a visible hard
+        /// terminus where it reaches zero, which reads as a band drawn over the list
+        /// instead of the list simply thinning out.
+        ///
+        /// Baked at the strip's exact size (like <see cref="PanelSprite"/>, and unlike
+        /// every 9-sliced sprite here) because the *shape* matters, not just the ramp:
+        /// its opaque edge carries the same rounded corners the plate underneath has,
+        /// so the fade stops exactly where the plate does. A plain rectangle painted
+        /// its full width right up to the edge - the first version of this - reached
+        /// past the plate's corner arcs and left them showing behind it.
+        /// </summary>
+        internal static Sprite ScrollFadeSprite(int width, int height, float radius)
+        {
+            var key = (width, height, Mathf.RoundToInt(radius));
+            if (_scrollFadeSprites.TryGetValue(key, out Sprite cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Sprite sprite = MakeScrollFadeSprite(width, height, radius);
+            _scrollFadeSprites[key] = sprite;
+            return sprite;
+        }
+
+        private static Sprite MakeScrollFadeSprite(int width, int height, float radius)
+        {
+            var tex = new Texture2D(width, height, TextureFormat.ARGB32, false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+
+            var pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                float fy = y + 0.5f;
+
+                float t = 1f - fy / height;
+                float ramp = t * t * (3f - 2f * t);
+
+                for (int x = 0; x < width; x++)
+                {
+                    float fx = x + 0.5f;
+
+                    // Only the bottom two corners are rounded: that's the opaque edge,
+                    // the one that sits on the plate's own rounded end. The top edge
+                    // is already invisible by the time it gets there, so a corner
+                    // there would round off nothing.
+                    float cx = Mathf.Clamp(fx, radius, width - radius);
+                    float cy = Mathf.Max(fy, radius);
+                    float dist = Mathf.Sqrt((fx - cx) * (fx - cx) + (fy - cy) * (fy - cy));
+                    float corner = Mathf.Clamp01(radius - dist + 0.5f); // ~1px soft edge AA
+
+                    pixels[y * width + x] = new Color(1f, 1f, 1f, ramp * corner);
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f);
         }
 
         /// <summary>Small rounded chip (key badges, tab buttons) - clean-edged, no jag, so it reads as a control rather than torn paper.</summary>

@@ -106,6 +106,18 @@ namespace SenseOfDirection.Ui
 
         private const float SettingsCornerRadius = 18f;
 
+        /// <summary>How tall the fade at a scrollable edge of the settings list is.</summary>
+        private const float ScrollFadeHeight = 52f;
+
+        /// <summary>
+        /// How many pixels of hidden content bring an edge's fade to full strength.
+        /// It grows in proportion to what it's actually hiding, so a list overflowing
+        /// by a hair gets a hint of one rather than the full effect - but the ramp is
+        /// short (well under a row's height), because the fade's job is to say "there
+        /// is more", and it can't do that while it's still too faint to notice.
+        /// </summary>
+        private const float ScrollFadeFullAt = 18f;
+
         /// <summary>
         /// How long the menu is left running-but-invisible behind the loading
         /// screen before it's revealed. Frames, not seconds, because what's being
@@ -130,6 +142,10 @@ namespace SenseOfDirection.Ui
         private CanvasGroup _canvasGroup;
         private JaggedPanel _panel;
         private RectTransform _settingsContent;
+        private RectTransform _settingsViewport;
+        private ScrollRect _settingsScroll;
+        private Image _scrollFadeTop;
+        private Image _scrollFadeBottom;
         private RectTransform _tabsRow;
         private TMP_Text _descriptionText;
         private PreviewScene _scene;
@@ -413,6 +429,7 @@ namespace SenseOfDirection.Ui
             }
 
             TickDimFade();
+            TickScrollFades();
 
             // The toggle key itself is not read here: PreviewScene watches it, so
             // that Toggle and Hold - which are one state machine, not two keypresses
@@ -735,6 +752,7 @@ namespace SenseOfDirection.Ui
             // the panel's grain.
             var viewportGo = new GameObject("SettingsViewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
             var viewport = (RectTransform)viewportGo.transform;
+            _settingsViewport = viewport;
             viewport.SetParent(panel, false);
             viewport.sizeDelta = new Vector2(SettingsWidth, height);
             viewport.anchoredPosition = new Vector2(centreX, bottom + height * 0.5f);
@@ -772,13 +790,98 @@ namespace SenseOfDirection.Ui
             var fitter = contentGo.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var scroll = viewportGo.AddComponent<ScrollRect>();
-            scroll.viewport = viewport;
-            scroll.content = _settingsContent;
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.scrollSensitivity = 30f;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
+            _settingsScroll = viewportGo.AddComponent<ScrollRect>();
+            _settingsScroll.viewport = viewport;
+            _settingsScroll.content = _settingsContent;
+            _settingsScroll.horizontal = false;
+            _settingsScroll.vertical = true;
+            _settingsScroll.scrollSensitivity = 30f;
+            _settingsScroll.movementType = ScrollRect.MovementType.Clamped;
+
+            // Created after the content, so they're later siblings and therefore
+            // drawn over the rows they're fading out rather than under them.
+            _scrollFadeTop = CreateScrollFade(viewport, "ScrollFadeTop", top: true);
+            _scrollFadeBottom = CreateScrollFade(viewport, "ScrollFadeBottom", top: false);
+        }
+
+        /// <summary>
+        /// One edge's fade. Both edges share a single baked sprite (opaque at its
+        /// bottom, clear at its top) - the top edge's copy is simply scaled to -1 on
+        /// Y, which flips the ramp rather than baking a mirrored second texture.
+        /// </summary>
+        private static Image CreateScrollFade(RectTransform viewport, string name, bool top)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var rect = (RectTransform)go.transform;
+            rect.SetParent(viewport, false);
+
+            rect.anchorMin = new Vector2(0f, top ? 1f : 0f);
+            rect.anchorMax = new Vector2(1f, top ? 1f : 0f);
+            rect.sizeDelta = new Vector2(0f, ScrollFadeHeight);
+
+            // Pivot at the strip's centre, not at the edge it's anchored to, precisely
+            // because of the Y flip below: a flip is about the pivot, so an edge pivot
+            // would throw the whole strip outside the viewport - where the RectMask2D
+            // clips it, and the top fade is simply never seen. Centre-pivoted, it
+            // flips in place.
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, top ? -ScrollFadeHeight * 0.5f : ScrollFadeHeight * 0.5f);
+            rect.localScale = top ? new Vector3(1f, -1f, 1f) : Vector3.one;
+
+            var image = go.GetComponent<Image>();
+            image.sprite = PanelChrome.ScrollFadeSprite(
+                Mathf.RoundToInt(SettingsWidth), Mathf.RoundToInt(ScrollFadeHeight), SettingsCornerRadius);
+            image.type = Image.Type.Simple;
+
+            // Never a raycast target: it lies over the rows, and a setting under it
+            // still has to be clickable and still has to show its description.
+            image.raycastTarget = false;
+
+            // Starts invisible - TickScrollFades decides, on the first frame the list
+            // has actually been laid out, whether there's anything to fade at all.
+            image.color = new Color(PanelChrome.ScrollFadeColor.r, PanelChrome.ScrollFadeColor.g, PanelChrome.ScrollFadeColor.b, 0f);
+
+            return image;
+        }
+
+        /// <summary>
+        /// Fades each edge in proportion to how much content is actually hidden past
+        /// it, rather than snapping it on the moment the list overflows by a hair.
+        ///
+        /// Run every frame instead of off <see cref="ScrollRect.onValueChanged"/>,
+        /// because scrolling is not the only thing that changes the answer: switching
+        /// tabs swaps the whole row set (and its height) without the scroll position
+        /// moving at all, and the content's height itself only becomes readable a
+        /// frame after the rows are spawned, once the ContentSizeFitter has run.
+        /// </summary>
+        private void TickScrollFades()
+        {
+            if (_scrollFadeTop == null || _settingsScroll == null)
+            {
+                return;
+            }
+
+            float overflow = _settingsContent.rect.height - _settingsViewport.rect.height;
+
+            float hiddenBelow = 0f;
+            float hiddenAbove = 0f;
+            if (overflow > 0f)
+            {
+                // 1 = scrolled to the top, 0 = to the bottom.
+                float position = Mathf.Clamp01(_settingsScroll.verticalNormalizedPosition);
+                hiddenAbove = (1f - position) * overflow;
+                hiddenBelow = position * overflow;
+            }
+
+            ApplyScrollFade(_scrollFadeTop, hiddenAbove);
+            ApplyScrollFade(_scrollFadeBottom, hiddenBelow);
+        }
+
+        private static void ApplyScrollFade(Image fade, float hiddenPixels)
+        {
+            Color color = PanelChrome.ScrollFadeColor;
+            color.a *= Mathf.Clamp01(hiddenPixels / ScrollFadeFullAt);
+            fade.color = color;
         }
 
         /// <summary>
