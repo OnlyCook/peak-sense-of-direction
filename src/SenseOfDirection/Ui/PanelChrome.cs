@@ -36,9 +36,16 @@ namespace SenseOfDirection.Ui
         internal static readonly Color ChipFillColor = new Color(0.10f, 0.16f, 0.44f);
         internal static readonly Color ChipTextColor = new Color(1f, 0.95f, 0.72f);
 
-        /// <summary>The selected tab's bar: the same "bright highlight, dark text" contrast the game's own menus use.</summary>
+        /// <summary>
+        /// The selected tab. The fill is a *tint*, not a paint: it multiplies into
+        /// the badge sprite, which already has a dark chip baked into it, so the
+        /// bright amber below lands as a warm dark gold rather than as a highlight.
+        /// The text therefore has to be light - dark-on-bright, the contrast the
+        /// game's own menus use, is not available here, and dark text over that
+        /// tinted chip is what made the selected tab the hardest one to read.
+        /// </summary>
         internal static readonly Color SelectedFillColor = new Color(1f, 0.82f, 0.22f, 0.97f);
-        internal static readonly Color SelectedTextColor = new Color(0.16f, 0.12f, 0.03f);
+        internal static readonly Color SelectedTextColor = new Color(1f, 0.99f, 0.94f);
 
         internal const float PanelCornerRadius = 26f;
         internal const float PanelBorderThickness = 11f;

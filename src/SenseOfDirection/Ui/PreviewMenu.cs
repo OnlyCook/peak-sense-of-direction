@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using SenseOfDirection.Labels;
@@ -55,6 +56,19 @@ namespace SenseOfDirection.Ui
         private const float TitleHeight = 44f;
         private const float TabsHeight = 52f;
 
+        /// <summary>Breathing room under the tabs. Without it both columns start flush against the tab buttons, the one place in the panel where nothing had any margin at all.</summary>
+        private const float TabsBottomGap = 20f;
+
+        /// <summary>
+        /// The native font (Daruma Drop One) carries a lot of empty space above its
+        /// caps and almost none below, so text centred in a box by TMP's own metrics
+        /// sits visibly low. These lift it back to where the eye expects it - the
+        /// title in its band, and a key badge's caption in its chip.
+        /// </summary>
+        private const float TitleNudge = 15f;
+
+        private const float KeyBadgeTextNudge = 3f;
+
         // Preview left, settings in a full-height column on the right. The first
         // version stacked them (preview above, settings below), which left the
         // settings barely two rows tall - every row crammed against the next with
@@ -69,6 +83,10 @@ namespace SenseOfDirection.Ui
         private const float SettingsWidth = PanelWidth - PanelPadding * 2f - PreviewWidth - ColumnGap;
 
         private const float DescriptionHeight = 96f;
+
+        /// <summary>Between the preview frame and the hovered setting's description under it.</summary>
+        private const float PreviewDescriptionGap = 16f;
+
         private const float FooterHeight = 34f;
 
         /// <summary>Each native settings row gets a deterministic height rather than whatever the prefab's own layout resolves to inside a foreign parent - and the stacked label-above-control layout decides what that is.</summary>
@@ -79,7 +97,28 @@ namespace SenseOfDirection.Ui
 
         private const float SettingsCornerRadius = 18f;
 
+        /// <summary>
+        /// How long the menu is left running-but-invisible behind the loading
+        /// screen before it's revealed. Frames, not seconds, because what's being
+        /// waited on is frames of work: the canvas layout pass, then the detached
+        /// indicator/compass managers' Update/LateUpdate placing every widget. See
+        /// <see cref="OpenWhenReady"/>.
+        /// </summary>
+        private const int SettleFrames = 3;
+
+        /// <summary>How long the shared dim takes to fade in. See <see cref="ShowDim"/>.</summary>
+        private const float DimFadeDuration = 0.25f;
+
         private GameObject _root;
+        private GameObject _loadingRoot;
+        private GameObject _dimRoot;
+        private Image _dimImage;
+        private float _dimFadeElapsed;
+
+        /// <summary>The first open of a session snaps the dim on instead of fading it - see <see cref="ShowDim"/>.</summary>
+        private bool _hasOpenedBefore;
+
+        private CanvasGroup _canvasGroup;
         private JaggedPanel _panel;
         private RectTransform _settingsContent;
         private RectTransform _tabsRow;
@@ -137,15 +176,131 @@ namespace SenseOfDirection.Ui
                 return;
             }
 
-            if (_root == null)
+            IsOpen = true;
+
+            ShowDim();
+            StartCoroutine(OpenWhenReady());
+
+            // Read by ShowDim to decide fade-vs-snap, so it's only flipped once the
+            // decision for *this* open has been made.
+            _hasOpenedBefore = true;
+        }
+
+        /// <summary>
+        /// Brings the menu up hidden, and only reveals it once it has actually
+        /// settled.
+        ///
+        /// Two different costs are being covered, and only the first one is worth a
+        /// loading screen. The first open has to bake every procedural sprite and
+        /// instantiate every native settings cell - heavy enough to hitch, and long
+        /// enough that the player would otherwise press the key and stare at
+        /// nothing. Every open after that reuses all of it, and the only wait left
+        /// is a few frames of settling: the preview's widgets are not placed by us,
+        /// they're placed by the real
+        /// <see cref="Indicators.IndicatorManager"/> / <see cref="Compass.CompassManager"/>
+        /// code running in Update/LateUpdate, which needs those frames (and the
+        /// canvas's own layout pass) before every label, icon and arrow has been
+        /// projected against the fake camera and nudged clear of its neighbours.
+        /// Reveal before that and the settling is visible as a flicker.
+        ///
+        /// So a cached open waits too - it just waits behind the dim, with no
+        /// loading screen. Flashing one up for ~100ms is worse than the flicker it
+        /// was there to hide: the eye reads the appear-and-vanish itself as the
+        /// glitch.
+        ///
+        /// Note what is deliberately *not* done: the menu is not deactivated while
+        /// it settles. It is fully active and merely transparent
+        /// (<see cref="CanvasGroup.alpha"/> 0), because that settling is exactly
+        /// the Update/LateUpdate work that would not run on an inactive object -
+        /// and the widgets' positions depend on it. Hiding this with SetActive
+        /// would resurrect the misplaced-label bug it exists to conceal.
+        /// </summary>
+        private IEnumerator OpenWhenReady()
+        {
+            // Cold: nothing is built yet, and building it is the expensive part.
+            bool cold = _root == null;
+
+            if (cold)
             {
-                BuildUi();
+                EnsureLoadingUi();
+                _loadingRoot.SetActive(true);
+
+                // The loading screen has to get one frame to itself, or the heavy
+                // build below runs before it has ever been drawn and it's never
+                // seen at all.
+                yield return null;
+
+                if (!IsOpen)
+                {
+                    yield break;
+                }
             }
 
-            IsOpen = true;
-            _root.SetActive(true);
-            _window.SetRegistered(true);
-            ShowTab(_selectedTab);
+            if (!BuildBehindLoadingScreen())
+            {
+                Close();
+                yield break;
+            }
+
+            // Plain frame yields, not WaitForEndOfFrame: that one does not reliably
+            // resume here and left the menu stuck invisible behind a loading screen
+            // that never went away. A frame is a frame either way - what's being
+            // waited on is Update/LateUpdate having run, which `yield return null`
+            // gives us.
+            for (int i = 0; i < SettleFrames; i++)
+            {
+                yield return null;
+
+                if (!IsOpen)
+                {
+                    yield break;
+                }
+            }
+
+            _canvasGroup.alpha = 1f;
+            _canvasGroup.blocksRaycasts = true;
+
+            if (_loadingRoot != null)
+            {
+                _loadingRoot.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// The build, hoisted out of the coroutine so it can be wrapped in a
+        /// try/catch - a coroutine can't have one across a yield.
+        ///
+        /// This is not defensive padding. An exception thrown in here used to kill
+        /// the coroutine silently, stranding the player looking at a loading screen
+        /// that would never go away, with the menu built-but-transparent behind it
+        /// and the cursor already freed. Unity's own log writer doesn't reach
+        /// BepInEx's log in this game (see the handoff), so it left no trace at all.
+        /// False means "it failed, and it's been logged" - the caller shuts the menu
+        /// back down rather than leaving it half-open.
+        /// </summary>
+        private bool BuildBehindLoadingScreen()
+        {
+            try
+            {
+                if (_root == null)
+                {
+                    BuildUi();
+                }
+
+                _canvasGroup.alpha = 0f;
+                _canvasGroup.blocksRaycasts = false;
+
+                _root.SetActive(true);
+                _window.SetRegistered(true);
+                ShowTab(_selectedTab);
+
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Instance.Log.LogError("Preview menu: failed to build - " + e);
+                return false;
+            }
         }
 
         public void Close()
@@ -156,6 +311,24 @@ namespace SenseOfDirection.Ui
             }
 
             IsOpen = false;
+
+            // Closing mid-warm-up is why these are guarded: the menu may not have
+            // been built yet, and OpenWhenReady bails on the next frame off IsOpen.
+            if (_loadingRoot != null)
+            {
+                _loadingRoot.SetActive(false);
+            }
+
+            if (_dimRoot != null)
+            {
+                _dimRoot.SetActive(false);
+            }
+
+            if (_root == null)
+            {
+                return;
+            }
+
             _root.SetActive(false);
 
             // Dropping out of AllActiveWindows is what re-locks the cursor and
@@ -164,9 +337,61 @@ namespace SenseOfDirection.Ui
             _window.SetRegistered(false);
         }
 
+        /// <summary>
+        /// The loading screen: a dim and one line of text, and deliberately nothing
+        /// else. It has to be cheap enough to build and show on the very frame the
+        /// key is pressed - it exists to cover the expensive work, so it can't do
+        /// any of its own. (No procedural sprites, no panel chrome.)
+        /// </summary>
+        private void EnsureLoadingUi()
+        {
+            if (_loadingRoot != null)
+            {
+                return;
+            }
+
+            _loadingRoot = new GameObject("SoD.PreviewMenu.Loading", typeof(RectTransform));
+            _loadingRoot.transform.SetParent(transform, false);
+
+            var canvas = _loadingRoot.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+            // Above the menu's own canvas (30000), so it covers the menu while it
+            // settles rather than being covered by it.
+            canvas.sortingOrder = 30050;
+
+            var scaler = _loadingRoot.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            // No dim of its own - it shares the menu's, see EnsureDimUi.
+            TMP_Text text = CreateText(
+                (RectTransform)_loadingRoot.transform, "LoadingText", "LOADING...",
+                30f, PanelChrome.TitleColor, TextAlignmentOptions.Center);
+
+            var rect = (RectTransform)text.transform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            _loadingRoot.SetActive(false);
+        }
+
         private void Update()
         {
-            KeyCode key = Plugin.Instance.Cfg.PreviewMenuKey.Value;
+            PluginConfig cfg = Plugin.Instance.Cfg;
+
+            // A rebind row is waiting for a key: every key belongs to it, including
+            // the ones below. Otherwise binding the menu's own open key would slam
+            // the menu shut the instant you pressed it. See KeyRebindControl.
+            if (KeyRebindControl.IsCapturing)
+            {
+                return;
+            }
+
+            KeyCode key = cfg.PreviewMenuKey.Value;
             if (key != KeyCode.None && Input.GetKeyDown(key))
             {
                 Toggle();
@@ -177,6 +402,12 @@ namespace SenseOfDirection.Ui
             {
                 return;
             }
+
+            TickDimFade();
+
+            // The toggle key itself is not read here: PreviewScene watches it, so
+            // that Toggle and Hold - which are one state machine, not two keypresses
+            // - stay in one place. See PreviewScene.ComputeLabelsVisible.
 
             // Escape closes the menu - but it's also the game's own pause key, so
             // the same press would otherwise open the pause menu right behind us.
@@ -198,18 +429,22 @@ namespace SenseOfDirection.Ui
             // Each tab is its mechanic's own config section plus the one General
             // setting that belongs to it (where that mechanic gets drawn), so a
             // single question - "how do I want player labels to look" - is
-            // answered without leaving the tab. The keybind entries are left out
-            // on purpose: PEAK has no rebind widget we can clone here, and they're
-            // already editable in the config file / PEAKLib.ModConfig.
+            // answered without leaving the tab.
+            //
+            // Order within a tab is deliberate: the master switch, then *where* the
+            // mechanic is drawn (its placement), then everything else. Placement is
+            // the setting that most changes what the preview looks like, so it
+            // belongs where it's seen rather than buried at the bottom of a scroll.
             _tabs.Add(new PreviewTab
             {
                 Name = "PLAYER LABELS",
                 Entries = new List<ConfigEntryBase>
                 {
-                    cfg.EnablePlayerLabels, cfg.PlayerLabelDisplayMode, cfg.HoldShownDuration,
+                    cfg.EnablePlayerLabels, cfg.PlayerLabelPlacement, cfg.PlayerLabelDisplayMode,
+                    cfg.PlayerLabelToggleKey, cfg.HoldShownDuration,
                     cfg.PlayerLabelMaxDistanceMeters, cfg.PlayerLabelNameFontSize, cfg.PlayerLabelDistanceFontSize,
                     cfg.ShowPlayerLabelDistance, cfg.ShowStatusBadges, cfg.UseCharacterColor,
-                    cfg.ReplaceVanillaLabels, cfg.PlayerLabelPlacement,
+                    cfg.ReplaceVanillaLabels,
                 },
             });
 
@@ -218,9 +453,9 @@ namespace SenseOfDirection.Ui
                 Name = "PINGS",
                 Entries = new List<ConfigEntryBase>
                 {
-                    cfg.RemoveVisibilityCutoff, cfg.EnablePingScaling, cfg.PingScaleMultiplier,
+                    cfg.RemoveVisibilityCutoff, cfg.PingPlacement, cfg.EnablePingScaling, cfg.PingScaleMultiplier,
                     cfg.EnablePingRipple, cfg.EnablePingOffScreenIndicator, cfg.ShowPingDistanceLabel,
-                    cfg.EnableGhostPing, cfg.PingPlacement,
+                    cfg.EnableGhostPing,
                 },
             });
 
@@ -229,9 +464,9 @@ namespace SenseOfDirection.Ui
                 Name = "ITEM PINGS",
                 Entries = new List<ConfigEntryBase>
                 {
-                    cfg.EnableItemPings, cfg.ItemPingDurationSeconds, cfg.EnableItemPingGrouping,
+                    cfg.EnableItemPings, cfg.ItemPingPlacement, cfg.ItemPingDurationSeconds, cfg.EnableItemPingGrouping,
                     cfg.EnableCreaturePings, cfg.UseNativeItemPingIcons, cfg.ItemPingNameMode,
-                    cfg.ShowItemPingDistance, cfg.EnableItemPingOffScreenIndicator, cfg.ItemPingPlacement,
+                    cfg.ShowItemPingDistance, cfg.EnableItemPingOffScreenIndicator,
                 },
             });
 
@@ -240,7 +475,7 @@ namespace SenseOfDirection.Ui
                 Name = "CAMPFIRE",
                 Entries = new List<ConfigEntryBase>
                 {
-                    cfg.EnableCampfireIndicator, cfg.ShowCampfireDistance, cfg.CampfirePlacement,
+                    cfg.EnableCampfireIndicator, cfg.CampfirePlacement, cfg.ShowCampfireDistance,
                 },
             });
 
@@ -295,12 +530,15 @@ namespace SenseOfDirection.Ui
 
             _root.AddComponent<GraphicRaycaster>();
 
+            // How the menu is hidden while it settles behind the loading screen -
+            // transparent but still running. See OpenWhenReady.
+            _canvasGroup = _root.AddComponent<CanvasGroup>();
+
             var windowGo = new GameObject("Window");
             windowGo.transform.SetParent(_root.transform, false);
             _window = windowGo.AddComponent<PreviewMenuWindow>();
 
-            BuildDim((RectTransform)_root.transform);
-
+            // No dim of its own - it shares one with the loading screen, see EnsureDimUi.
             _panel = JaggedPanel.Create((RectTransform)_root.transform, "Panel", new Vector2(PanelWidth, PanelHeight));
             var panelRect = (RectTransform)_panel.transform;
 
@@ -310,47 +548,123 @@ namespace SenseOfDirection.Ui
             _tabsRow = BuildTabsRow(panelRect, contentTop - TitleHeight);
 
             // Both columns start under the tabs and run down to just above the
-            // footer; the left one is only as tall as its 16:9 preview needs, and
-            // gives the rest of its height to the description text.
-            float columnTop = contentTop - TitleHeight - TabsHeight;
+            // footer. The settings list fills that whole height; the left column's
+            // content (the 16:9 preview with its description under it) is shorter
+            // than it, so it's centred in it rather than hung from the top - which
+            // left all of the slack pooled underneath as dead space.
+            float columnTop = contentTop - TitleHeight - TabsHeight - TabsBottomGap;
             float columnBottom = -PanelHeight * 0.5f + PanelPadding + FooterHeight;
 
             float leftCentreX = -PanelWidth * 0.5f + PanelPadding + PreviewWidth * 0.5f;
             float rightCentreX = PanelWidth * 0.5f - PanelPadding - SettingsWidth * 0.5f;
 
+            float leftBlockHeight = PreviewHeight + PreviewDescriptionGap + DescriptionHeight;
+            float leftSlack = Mathf.Max(0f, (columnTop - columnBottom) - leftBlockHeight);
+            float leftTop = columnTop - leftSlack * 0.5f;
+
             _scene = PreviewScene.Create(
                 panelRect,
                 new Vector2(PreviewWidth, PreviewHeight),
-                new Vector2(leftCentreX, columnTop - PreviewHeight * 0.5f));
+                new Vector2(leftCentreX, leftTop - PreviewHeight * 0.5f));
 
-            BuildDescription(panelRect, leftCentreX, columnTop - PreviewHeight - 16f);
+            BuildDescription(panelRect, leftCentreX, leftTop - PreviewHeight - PreviewDescriptionGap);
             BuildSettingsScroll(panelRect, rightCentreX, columnTop, columnBottom);
             BuildFooter(panelRect);
         }
 
-        private void BuildDim(RectTransform parent)
+        /// <summary>
+        /// The dim behind everything, and deliberately <em>one</em> object shared by
+        /// the loading screen and the menu rather than one in each.
+        ///
+        /// A dim per root would have to be handed off at the moment the loading
+        /// screen is swapped for the menu, and any disagreement between the two -
+        /// a frame where one is already gone and the other not yet up, or a second
+        /// fade restarting from zero - reads as a flicker across the whole screen.
+        /// Owning it here sidesteps the handoff entirely: it comes up when the menu
+        /// is opened and goes down when it's closed, and nothing in between touches
+        /// it.
+        ///
+        /// It sits on its own canvas below both (they're at 30000 / 30050) and is a
+        /// raycast target, so it also swallows clicks that miss the panel and keeps
+        /// a stray one from reaching the game behind the menu.
+        /// </summary>
+        private void EnsureDimUi()
         {
+            if (_dimRoot != null)
+            {
+                return;
+            }
+
+            _dimRoot = new GameObject("SoD.PreviewMenu.Dim", typeof(RectTransform));
+            _dimRoot.transform.SetParent(transform, false);
+
+            var canvas = _dimRoot.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 29990;
+
+            _dimRoot.AddComponent<GraphicRaycaster>();
+
             var dimGo = new GameObject("Dim", typeof(RectTransform), typeof(Image));
             var dimRect = (RectTransform)dimGo.transform;
-            dimRect.SetParent(parent, false);
+            dimRect.SetParent(_dimRoot.transform, false);
             dimRect.anchorMin = Vector2.zero;
             dimRect.anchorMax = Vector2.one;
             dimRect.offsetMin = Vector2.zero;
             dimRect.offsetMax = Vector2.zero;
 
-            // A raycast target as well as a visual: it swallows clicks that miss
-            // the panel, so a stray click can't reach the game behind the menu.
-            var dim = dimGo.GetComponent<Image>();
-            dim.color = PanelChrome.DimColor;
-            dim.raycastTarget = true;
+            _dimImage = dimGo.GetComponent<Image>();
+            _dimImage.color = PanelChrome.DimColor;
+            _dimImage.raycastTarget = true;
+
+            _dimRoot.SetActive(false);
+        }
+
+        /// <summary>
+        /// Brings the dim up: faded in, except on the very first open of a session,
+        /// where it's snapped straight to full.
+        ///
+        /// That exception isn't arbitrary. The first open is the one that has to
+        /// bake every sprite and instantiate every native cell, and a fade running
+        /// across those frames would be judged against a frame rate that build is
+        /// busy destroying - it stutters, visibly. Snapping it is both honest about
+        /// what's happening and steadier to look at. Every later open is cheap
+        /// enough to fade smoothly, so it does. (The same call this mod's sibling
+        /// makes, for the same reason - see SavePicker's skipDimFade.)
+        /// </summary>
+        private void ShowDim()
+        {
+            EnsureDimUi();
+            _dimRoot.SetActive(true);
+
+            _dimFadeElapsed = _hasOpenedBefore ? 0f : DimFadeDuration;
+            ApplyDimAlpha();
+        }
+
+        private void ApplyDimAlpha()
+        {
+            float t = DimFadeDuration <= 0f ? 1f : Mathf.Clamp01(_dimFadeElapsed / DimFadeDuration);
+            Color color = PanelChrome.DimColor;
+            _dimImage.color = new Color(color.r, color.g, color.b, color.a * t);
+        }
+
+        /// <summary>Unscaled: the menu freezes the game, so a scaled delta would leave the fade frozen with it.</summary>
+        private void TickDimFade()
+        {
+            if (_dimImage == null || _dimFadeElapsed >= DimFadeDuration)
+            {
+                return;
+            }
+
+            _dimFadeElapsed += Time.unscaledDeltaTime;
+            ApplyDimAlpha();
         }
 
         private void BuildTitle(RectTransform panel, float top)
         {
-            TMP_Text title = CreateText(panel, "Title", "SENSE OF DIRECTION", 34f, PanelChrome.TitleColor, TextAlignmentOptions.Center);
+            TMP_Text title = CreateText(panel, "Title", "SENSE OF DIRECTION  QUICK SETUP", 34f, PanelChrome.TitleColor, TextAlignmentOptions.Center);
             var rect = (RectTransform)title.transform;
             rect.sizeDelta = new Vector2(PanelWidth - PanelPadding * 2f, TitleHeight);
-            rect.anchoredPosition = new Vector2(0f, top - TitleHeight * 0.5f);
+            rect.anchoredPosition = new Vector2(0f, top - TitleHeight * 0.5f + TitleNudge);
         }
 
         private RectTransform BuildTabsRow(RectTransform panel, float top)
@@ -494,8 +808,10 @@ namespace SenseOfDirection.Ui
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
 
-            AddKeyBadge(row, "ESC");
-            AddKeyBadge(row, Plugin.Instance.Cfg.PreviewMenuKey.Value.ToString().ToUpperInvariant());
+            // One badge, not two: both keys do the same thing, and two adjacent
+            // badges read as two separate hints whose captions went missing.
+            string openKey = Plugin.Instance.Cfg.PreviewMenuKey.Value.ToString().ToUpperInvariant();
+            AddKeyBadge(row, "ESC / " + openKey);
             AddFooterLabel(row, "CLOSE");
             AddFooterLabel(row, "     HOVER A SETTING FOR ITS DESCRIPTION     CHANGES SAVE INSTANTLY");
         }
@@ -515,8 +831,8 @@ namespace SenseOfDirection.Ui
             var labelRect = (RectTransform)label.transform;
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = new Vector2(10f, 0f);
-            labelRect.offsetMax = new Vector2(-10f, 0f);
+            labelRect.offsetMin = new Vector2(10f, KeyBadgeTextNudge);
+            labelRect.offsetMax = new Vector2(-10f, KeyBadgeTextNudge);
 
             // The badge hugs its own text: a two-character key and a longer one
             // (ESC vs. F8) shouldn't force each other to a common width.
@@ -558,11 +874,18 @@ namespace SenseOfDirection.Ui
 
             foreach (ConfigEntryBase entry in _tabs[_selectedTab].Entries)
             {
+                // A keybind has no native widget to borrow, so it gets our own
+                // click-to-rebind row - and no IConfigBoundSetting, because there's
+                // no Zorro Setting behind it to bind. See NativeSettingCells.
+                if (entry is ConfigEntry<KeyCode> keyEntry)
+                {
+                    SizeRow(NativeSettingCells.CreateKeyBindRow(_settingsContent, keyEntry, SetDescription));
+                    continue;
+                }
+
                 IConfigBoundSetting bound = ConfigSettingFactory.Create(entry, _handler);
                 if (bound == null)
                 {
-                    // A type PEAK has no widget for (only KeyCode today). Skipped
-                    // rather than rendered as a dead row.
                     continue;
                 }
 
@@ -572,16 +895,27 @@ namespace SenseOfDirection.Ui
                     continue;
                 }
 
-                LayoutElement layoutElement = row.GetComponent<LayoutElement>();
-                if (layoutElement == null)
-                {
-                    layoutElement = row.AddComponent<LayoutElement>();
-                }
-                layoutElement.preferredHeight = SettingRowHeight;
-                layoutElement.minHeight = SettingRowHeight;
-
+                SizeRow(row);
                 _boundSettings.Add(bound);
             }
+        }
+
+        /// <summary>Rows are sized here rather than by the layout group - see SettingRowHeight.</summary>
+        private static void SizeRow(GameObject row)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            LayoutElement layoutElement = row.GetComponent<LayoutElement>();
+            if (layoutElement == null)
+            {
+                layoutElement = row.AddComponent<LayoutElement>();
+            }
+
+            layoutElement.preferredHeight = SettingRowHeight;
+            layoutElement.minHeight = SettingRowHeight;
         }
 
         private void SetDescription(string description)

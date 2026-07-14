@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using BepInEx.Configuration;
 using Unity.Mathematics;
 using UnityEngine;
@@ -257,7 +258,18 @@ namespace SenseOfDirection.Ui
                 // the enum and the entry's type isn't known until runtime; the
                 // constructed instance is a plain object afterwards.
                 Type settingType = typeof(ConfigEnumSetting<>).MakeGenericType(type);
-                return (IConfigBoundSetting)Activator.CreateInstance(settingType, entry, handler);
+
+                // NonPublic matters: the constructor is internal, like every other
+                // type in here, and Activator's short overload only ever finds
+                // *public* ones - it throws MissingMethodException otherwise. That
+                // threw on the first enum setting of every tab, which is why the
+                // settings list used to stop dead after its first row.
+                return (IConfigBoundSetting)Activator.CreateInstance(
+                    settingType,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null,
+                    args: new object[] { entry, handler },
+                    culture: null);
             }
 
             return null;

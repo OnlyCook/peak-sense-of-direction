@@ -425,19 +425,93 @@ namespace SenseOfDirection.Ui
             anchor.GetIsDead = () => spec.IsDead;
             anchor.GetIsUnconscious = () => spec.IsUnconscious;
 
-            // Mirrors PlayerLabelController's own gate, so max-distance-meters and
-            // the master switch visibly do the same thing here as in game.
-            anchor.IsActive = () => IsPlayerVisible(spec);
+            // Deliberately always active, exactly as in game, where the anchor only
+            // asks whether the character exists. Hiding a label is not done by
+            // switching its anchor off - that would pop it out instantly - but by
+            // driving its alpha to 0 and letting the label's own CanvasGroup fade
+            // there. See RefreshPlayer.
+            anchor.IsActive = () => true;
             anchor.IsCompassVisible = () => IsPlayerVisible(spec);
 
             _indicators.RegisterAnchor(anchor);
             _playerLabels.Add(label);
         }
 
-        private static bool IsPlayerVisible(PlayerSpec spec)
+        /// <summary>Whether the labels are toggled on, in <see cref="LabelDisplayMode.Toggle"/>. Starts on, unlike the real controller, so the tab isn't blank the moment it's opened.</summary>
+        private bool _toggleVisible = true;
+
+        private bool _toggleKeyWasDown;
+
+        /// <summary>When the <see cref="LabelDisplayMode.Hold"/> grace period runs out - see <see cref="ComputeLabelsVisible"/>.</summary>
+        private float _holdReleaseUntil;
+
+        private bool _labelsVisible = true;
+
+        /// <summary>
+        /// The display mode, live in the preview. This is
+        /// <c>PlayerLabelController.ComputeLabelsVisible</c> reimplemented against
+        /// the same config and the same key, so that pressing that key here does
+        /// what it does in game: Toggle flips the labels on and off, and Hold keeps
+        /// them up only while the key is down - plus <c>hold-shown-duration</c>
+        /// afterwards, a timer set on every held frame so a quick tap is covered by
+        /// it too.
+        ///
+        /// It is a reimplementation rather than a call into the controller because
+        /// the controller's copy of this state belongs to the real HUD: driving the
+        /// preview off it would make opening the menu and tapping the key toggle the
+        /// player's actual labels underneath. The preview keeps its own.
+        ///
+        /// Two deliberate differences from the original, both because this runs in a
+        /// menu rather than in play:
+        /// - <see cref="Time.unscaledTime"/>, not <c>Time.time</c>. The menu freezes
+        ///   the game, so a scaled clock would leave the Hold grace period frozen
+        ///   with it and the labels stuck up forever.
+        /// - Keys are ignored while a rebind row is waiting for one, or the very
+        ///   press that rebinds this key would also fire it.
+        ///
+        /// The edge detection is done by hand off <c>GetKey</c> for the same reason
+        /// the controller does it - see the comment there about <c>GetKeyDown</c>
+        /// silently missing presses while another key is held.
+        /// </summary>
+        private bool ComputeLabelsVisible(PluginConfig cfg)
+        {
+            if (!cfg.EnablePlayerLabels.Value)
+            {
+                return false;
+            }
+
+            bool keyDownNow = !KeyRebindControl.IsCapturing && Input.GetKey(cfg.PlayerLabelToggleKey.Value);
+
+            switch (cfg.PlayerLabelDisplayMode.Value)
+            {
+                case LabelDisplayMode.AlwaysOn:
+                    return true;
+
+                case LabelDisplayMode.Toggle:
+                    if (keyDownNow && !_toggleKeyWasDown)
+                    {
+                        _toggleVisible = !_toggleVisible;
+                    }
+                    _toggleKeyWasDown = keyDownNow;
+                    return _toggleVisible;
+
+                case LabelDisplayMode.Hold:
+                    if (keyDownNow)
+                    {
+                        _holdReleaseUntil = Time.unscaledTime + cfg.HoldShownDuration.Value;
+                        return true;
+                    }
+                    return Time.unscaledTime < _holdReleaseUntil;
+
+                default:
+                    return false;
+            }
+        }
+
+        private bool IsPlayerVisible(PlayerSpec spec)
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
-            return cfg.EnablePlayerLabels.Value && spec.Meters <= cfg.PlayerLabelMaxDistanceMeters.Value;
+            return _labelsVisible && spec.Meters <= cfg.PlayerLabelMaxDistanceMeters.Value;
         }
 
         private void BuildCampfire()
@@ -578,6 +652,11 @@ namespace SenseOfDirection.Ui
 
             PluginConfig cfg = Plugin.Instance.Cfg;
 
+            // Once per frame, not once per label: the Toggle edge detection and the
+            // Hold timer are one piece of state, and asking four times would flip
+            // the toggle four times on a single press.
+            _labelsVisible = ComputeLabelsVisible(cfg);
+
             RefreshPlayer(_playerLabels[0], Cast.PlayerOnScreen, cfg);
             RefreshPlayer(_playerLabels[1], Cast.PlayerOffLeftA, cfg);
             RefreshPlayer(_playerLabels[2], Cast.PlayerOffLeftB, cfg);
@@ -594,18 +673,21 @@ namespace SenseOfDirection.Ui
             }
         }
 
-        private static void RefreshPlayer(PlayerLabel label, PlayerSpec spec, PluginConfig cfg)
+        private void RefreshPlayer(PlayerLabel label, PlayerSpec spec, PluginConfig cfg)
         {
             Color nameColor = cfg.UseCharacterColor.Value ? spec.Color : NativeAssets.DefaultTextColor;
 
-            // Always fully faded in: the real fade is a function of where the
-            // player is looking, which has no meaning in a still preview. The
-            // things that *are* previewable - the master switch and the max
-            // distance - gate the anchor itself (see IsPlayerVisible).
+            // The one part of the real ComputeTargetAlpha that has no meaning in a
+            // still preview is the look-at test - nobody is looking anywhere. What's
+            // left is exactly what it is in game: the master switch, the display
+            // mode, and the max distance, expressed as an alpha the label fades
+            // towards rather than a switch that pops it in and out.
+            float targetAlpha = IsPlayerVisible(spec) ? 1f : 0f;
+
             label.Refresh(
                 spec.Name, spec.Meters, spec.IsHost, spec.IsDead, spec.IsUnconscious,
                 nameColor, cfg.PlayerLabelNameFontSize.Value, cfg.PlayerLabelDistanceFontSize.Value,
-                targetAlpha: 1f,
+                targetAlpha,
                 showDistance: cfg.ShowPlayerLabelDistance.Value,
                 showBadges: cfg.ShowStatusBadges.Value);
         }
