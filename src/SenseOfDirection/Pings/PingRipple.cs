@@ -29,6 +29,7 @@ namespace SenseOfDirection.Pings
         private Color _color;
         private Transform _pingTransform;
         private float _elapsed;
+        private bool _unscaledTime;
 
         /// <summary>
         /// Last observed <c>_pingTransform.localScale.x</c>, kept even after
@@ -77,7 +78,15 @@ namespace SenseOfDirection.Pings
             _propertyBlock ??= new MaterialPropertyBlock();
         }
 
-        public static void Spawn(Vector3 worldPosition, Color color, Transform pingTransform)
+        /// <summary>
+        /// <paramref name="unscaledTime"/> is for the config preview
+        /// (<see cref="Ui.PreviewPingMarker"/>), whose ripple is emitted from a menu
+        /// rather than from play: a ripple lives for one second, and a menu is not a
+        /// place where the game's own clock can be relied on to still be running.
+        /// Returns the ripple so a caller that keeps its own little world can adopt
+        /// it into it.
+        /// </summary>
+        public static GameObject Spawn(Vector3 worldPosition, Color color, Transform pingTransform, bool unscaledTime = false)
         {
             EnsureAssets();
 
@@ -89,7 +98,10 @@ namespace SenseOfDirection.Pings
             var ripple = go.AddComponent<PingRipple>();
             ripple._pingTransform = pingTransform;
             ripple._color = color;
+            ripple._unscaledTime = unscaledTime;
             ripple.Init();
+
+            return go;
         }
 
         private void Init()
@@ -111,7 +123,7 @@ namespace SenseOfDirection.Pings
 
         private void Update()
         {
-            _elapsed += Time.deltaTime;
+            _elapsed += _unscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
             float t = Mathf.Clamp01(_elapsed / Duration);
 
             if (_pingTransform != null)

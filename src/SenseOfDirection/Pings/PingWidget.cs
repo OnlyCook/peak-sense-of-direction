@@ -77,9 +77,30 @@ namespace SenseOfDirection.Pings
             }
         }
 
-        private static PingWidget Build()
+        /// <summary>
+        /// A widget built into somewhere other than the live overlay canvas (the
+        /// config preview menu's own stage), deliberately outside the pool: a
+        /// pooled widget is parented to the live canvas and gets recycled by the
+        /// next real ping, neither of which is true for one that has to live in
+        /// the preview for as long as that menu is open.
+        /// </summary>
+        internal static PingWidget CreateDetached(RectTransform parent, Func<Vector3> getWorldPosition, Color color, bool enableArrow)
         {
-            RectTransform canvasTransform = IndicatorManager.Instance.CanvasTransform;
+            PingWidget widget = Build(parent);
+            widget.Bind(getWorldPosition, color, enableArrow);
+
+            // Bind() points the anchor's release at the shared pool, which would
+            // be actively wrong here: this widget is parented to the preview
+            // menu's stage, so a real ping renting it back out of the pool would
+            // end up with its indicator drawn inside a closed menu instead of on
+            // screen. A detached widget is simply destroyed when it goes away.
+            widget.Anchor.ReleaseWidget = () => UnityEngine.Object.Destroy(widget._root.gameObject);
+            return widget;
+        }
+
+        private static PingWidget Build(RectTransform parent = null)
+        {
+            RectTransform canvasTransform = parent != null ? parent : IndicatorManager.Instance.CanvasTransform;
 
             var rootGo = new GameObject("SoD.PingIndicator", typeof(RectTransform));
             var root = (RectTransform)rootGo.transform;

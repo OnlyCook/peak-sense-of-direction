@@ -1,17 +1,29 @@
+using System.Collections.Generic;
 using SenseOfDirection.Indicators;
 using UnityEngine;
 
 namespace SenseOfDirection.Pings
 {
     /// <summary>
-    /// Fades a <see cref="PingWidget"/> out over a short duration instead of
-    /// snapping it away the instant its ping is destroyed - appearing stays
-    /// instant (no fade-in, matching maintainer feedback that only
-    /// disappearing should animate). Added onto the widget's own root
-    /// GameObject by <see cref="PingWidgetLink"/>'s <c>OnDestroy</c>; the
-    /// anchor stays registered for the duration (so the arrow keeps tracking
-    /// the camera correctly while fading) and is only unregistered - which
-    /// destroys the widget - once the fade completes.
+    /// Fades a <see cref="PingWidget"/> (or an <c>ItemPingWidget</c>) out over a
+    /// short duration instead of snapping it away the instant its ping is
+    /// destroyed - appearing stays instant (no fade-in, matching maintainer
+    /// feedback that only disappearing should animate). The anchor stays
+    /// registered for the duration (so the arrow keeps tracking the camera
+    /// correctly while fading) and is only unregistered - which hands the widget
+    /// back to its pool - once the fade completes.
+    ///
+    /// That final unregister is also the *only* thing that ever takes a finished
+    /// ping off the compass, which is why this is one standalone always-running
+    /// driver rather than a component sitting on each widget, which is what it
+    /// used to be. <see cref="IndicatorManager"/> deactivates a widget's GameObject
+    /// outright when its placement is <c>CompassOnly</c> - there is no
+    /// edge-of-screen indicator to show in that mode - and an inactive GameObject's
+    /// <c>Update</c> never runs. So the fade never advanced, never finished, and
+    /// never unregistered the anchor: the ping's compass marker stayed on the
+    /// compass for the rest of the run, and only in that one placement mode. A
+    /// driver that is always active cannot be switched off by the thing it is
+    /// trying to clean up.
     ///
     /// <see cref="IndicatorAnchor.OverlapSize"/> is zeroed out the instant the
     /// fade begins, opting this anchor out of label-overlap-avoidance for the
@@ -28,48 +40,86 @@ namespace SenseOfDirection.Pings
     {
         private const float FadeDurationSeconds = 0.35f;
 
-        private CanvasGroup _canvasGroup;
-        private IndicatorAnchor _anchor;
-        private float _elapsed;
+        private class Fade
+        {
+            internal CanvasGroup CanvasGroup;
+            internal IndicatorAnchor Anchor;
+            internal float Elapsed;
+        }
 
-        /// <summary>
-        /// Reuses the runner already on the widget rather than adding a fresh
-        /// component each fade: ping widgets are pooled now (see
-        /// <see cref="PingWidget"/>), so the same GameObject fades out once per
-        /// ping it's ever rented for - adding a component each time would stack
-        /// up dead runners on it, and destroying the component instead would
-        /// race the pool (component destruction is deferred to the end of the
-        /// frame, but a rented widget can be back in use within the same one).
-        /// The runner just disables itself when done, ready to be re-armed.
-        /// </summary>
+        private static PingWidgetFadeOut _driver;
+
+        private readonly List<Fade> _fades = new List<Fade>();
+
+        private static PingWidgetFadeOut Driver
+        {
+            get
+            {
+                if (_driver == null)
+                {
+                    var go = new GameObject("SenseOfDirection.PingWidgetFadeOut");
+                    DontDestroyOnLoad(go);
+                    _driver = go.AddComponent<PingWidgetFadeOut>();
+                }
+                return _driver;
+            }
+        }
+
         public static void Begin(CanvasGroup canvasGroup, IndicatorAnchor anchor)
         {
             anchor.OverlapSize = Vector2.zero;
-            PingWidgetFadeOut runner = canvasGroup.GetComponent<PingWidgetFadeOut>();
-            if (runner == null)
+            Driver.Add(canvasGroup, anchor);
+        }
+
+        /// <summary>
+        /// Re-arms the fade already running for this widget rather than starting a
+        /// second one: ping widgets are pooled, so one CanvasGroup fades out once
+        /// per ping it is ever rented for, and two fades racing over a single widget
+        /// would have the loser unregister an anchor the winner had already handed
+        /// back to the pool.
+        /// </summary>
+        private void Add(CanvasGroup canvasGroup, IndicatorAnchor anchor)
+        {
+            foreach (Fade existing in _fades)
             {
-                runner = canvasGroup.gameObject.AddComponent<PingWidgetFadeOut>();
+                if (existing.CanvasGroup == canvasGroup)
+                {
+                    existing.Anchor = anchor;
+                    existing.Elapsed = 0f;
+                    return;
+                }
             }
-            runner._canvasGroup = canvasGroup;
-            runner._anchor = anchor;
-            runner._elapsed = 0f;
-            runner.enabled = true;
+
+            _fades.Add(new Fade { CanvasGroup = canvasGroup, Anchor = anchor, Elapsed = 0f });
         }
 
         private void Update()
         {
-            _elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(_elapsed / FadeDurationSeconds);
-            _canvasGroup.alpha = 1f - t;
-
-            if (t >= 1f)
+            for (int i = _fades.Count - 1; i >= 0; i--)
             {
-                // Before the unregister: that hands a pooled widget straight
-                // back to its pool, where it can be rented again in this very
-                // frame - this runner must already be inert by then.
-                enabled = false;
-                IndicatorManager.Instance.UnregisterAnchor(_anchor);
-                _anchor = null;
+                Fade fade = _fades[i];
+                fade.Elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(fade.Elapsed / FadeDurationSeconds);
+
+                // Null if its widget was torn down some other way (a scene change,
+                // say). The anchor still has to come off the compass, so the fade
+                // runs to its end regardless and only the alpha is skipped.
+                if (fade.CanvasGroup != null)
+                {
+                    fade.CanvasGroup.alpha = 1f - t;
+                }
+
+                if (t < 1f)
+                {
+                    continue;
+                }
+
+                // Dropped before the unregister, not after: that hands a pooled
+                // widget straight back to its pool, where it can be rented again in
+                // this very frame - and a fade still holding it would then be fading
+                // out a widget that now belongs to somebody else's ping.
+                _fades.RemoveAt(i);
+                IndicatorManager.Instance.UnregisterAnchor(fade.Anchor);
             }
         }
     }

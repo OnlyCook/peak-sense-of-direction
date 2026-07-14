@@ -122,9 +122,21 @@ namespace SenseOfDirection.ItemPings
             }
         }
 
-        private static ItemPingWidget Build()
+        /// <summary>Built into the config preview menu's stage instead of the live canvas, and outside the pool - see <see cref="Pings.PingWidget.CreateDetached"/> for why.</summary>
+        internal static ItemPingWidget CreateDetached(RectTransform parent, Func<Vector3> getWorldPosition, Color color, bool enableArrow)
         {
-            RectTransform canvasTransform = IndicatorManager.Instance.CanvasTransform;
+            ItemPingWidget widget = Build(parent);
+            widget.Bind(getWorldPosition, color, enableArrow);
+
+            // Never hand a preview widget back to the shared pool - see
+            // Pings.PingWidget.CreateDetached for the bug that would cause.
+            widget.Anchor.ReleaseWidget = () => UnityEngine.Object.Destroy(widget._root.gameObject);
+            return widget;
+        }
+
+        private static ItemPingWidget Build(RectTransform parent = null)
+        {
+            RectTransform canvasTransform = parent != null ? parent : IndicatorManager.Instance.CanvasTransform;
 
             var rootGo = new GameObject("SoD.ItemPingIndicator", typeof(RectTransform));
             var root = (RectTransform)rootGo.transform;

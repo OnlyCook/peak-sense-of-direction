@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using SenseOfDirection.Common;
 using SenseOfDirection.Indicators;
@@ -59,10 +60,43 @@ namespace SenseOfDirection.Compass
                     var go = new GameObject("SenseOfDirection.CompassManager");
                     DontDestroyOnLoad(go);
                     _instance = go.AddComponent<CompassManager>();
+                    _instance.Initialize();
                 }
                 return _instance;
             }
         }
+
+        /// <summary>
+        /// A second, non-singleton tape rendered inside someone else's canvas
+        /// against a camera and anchor list of their choosing - the config
+        /// preview menu (<c>Ui.PreviewScene</c>). Same reasoning as
+        /// <see cref="Indicators.IndicatorManager.CreateDetached"/>: the preview
+        /// shows the real compass, driven by the real bearing/fade/overlap code,
+        /// rather than a mock-up that could drift away from it.
+        /// </summary>
+        internal static CompassManager CreateDetached(RectTransform surface, Camera camera, Func<IReadOnlyList<IndicatorAnchor>> anchorSource)
+        {
+            var go = new GameObject("SenseOfDirection.CompassManager.Detached");
+            go.transform.SetParent(surface, false);
+
+            var manager = go.AddComponent<CompassManager>();
+            manager._detachedSurface = surface;
+            manager._cameraOverride = camera;
+            manager._anchorSource = anchorSource;
+            manager.Initialize();
+            return manager;
+        }
+
+        /// <summary>Non-null on a <see cref="CreateDetached"/> instance: the rect its tape lives in, instead of a canvas of its own.</summary>
+        private RectTransform _detachedSurface;
+
+        /// <summary>Null on the live instance, which tracks <see cref="Camera.main"/>.</summary>
+        private Camera _cameraOverride;
+
+        /// <summary>Null on the live instance, which reads <see cref="IndicatorManager.Instance"/>'s anchors.</summary>
+        private Func<IReadOnlyList<IndicatorAnchor>> _anchorSource;
+
+        private bool IsDetached => _detachedSurface != null;
 
         private const int TickCount = 24; // every 15 degrees
 
@@ -128,7 +162,13 @@ namespace SenseOfDirection.Compass
 
         private const int MarkerMaxRows = 3;
 
-        private void Awake()
+        /// <summary>
+        /// Called explicitly by the <see cref="Instance"/> getter /
+        /// <see cref="CreateDetached"/> rather than from <c>Awake</c>, since
+        /// which surface the tape is built into is decided by the caller and
+        /// <c>Awake</c> would run before that could be set.
+        /// </summary>
+        private void Initialize()
         {
             BuildUi();
             BuildTicks();
@@ -136,22 +176,34 @@ namespace SenseOfDirection.Compass
 
         private void BuildUi()
         {
-            var canvasGo = new GameObject("Canvas");
-            canvasGo.transform.SetParent(transform, false);
+            // A detached tape hangs directly off the surface it was given (the
+            // preview stage, which already lives in the menu's own canvas); only
+            // the live one owns a full-screen canvas of its own.
+            Transform parent;
+            if (IsDetached)
+            {
+                parent = _detachedSurface;
+            }
+            else
+            {
+                var canvasGo = new GameObject("Canvas");
+                canvasGo.transform.SetParent(transform, false);
 
-            var canvas = canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                var canvas = canvasGo.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
-            var scaler = canvasGo.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+                var scaler = canvasGo.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                scaler.matchWidthOrHeight = 0.5f;
 
-            canvasGo.AddComponent<GraphicRaycaster>().enabled = false;
+                canvasGo.AddComponent<GraphicRaycaster>().enabled = false;
+                parent = canvasGo.transform;
+            }
 
             var rootGo = new GameObject("Root", typeof(RectTransform));
             _root = (RectTransform)rootGo.transform;
-            _root.SetParent(canvasGo.transform, false);
+            _root.SetParent(parent, false);
             _root.anchorMin = new Vector2(0.5f, 1f);
             _root.anchorMax = new Vector2(0.5f, 1f);
             _root.pivot = new Vector2(0.5f, 1f);
@@ -255,10 +307,17 @@ namespace SenseOfDirection.Compass
         {
             NativeAssets.TryFindAll();
             PluginConfig cfg = Plugin.Instance.Cfg;
-            Camera camera = Camera.main;
+            Camera camera = _cameraOverride != null ? _cameraOverride : Camera.main;
 
-            bool requiresHeldItem = cfg.CompassRequiresHoldingItem.Value;
-            if (!cfg.EnableCompass.Value || camera == null || Character.localCharacter == null
+            // The preview's tape isn't gated on the live player at all: it has no
+            // local character to speak of, and blanking it out because you happen
+            // not to be holding a compass item right now would just look broken to
+            // someone who came here to look at the compass. enable-compass still
+            // gates it - turning the mechanic off *should* empty the preview.
+            bool gatedOnPlayer = !IsDetached;
+            bool requiresHeldItem = gatedOnPlayer && cfg.CompassRequiresHoldingItem.Value;
+            if (!cfg.EnableCompass.Value || camera == null
+                || (gatedOnPlayer && Character.localCharacter == null)
                 || (requiresHeldItem && !IsHoldingCompassItem()))
             {
                 _root.gameObject.SetActive(false);
@@ -344,7 +403,11 @@ namespace SenseOfDirection.Compass
             _staleScratch.Clear();
             _overlapCandidates.Clear();
 
-            foreach (IndicatorAnchor anchor in IndicatorManager.Instance.Anchors)
+            IReadOnlyList<IndicatorAnchor> anchors = _anchorSource != null
+                ? _anchorSource()
+                : IndicatorManager.Instance.Anchors;
+
+            foreach (IndicatorAnchor anchor in anchors)
             {
                 if (anchor.CompassKind == CompassMarkerKind.None)
                 {
@@ -427,7 +490,12 @@ namespace SenseOfDirection.Compass
                     : ComputeEdgeFade(absRelative, halfFov, clamp ? ClampedEdgeAlpha : 0f);
                 FadeMarkerAlpha(widget, targetAlpha);
 
-                float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), worldPos) * CharacterStats.unitsToMeters;
+                // Measured from the local player's own viewpoint in game, but
+                // from the preview's fake camera when detached - there's no local
+                // character standing anywhere near the preview's world points, so
+                // measuring from the real one would report nonsense distances.
+                Vector3 viewpoint = IsDetached ? camPos : CharacterPositions.LocalViewpoint();
+                float distanceMeters = Vector3.Distance(viewpoint, worldPos) * CharacterStats.unitsToMeters;
 
                 float elevationDelta = worldPos.y - camPos.y;
                 float elevationThresholdWorldUnits = cfg.CompassElevationThresholdMeters.Value / CharacterStats.unitsToMeters;

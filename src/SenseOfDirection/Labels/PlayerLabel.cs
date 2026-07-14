@@ -84,9 +84,10 @@ namespace SenseOfDirection.Labels
             };
         }
 
-        public static PlayerLabel Create(System.Func<Vector3> getWorldPosition)
+        /// <param name="parent">Where the widget is built. Null (the live game) means the shared overlay canvas; the config preview menu passes its own stage instead.</param>
+        public static PlayerLabel Create(System.Func<Vector3> getWorldPosition, RectTransform parent = null)
         {
-            RectTransform canvasTransform = IndicatorManager.Instance.CanvasTransform;
+            RectTransform canvasTransform = parent != null ? parent : IndicatorManager.Instance.CanvasTransform;
 
             var rootGo = new GameObject("SoD.PlayerLabel", typeof(RectTransform));
             var root = (RectTransform)rootGo.transform;
@@ -205,7 +206,11 @@ namespace SenseOfDirection.Labels
             _deadIcon.SetActive(showBadges && isDead);
             _unconsciousIcon.SetActive(showBadges && !isDead && isUnconscious);
 
-            _canvasGroup.alpha = Mathf.MoveTowards(_canvasGroup.alpha, targetAlpha, Time.deltaTime * FadeSpeedPerSecond);
+            // Unscaled: the preview menu freezes the game while it's open, and a
+            // scaled delta is zero there - the labels would snap between shown and
+            // hidden instead of fading, which is the one thing the preview is meant
+            // to show honestly. In play the two are the same thing.
+            _canvasGroup.alpha = Mathf.MoveTowards(_canvasGroup.alpha, targetAlpha, Time.unscaledDeltaTime * FadeSpeedPerSecond);
 
             RefreshOverlapBox(showDistance, showBadges && isHost, showBadges && (isDead || isUnconscious));
         }

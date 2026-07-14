@@ -63,6 +63,18 @@
     </ItemGroup>
   </Target>
 
+  <!-- The config preview menu's backdrop (Ui/PreviewScene.cs): a real in-game
+       screenshot the mod's own indicators are drawn over. Embedded rather than
+       shipped loose so there's no asset to lose, and stored as a JPG rather than
+       a PNG purely for size - it's a photo, and a lossless 1920x1080 screenshot
+       would be an order of magnitude larger in the DLL for no visible gain.
+       Optional: the menu falls back to a flat backdrop if it isn't present. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Icons/preview-backdrop.jpg" Condition="Exists('Icons/preview-backdrop.jpg')">
+      <LogicalName>SenseOfDirection.Icons.preview-backdrop.jpg</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <!-- Optional: copy the built DLL straight into the r2modman profile for testing
        Enable with:  dotnet build -p:DeployToProfile=true
 

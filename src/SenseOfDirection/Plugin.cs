@@ -45,6 +45,7 @@ namespace SenseOfDirection
             VanillaLabelSuppressionPatch.Apply(_harmony, Logger);
             PointPingerPatches.Apply(_harmony, Logger);
             GhostFreeCamPatches.Apply(_harmony, Logger);
+            Ui.PauseSuppressPatch.Apply(_harmony, Logger);
 
             // Always instantiated - internally no-ops per-frame when
             // EnableCampfireIndicator is off, same pattern as
@@ -62,6 +63,11 @@ namespace SenseOfDirection
             // never has to stop and build something first.
             _ = PingableRegistry.Instance;
             _ = PingPrewarm.Instance;
+
+            // The in-game settings/preview menu (General/preview-menu-key, F8).
+            // Always instantiated: it builds nothing until actually opened, and
+            // it's what watches for that key in the first place.
+            _ = Ui.PreviewMenu.Instance;
 
             // Temporary dev/QA aid (see ZombieDebugEsp's own doc comment) -
             // same no-op-when-disabled pattern, internally checks EnableZombieDebugEsp.
