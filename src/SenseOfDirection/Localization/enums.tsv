@@ -1,0 +1,240 @@
+CompassLineColor	White	English	WHITE
+CompassLineColor	White	French	BLANC
+CompassLineColor	White	Italian	BIANCO
+CompassLineColor	White	German	WEISS
+CompassLineColor	White	SpanishSpain	BLANCO
+CompassLineColor	White	SpanishLatam	BLANCO
+CompassLineColor	White	BRPortuguese	BRANCO
+CompassLineColor	White	Russian	БЕЛЫЙ
+CompassLineColor	White	Ukrainian	БІЛИЙ
+CompassLineColor	White	SimplifiedChinese	白色
+CompassLineColor	White	TraditionalChinese	白色
+CompassLineColor	White	Japanese	白
+CompassLineColor	White	Korean	흰색
+CompassLineColor	White	Polish	BIAŁY
+CompassLineColor	White	Turkish	BEYAZ
+CompassLineColor	LightGray	English	LIGHT GRAY
+CompassLineColor	LightGray	French	GRIS CLAIR
+CompassLineColor	LightGray	Italian	GRIGIO CHIARO
+CompassLineColor	LightGray	German	HELLGRAU
+CompassLineColor	LightGray	SpanishSpain	GRIS CLARO
+CompassLineColor	LightGray	SpanishLatam	GRIS CLARO
+CompassLineColor	LightGray	BRPortuguese	CINZA CLARO
+CompassLineColor	LightGray	Russian	СВЕТЛО-СЕРЫЙ
+CompassLineColor	LightGray	Ukrainian	СВІТЛО-СІРИЙ
+CompassLineColor	LightGray	SimplifiedChinese	浅灰色
+CompassLineColor	LightGray	TraditionalChinese	淺灰色
+CompassLineColor	LightGray	Japanese	明るいグレー
+CompassLineColor	LightGray	Korean	밝은 회색
+CompassLineColor	LightGray	Polish	JASNOSZARY
+CompassLineColor	LightGray	Turkish	AÇIK GRİ
+CompassLineColor	Gray	English	GRAY
+CompassLineColor	Gray	French	GRIS
+CompassLineColor	Gray	Italian	GRIGIO
+CompassLineColor	Gray	German	GRAU
+CompassLineColor	Gray	SpanishSpain	GRIS
+CompassLineColor	Gray	SpanishLatam	GRIS
+CompassLineColor	Gray	BRPortuguese	CINZA
+CompassLineColor	Gray	Russian	СЕРЫЙ
+CompassLineColor	Gray	Ukrainian	СІРИЙ
+CompassLineColor	Gray	SimplifiedChinese	灰色
+CompassLineColor	Gray	TraditionalChinese	灰色
+CompassLineColor	Gray	Japanese	グレー
+CompassLineColor	Gray	Korean	회색
+CompassLineColor	Gray	Polish	SZARY
+CompassLineColor	Gray	Turkish	GRİ
+CompassLineColor	DarkGray	English	DARK GRAY
+CompassLineColor	DarkGray	French	GRIS FONCÉ
+CompassLineColor	DarkGray	Italian	GRIGIO SCURO
+CompassLineColor	DarkGray	German	DUNKELGRAU
+CompassLineColor	DarkGray	SpanishSpain	GRIS OSCURO
+CompassLineColor	DarkGray	SpanishLatam	GRIS OSCURO
+CompassLineColor	DarkGray	BRPortuguese	CINZA ESCURO
+CompassLineColor	DarkGray	Russian	ТЁМНО-СЕРЫЙ
+CompassLineColor	DarkGray	Ukrainian	ТЕМНО-СІРИЙ
+CompassLineColor	DarkGray	SimplifiedChinese	深灰色
+CompassLineColor	DarkGray	TraditionalChinese	深灰色
+CompassLineColor	DarkGray	Japanese	濃いグレー
+CompassLineColor	DarkGray	Korean	진한 회색
+CompassLineColor	DarkGray	Polish	CIEMNOSZARY
+CompassLineColor	DarkGray	Turkish	KOYU GRİ
+CompassLineColor	Black	English	BLACK
+CompassLineColor	Black	French	NOIR
+CompassLineColor	Black	Italian	NERO
+CompassLineColor	Black	German	SCHWARZ
+CompassLineColor	Black	SpanishSpain	NEGRO
+CompassLineColor	Black	SpanishLatam	NEGRO
+CompassLineColor	Black	BRPortuguese	PRETO
+CompassLineColor	Black	Russian	ЧЁРНЫЙ
+CompassLineColor	Black	Ukrainian	ЧОРНИЙ
+CompassLineColor	Black	SimplifiedChinese	黑色
+CompassLineColor	Black	TraditionalChinese	黑色
+CompassLineColor	Black	Japanese	黒
+CompassLineColor	Black	Korean	검은색
+CompassLineColor	Black	Polish	CZARNY
+CompassLineColor	Black	Turkish	SİYAH
+IndicatorPlacement	OffScreenOnly	English	OFF-SCREEN ONLY
+IndicatorPlacement	OffScreenOnly	French	BORD D'ÉCRAN UNIQUEMENT
+IndicatorPlacement	OffScreenOnly	Italian	SOLO BORDO SCHERMO
+IndicatorPlacement	OffScreenOnly	German	NUR BILDSCHIRMRAND
+IndicatorPlacement	OffScreenOnly	SpanishSpain	SOLO BORDE DE PANTALLA
+IndicatorPlacement	OffScreenOnly	SpanishLatam	SOLO BORDE DE PANTALLA
+IndicatorPlacement	OffScreenOnly	BRPortuguese	SOMENTE BORDA DA TELA
+IndicatorPlacement	OffScreenOnly	Russian	ТОЛЬКО КРАЙ ЭКРАНА
+IndicatorPlacement	OffScreenOnly	Ukrainian	ТІЛЬКИ КРАЙ ЕКРАНА
+IndicatorPlacement	OffScreenOnly	SimplifiedChinese	仅屏幕边缘
+IndicatorPlacement	OffScreenOnly	TraditionalChinese	僅螢幕邊緣
+IndicatorPlacement	OffScreenOnly	Japanese	画面端のみ
+IndicatorPlacement	OffScreenOnly	Korean	화면 가장자리만
+IndicatorPlacement	OffScreenOnly	Polish	TYLKO KRAWĘDŹ EKRANU
+IndicatorPlacement	OffScreenOnly	Turkish	SADECE EKRAN KENARI
+IndicatorPlacement	CompassOnly	English	COMPASS ONLY
+IndicatorPlacement	CompassOnly	French	BOUSSOLE UNIQUEMENT
+IndicatorPlacement	CompassOnly	Italian	SOLO BUSSOLA
+IndicatorPlacement	CompassOnly	German	NUR KOMPASS
+IndicatorPlacement	CompassOnly	SpanishSpain	SOLO BRÚJULA
+IndicatorPlacement	CompassOnly	SpanishLatam	SOLO BRÚJULA
+IndicatorPlacement	CompassOnly	BRPortuguese	SOMENTE BÚSSOLA
+IndicatorPlacement	CompassOnly	Russian	ТОЛЬКО КОМПАС
+IndicatorPlacement	CompassOnly	Ukrainian	ТІЛЬКИ КОМПАС
+IndicatorPlacement	CompassOnly	SimplifiedChinese	仅指南针
+IndicatorPlacement	CompassOnly	TraditionalChinese	僅指南針
+IndicatorPlacement	CompassOnly	Japanese	コンパスのみ
+IndicatorPlacement	CompassOnly	Korean	나침반만
+IndicatorPlacement	CompassOnly	Polish	TYLKO KOMPAS
+IndicatorPlacement	CompassOnly	Turkish	SADECE PUSULA
+IndicatorPlacement	Both	English	BOTH
+IndicatorPlacement	Both	French	LES DEUX
+IndicatorPlacement	Both	Italian	ENTRAMBI
+IndicatorPlacement	Both	German	BEIDE
+IndicatorPlacement	Both	SpanishSpain	AMBOS
+IndicatorPlacement	Both	SpanishLatam	AMBOS
+IndicatorPlacement	Both	BRPortuguese	AMBOS
+IndicatorPlacement	Both	Russian	ОБА
+IndicatorPlacement	Both	Ukrainian	ОБИДВА
+IndicatorPlacement	Both	SimplifiedChinese	两者都
+IndicatorPlacement	Both	TraditionalChinese	兩者皆
+IndicatorPlacement	Both	Japanese	両方
+IndicatorPlacement	Both	Korean	둘 다
+IndicatorPlacement	Both	Polish	OBA
+IndicatorPlacement	Both	Turkish	İKİSİ DE
+ItemPingNameMode	Never	English	NEVER
+ItemPingNameMode	Never	French	JAMAIS
+ItemPingNameMode	Never	Italian	MAI
+ItemPingNameMode	Never	German	NIE
+ItemPingNameMode	Never	SpanishSpain	NUNCA
+ItemPingNameMode	Never	SpanishLatam	NUNCA
+ItemPingNameMode	Never	BRPortuguese	NUNCA
+ItemPingNameMode	Never	Russian	НИКОГДА
+ItemPingNameMode	Never	Ukrainian	НІКОЛИ
+ItemPingNameMode	Never	SimplifiedChinese	从不
+ItemPingNameMode	Never	TraditionalChinese	從不
+ItemPingNameMode	Never	Japanese	表示しない
+ItemPingNameMode	Never	Korean	표시 안 함
+ItemPingNameMode	Never	Polish	NIGDY
+ItemPingNameMode	Never	Turkish	ASLA
+ItemPingNameMode	HideWhenIconShown	English	HIDE WHEN ICON SHOWN
+ItemPingNameMode	HideWhenIconShown	French	MASQUER SI ICÔNE AFFICHÉE
+ItemPingNameMode	HideWhenIconShown	Italian	NASCONDI SE ICONA VISIBILE
+ItemPingNameMode	HideWhenIconShown	German	AUSBLENDEN BEI SYMBOL
+ItemPingNameMode	HideWhenIconShown	SpanishSpain	OCULTAR SI HAY ICONO
+ItemPingNameMode	HideWhenIconShown	SpanishLatam	OCULTAR SI HAY ÍCONO
+ItemPingNameMode	HideWhenIconShown	BRPortuguese	OCULTAR QUANDO ÍCONE VISÍVEL
+ItemPingNameMode	HideWhenIconShown	Russian	СКРЫВАТЬ ПРИ ЗНАЧКЕ
+ItemPingNameMode	HideWhenIconShown	Ukrainian	ХОВАТИ ПРИ ЗНАЧКУ
+ItemPingNameMode	HideWhenIconShown	SimplifiedChinese	显示图标时隐藏
+ItemPingNameMode	HideWhenIconShown	TraditionalChinese	顯示圖示時隱藏
+ItemPingNameMode	HideWhenIconShown	Japanese	アイコン表示時は非表示
+ItemPingNameMode	HideWhenIconShown	Korean	아이콘 표시 시 숨김
+ItemPingNameMode	HideWhenIconShown	Polish	UKRYJ, GDY IKONA WIDOCZNA
+ItemPingNameMode	HideWhenIconShown	Turkish	SİMGE GÖSTERİLİNCE GİZLE
+ItemPingNameMode	Always	English	ALWAYS
+ItemPingNameMode	Always	French	TOUJOURS
+ItemPingNameMode	Always	Italian	SEMPRE
+ItemPingNameMode	Always	German	IMMER
+ItemPingNameMode	Always	SpanishSpain	SIEMPRE
+ItemPingNameMode	Always	SpanishLatam	SIEMPRE
+ItemPingNameMode	Always	BRPortuguese	SEMPRE
+ItemPingNameMode	Always	Russian	ВСЕГДА
+ItemPingNameMode	Always	Ukrainian	ЗАВЖДИ
+ItemPingNameMode	Always	SimplifiedChinese	始终
+ItemPingNameMode	Always	TraditionalChinese	始終
+ItemPingNameMode	Always	Japanese	常に表示
+ItemPingNameMode	Always	Korean	항상 표시
+ItemPingNameMode	Always	Polish	ZAWSZE
+ItemPingNameMode	Always	Turkish	HER ZAMAN
+LabelDisplayMode	Toggle	English	TOGGLE
+LabelDisplayMode	Toggle	French	BASCULE
+LabelDisplayMode	Toggle	Italian	ATTIVA/DISATTIVA
+LabelDisplayMode	Toggle	German	UMSCHALTEN
+LabelDisplayMode	Toggle	SpanishSpain	ALTERNAR
+LabelDisplayMode	Toggle	SpanishLatam	ALTERNAR
+LabelDisplayMode	Toggle	BRPortuguese	ALTERNAR
+LabelDisplayMode	Toggle	Russian	ПЕРЕКЛЮЧЕНИЕ
+LabelDisplayMode	Toggle	Ukrainian	ПЕРЕМИКАННЯ
+LabelDisplayMode	Toggle	SimplifiedChinese	切换
+LabelDisplayMode	Toggle	TraditionalChinese	切換
+LabelDisplayMode	Toggle	Japanese	トグル
+LabelDisplayMode	Toggle	Korean	전환
+LabelDisplayMode	Toggle	Polish	PRZEŁĄCZANIE
+LabelDisplayMode	Toggle	Turkish	AÇMA/KAPAMA
+LabelDisplayMode	AlwaysOn	English	ALWAYS ON
+LabelDisplayMode	AlwaysOn	French	TOUJOURS ACTIVÉ
+LabelDisplayMode	AlwaysOn	Italian	SEMPRE ATTIVO
+LabelDisplayMode	AlwaysOn	German	IMMER AN
+LabelDisplayMode	AlwaysOn	SpanishSpain	SIEMPRE ACTIVO
+LabelDisplayMode	AlwaysOn	SpanishLatam	SIEMPRE ACTIVO
+LabelDisplayMode	AlwaysOn	BRPortuguese	SEMPRE ATIVO
+LabelDisplayMode	AlwaysOn	Russian	ВСЕГДА ВКЛ.
+LabelDisplayMode	AlwaysOn	Ukrainian	ЗАВЖДИ УВІМК.
+LabelDisplayMode	AlwaysOn	SimplifiedChinese	始终开启
+LabelDisplayMode	AlwaysOn	TraditionalChinese	始終開啟
+LabelDisplayMode	AlwaysOn	Japanese	常にオン
+LabelDisplayMode	AlwaysOn	Korean	항상 켜짐
+LabelDisplayMode	AlwaysOn	Polish	ZAWSZE WŁĄCZONE
+LabelDisplayMode	AlwaysOn	Turkish	HER ZAMAN AÇIK
+LabelDisplayMode	Hold	English	HOLD
+LabelDisplayMode	Hold	French	MAINTENIR
+LabelDisplayMode	Hold	Italian	TIENI PREMUTO
+LabelDisplayMode	Hold	German	HALTEN
+LabelDisplayMode	Hold	SpanishSpain	MANTENER PULSADO
+LabelDisplayMode	Hold	SpanishLatam	MANTENER PRESIONADO
+LabelDisplayMode	Hold	BRPortuguese	SEGURAR
+LabelDisplayMode	Hold	Russian	УДЕРЖАНИЕ
+LabelDisplayMode	Hold	Ukrainian	УТРИМАННЯ
+LabelDisplayMode	Hold	SimplifiedChinese	按住
+LabelDisplayMode	Hold	TraditionalChinese	按住
+LabelDisplayMode	Hold	Japanese	長押し
+LabelDisplayMode	Hold	Korean	누르고 있기
+LabelDisplayMode	Hold	Polish	PRZYTRZYMANIE
+LabelDisplayMode	Hold	Turkish	BASILI TUTMA
+OffOnMode	OFF	English	OFF
+OffOnMode	OFF	French	DÉSACTIVÉ
+OffOnMode	OFF	Italian	DISATTIVATO
+OffOnMode	OFF	German	AUS
+OffOnMode	OFF	SpanishSpain	DESACTIVADO
+OffOnMode	OFF	SpanishLatam	DESACTIVADO
+OffOnMode	OFF	BRPortuguese	DESATIVADO
+OffOnMode	OFF	Russian	ВЫКЛ
+OffOnMode	OFF	Ukrainian	ВИМК
+OffOnMode	OFF	SimplifiedChinese	关
+OffOnMode	OFF	TraditionalChinese	關
+OffOnMode	OFF	Japanese	オフ
+OffOnMode	OFF	Korean	꺼짐
+OffOnMode	OFF	Polish	WYŁ.
+OffOnMode	OFF	Turkish	KAPALI
+OffOnMode	ON	English	ON
+OffOnMode	ON	French	ACTIVÉ
+OffOnMode	ON	Italian	ATTIVATO
+OffOnMode	ON	German	AN
+OffOnMode	ON	SpanishSpain	ACTIVADO
+OffOnMode	ON	SpanishLatam	ACTIVADO
+OffOnMode	ON	BRPortuguese	ATIVADO
+OffOnMode	ON	Russian	ВКЛ
+OffOnMode	ON	Ukrainian	УВІМК
+OffOnMode	ON	SimplifiedChinese	开
+OffOnMode	ON	TraditionalChinese	開
+OffOnMode	ON	Japanese	オン
+OffOnMode	ON	Korean	켜짐
+OffOnMode	ON	Polish	WŁ.
+OffOnMode	ON	Turkish	AÇIK

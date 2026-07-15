@@ -63,6 +63,32 @@
     </ItemGroup>
   </Target>
 
+  <!-- The preview menu's localization tables (config setting names/descriptions,
+       enum dropdown text, menu chrome) are authored as tab-separated data
+       (Localization/*.tsv, human-editable, one row per language) rather than
+       generated C# - ~1,450 translated rows compiled as literal
+       Dictionary<Language, ...> entries cost far more DLL space in IL (a
+       constructor call plus a dictionary-add per row) than the strings
+       themselves ever did. Gzipped at build time and embedded - loaded at
+       runtime via Ui/Localization/LocalizationResource.cs
+       (Assembly.GetManifestResourceStream + GZipStream) - logical resource
+       name ends up "SenseOfDirection.Localization.<filename>.tsv.gz" -->
+  <Target Name="CompressLocalizationTsv" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <LocalizationTsv Include="Localization/*.tsv" />
+    </ItemGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)localization" />
+    <Exec Command="gzip -9 -c &quot;%(LocalizationTsv.Identity)&quot; &gt; &quot;$(IntermediateOutputPath)localization/%(LocalizationTsv.Filename)%(LocalizationTsv.Extension).gz&quot;" />
+    <ItemGroup>
+      <LocalizationGz Include="$(IntermediateOutputPath)localization/*.tsv.gz" />
+    </ItemGroup>
+    <ItemGroup>
+      <EmbeddedResource Include="@(LocalizationGz)">
+        <LogicalName>SenseOfDirection.Localization.%(LocalizationGz.Filename)%(LocalizationGz.Extension)</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
   <!-- The config preview menu's backdrop (Ui/PreviewScene.cs): a real in-game
        screenshot the mod's own indicators are drawn over. Embedded rather than
        shipped loose so there's no asset to lose, and stored as a JPG rather than
