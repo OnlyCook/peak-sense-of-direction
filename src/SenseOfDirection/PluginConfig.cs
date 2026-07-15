@@ -145,31 +145,29 @@ namespace SenseOfDirection
             // Indicators.IndicatorPlacement.
             PlayerLabelPlacement = config.Bind(
                 "General", "player-label-placement", IndicatorPlacement.Both,
-                "Where player labels are drawn. Both (default): as the edge-of-screen " +
+                "Where player labels are drawn. Both: as the edge-of-screen " +
                 "label and as a marker on the compass tape at once. OffScreenOnly: only " +
                 "the edge-of-screen label. CompassOnly: only the compass marker.");
 
             CampfirePlacement = config.Bind(
                 "General", "campfire-placement", IndicatorPlacement.OffScreenOnly,
                 "Where the campfire indicator is drawn, using the same OffScreenOnly/" +
-                "CompassOnly/Both choice as player-label-placement (OffScreenOnly by default).");
+                "CompassOnly/Both choice as player-label-placement.");
 
             PingPlacement = config.Bind(
                 "General", "ping-placement", IndicatorPlacement.OffScreenOnly,
                 "Where pings are drawn, using the same OffScreenOnly/CompassOnly/Both " +
-                "choice as player-label-placement (OffScreenOnly by default).");
+                "choice as player-label-placement.");
 
             ItemPingPlacement = config.Bind(
                 "General", "item-ping-placement", IndicatorPlacement.OffScreenOnly,
                 "Where item/luggage/creature ping highlights are drawn, using the same " +
-                "OffScreenOnly/CompassOnly/Both choice as player-label-placement " +
-                "(OffScreenOnly by default).");
+                "OffScreenOnly/CompassOnly/Both choice as player-label-placement.");
 
             PirateCompassLuggagePlacement = config.Bind(
                 "General", "pirate-compass-luggage-placement", IndicatorPlacement.Both,
                 "Where the Pirate's Compass luggage indicator is drawn, using the same " +
-                "OffScreenOnly/CompassOnly/Both choice as player-label-placement " +
-                "(Both by default).");
+                "OffScreenOnly/CompassOnly/Both choice as player-label-placement.");
 
             EnableLabelOverlapAvoidance = config.Bind(
                 "General", "enable-label-overlap-avoidance", true,
@@ -268,9 +266,9 @@ namespace SenseOfDirection
             PlayerLabelMaxDistanceMeters = config.Bind(
                 "Player-Labels", "max-distance-meters", 1000f,
                 new ConfigDescription(
-                    "A player's label stops showing beyond this distance. The default is " +
-                    "high enough to cover essentially any sightline in a run; lower it if " +
-                    "you'd rather only track teammates who are actually nearby.",
+                    "A player's label stops showing beyond this distance. Lower it if " +
+                    "you'd rather only track teammates who are actually nearby, or raise " +
+                    "it to cover longer sightlines.",
                     new AcceptableValueRange<float>(50f, 2000f)));
 
             PlayerLabelNameFontSize = config.Bind(
@@ -303,17 +301,17 @@ namespace SenseOfDirection
             ReplaceVanillaLabels = config.Bind(
                 "Player-Labels", "replace-vanilla-labels", false,
                 "Hide the game's own close-range player name labels entirely, so " +
-                "Sense of Direction's labels are the only ones ever shown. Off by " +
-                "default; normally the two systems hand off to each other instead.");
+                "Sense of Direction's labels are the only ones ever shown. Normally the " +
+                "two systems hand off to each other instead.");
 
             // ---- Campfire.
             EnableCampfireIndicator = config.Bind(
                 "Campfire", "enable-campfire-indicator", true,
                 "Show an always-on edge-of-screen indicator pointing at the current " +
                 "segment's campfire (the one you're trying to reach next), so you " +
-                "always know which way to go. On by default, since this is the most " +
-                "direct answer to the question the mod is named after. Turn it off if " +
-                "you'd rather find your own way up and keep the rest of the mod.");
+                "always know which way to go - the most direct answer to the question " +
+                "the mod is named after. Turn it off if you'd rather find your own way " +
+                "up and keep the rest of the mod.");
 
             ShowCampfireDistance = config.Bind(
                 "Campfire", "show-distance", true,
@@ -326,8 +324,8 @@ namespace SenseOfDirection
             RemoveVisibilityCutoff = config.Bind(
                 "Pings", "remove-visibility-cutoff", true,
                 "Vanilla silently refuses to even spawn a ping's visual once its " +
-                "pinging player is more than ~40-50m from you. On by default so far " +
-                "pings still show up at all. Most of the other Pings settings only " +
+                "pinging player is more than ~40-50m from you; turning this on makes " +
+                "far pings still show up at all. Most of the other Pings settings only " +
                 "matter once this is on.");
 
             EnablePingScaling = config.Bind(
@@ -476,7 +474,7 @@ namespace SenseOfDirection
 
             ItemPingNameMode = config.Bind(
                 "Item-Pings", "name-mode", ItemPings.ItemPingNameMode.Always,
-                "Always (default): every highlight shows what it is. HideWhenIconShown: " +
+                "Always: every highlight shows what it is. HideWhenIconShown: " +
                 "anything already showing its own in-game icon (see use-native-icons) " +
                 "drops its name, since the icon says what it is (luggage, creatures and " +
                 "hazards have no icon, so they keep theirs). Never: no names at all. A " +
@@ -516,8 +514,8 @@ namespace SenseOfDirection
             LuggagePingDetectionRadiusMeters = config.Bind(
                 "Item-Ping-Detection", "luggage-radius-meters", 3.5f,
                 new ConfigDescription(
-                    "Same as item-radius-meters, but for luggage. Larger by default, " +
-                    "since luggage is a bigger target.",
+                    "Same as item-radius-meters, but for luggage, which is a bigger " +
+                    "target.",
                     new AcceptableValueRange<float>(0.5f, 15f)));
 
             EnableItemPingHitAssist = config.Bind(
@@ -572,9 +570,8 @@ namespace SenseOfDirection
                 "Compass", "marker-gap-pixels", 40f,
                 new ConfigDescription(
                     "Vertical gap between the tick row and the marker baseline below it, " +
-                    "on top of a small fixed minimum. The default keeps everything tight " +
-                    "together; raise this for more breathing room (e.g. after turning on " +
-                    "show-names).",
+                    "on top of a small fixed minimum. Raise this for more breathing room " +
+                    "(e.g. after turning on show-names).",
                     new AcceptableValueRange<float>(40f, 200f)));
 
             CompassVerticalOffsetPixels = config.Bind(
@@ -623,8 +620,8 @@ namespace SenseOfDirection
             CompassShowNames = config.Bind(
                 "Compass", "show-names", false,
                 "Show a name label above each compass marker that has one (players, " +
-                "item/creature pings, the campfire). Off by default to keep the " +
-                "tape simple; distances still show independently of this setting.");
+                "item/creature pings, the campfire). Distances still show independently " +
+                "of this setting.");
 
             CompassShowDistances = config.Bind(
                 "Compass", "show-distances", true,
@@ -634,7 +631,7 @@ namespace SenseOfDirection
                 "Compass", "requires-holding-item", false,
                 "Only show the compass tape while the local player is actually " +
                 "holding an in-game Compass item, instead of it always being " +
-                "visible. Off by default.");
+                "visible.");
 
             CompassLineColor = config.Bind(
                 "Compass", "line-color", SenseOfDirection.Compass.CompassLineColor.White,
@@ -646,7 +643,7 @@ namespace SenseOfDirection
                 new ConfigDescription(
                     "Scales the thickness of the compass tape's tick lines (both " +
                     "cardinal and minor) and its baseline stripe. 1 keeps the " +
-                    "default thickness; higher values make the lines bolder.",
+                    "shipped thickness; higher values make the lines bolder.",
                     new AcceptableValueRange<float>(0.5f, 3f)));
 
             CompassClampIconsToEdge = config.Bind(
@@ -654,7 +651,7 @@ namespace SenseOfDirection
                 "Markers that would otherwise not be visible (outside the compass " +
                 "FOV window) are instead clamped to the nearest left/right edge of " +
                 "the tape and shown dimmed, like a mini radar, instead of not " +
-                "appearing at all. Off by default.");
+                "appearing at all.");
 
             // ---- Pirate's Compass: the in-game Pirate's Compass item already
             // makes requires-holding-item show the compass tape while it's held
@@ -712,8 +709,8 @@ namespace SenseOfDirection
                 "Ghost-Free-Cam", "unlimited-range", false,
                 "Host-controlled, see enable-ghost-free-cam. Removes max-distance-" +
                 "meters' leash entirely, letting ghosts free-cam anywhere on the " +
-                "map. Off by default, since the leash is what keeps this mechanic " +
-                "from being overpowered.");
+                "map. Although note that the leash is what keeps this mechanic from " +
+                "being overpowered.");
 
             GhostFreeCamToggleKey = config.Bind(
                 "Ghost-Free-Cam", "toggle-key", KeyCode.V,
