@@ -84,6 +84,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> EnableItemPingOffScreenIndicator;
 
         public readonly ConfigEntry<float> ItemPingDetectionRadiusMeters;
+        public readonly ConfigEntry<float> ItemPingCrossKindRadiusMeters;
         public readonly ConfigEntry<float> LuggagePingDetectionRadiusMeters;
         public readonly ConfigEntry<bool> EnableItemPingHitAssist;
         public readonly ConfigEntry<float> ItemPingHitboxRadiusMeters;
@@ -488,6 +489,17 @@ namespace SenseOfDirection
                 new ConfigDescription(
                     "How close a ping needs to land to an item for it to get highlighted.",
                     new AcceptableValueRange<float>(0.5f, 10f)));
+
+            ItemPingCrossKindRadiusMeters = config.Bind(
+                "Item-Ping-Detection", "cross-kind-radius-meters", 0.75f,
+                new ConfigDescription(
+                    "How close a *different* kind of item has to be to the item you " +
+                    "actually pinged before it also gets highlighted. Items of the same " +
+                    "kind still group together across the full item-radius-meters (that's " +
+                    "what makes a \"2x COCONUT\" grouping), but a different item only " +
+                    "counts if it was pretty much directly aimed at too, so pinging one " +
+                    "item in a luggage doesn't drag in an unrelated one sitting next to it.",
+                    new AcceptableValueRange<float>(0f, 10f)));
 
             LuggagePingDetectionRadiusMeters = config.Bind(
                 "Item-Ping-Detection", "luggage-radius-meters", 3.5f,

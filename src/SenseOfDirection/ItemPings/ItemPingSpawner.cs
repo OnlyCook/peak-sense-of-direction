@@ -52,6 +52,7 @@ namespace SenseOfDirection.ItemPings
             PluginConfig cfg = Plugin.Instance.Cfg;
 
             float itemRadiusUnits = cfg.ItemPingDetectionRadiusMeters.Value / CharacterStats.unitsToMeters;
+            float crossKindRadiusUnits = cfg.ItemPingCrossKindRadiusMeters.Value / CharacterStats.unitsToMeters;
             float luggageRadiusUnits = cfg.LuggagePingDetectionRadiusMeters.Value / CharacterStats.unitsToMeters;
 
             Vector3 rayOrigin = pingingCharacter.Head;
@@ -68,7 +69,7 @@ namespace SenseOfDirection.ItemPings
             }
 
             List<PingableTarget> found = ItemPingDetector.FindNear(
-                point, itemRadiusUnits, luggageRadiusUnits,
+                point, itemRadiusUnits, crossKindRadiusUnits, luggageRadiusUnits,
                 rayOrigin, rayDirection, rayMaxDistanceUnits, rayHitboxRadiusUnits,
                 cfg.EnableCreaturePings.Value);
 

@@ -104,8 +104,18 @@ namespace SenseOfDirection.ItemPings
         /// </summary>
         private static readonly HashSet<GameObject> Matched = new HashSet<GameObject>();
 
+        /// <summary>
+        /// Reused item-candidate scratch list (same once-per-ping,
+        /// never-nested contract as <see cref="Matched"/>): items are gathered
+        /// here first rather than added inline, so the cross-kind radius filter
+        /// can run once the whole candidate set - and thus which one was
+        /// actually aimed at - is known. See the item block in
+        /// <see cref="FindNear"/>.
+        /// </summary>
+        private static readonly List<Item> ItemCandidates = new List<Item>();
+
         public static List<PingableTarget> FindNear(
-            Vector3 point, float itemRadiusUnits, float luggageRadiusUnits,
+            Vector3 point, float itemRadiusUnits, float crossKindRadiusUnits, float luggageRadiusUnits,
             Vector3 rayOrigin, Vector3 rayDirection, float rayMaxDistanceUnits, float rayHitboxRadiusUnits,
             bool includeCreatures)
         {
@@ -173,25 +183,75 @@ namespace SenseOfDirection.ItemPings
             // ALL_ACTIVE_ITEMS is guaranteed to have (a just-spawned item is
             // non-kinematic, so it's in there immediately). It's a short list,
             // so reading it live costs nothing.
-            void TryAddItem(Item item)
+            void CollectItem(Item item)
             {
-                if (item == null || !item.gameObject.activeInHierarchy || !Matches(item.Center(), itemRadiusSq))
+                if (item != null && item.gameObject.activeInHierarchy && Matches(item.Center(), itemRadiusSq))
                 {
-                    return;
+                    ItemCandidates.Add(item);
                 }
-                Item capturedItem = item;
-                Add(capturedItem.gameObject, () => capturedItem.Center(), () => capturedItem.GetItemName(),
-                    () => NativeIconCache.ForItem(capturedItem));
             }
 
+            ItemCandidates.Clear();
             IReadOnlyList<Item> cachedItems = registry.Items;
             for (int i = 0; i < cachedItems.Count; i++)
             {
-                TryAddItem(cachedItems[i]);
+                CollectItem(cachedItems[i]);
             }
             foreach (Item item in Item.ALL_ACTIVE_ITEMS)
             {
-                TryAddItem(item);
+                CollectItem(item);
+            }
+
+            // Cross-kind radius filter (ISSUES.md): grouping is meant to cluster
+            // items of the *same* kind ("2x COCONUT"), so those keep the full
+            // itemRadius. A *different* item, though, should only be highlighted
+            // if it too was pretty much directly aimed at - not merely because it
+            // happened to sit inside the (generous) grouping radius of the item
+            // the player actually pinged. Without this, pinging one item in a
+            // luggage drags in an unrelated item sitting a metre or two away.
+            //
+            // "Aim distance" for a candidate is the smaller of its distance to
+            // where the ping landed and its perpendicular distance to the aim
+            // line (so a ray-assisted item the ping raycast never physically
+            // reached still reads as directly aimed at). The primary item - the
+            // one actually pinged - is simply whichever candidate that's
+            // smallest for; every same-kind item is kept, and a different-kind
+            // one only survives if its own aim distance is within crossKindRadius.
+            if (ItemCandidates.Count > 0)
+            {
+                float crossKindRadiusSq = crossKindRadiusUnits * crossKindRadiusUnits;
+
+                float AimDistSq(Vector3 center)
+                {
+                    return Mathf.Min(
+                        (center - point).sqrMagnitude,
+                        RayDistanceSq(center, rayOrigin, rayDirection, rayMaxDistanceUnits));
+                }
+
+                Item primary = null;
+                float primaryAimSq = float.PositiveInfinity;
+                foreach (Item item in ItemCandidates)
+                {
+                    float aimSq = AimDistSq(item.Center());
+                    if (aimSq < primaryAimSq)
+                    {
+                        primaryAimSq = aimSq;
+                        primary = item;
+                    }
+                }
+                string primaryName = primary.GetItemName();
+
+                foreach (Item item in ItemCandidates)
+                {
+                    if (item != primary && item.GetItemName() != primaryName
+                        && AimDistSq(item.Center()) > crossKindRadiusSq)
+                    {
+                        continue;
+                    }
+                    Item capturedItem = item;
+                    Add(capturedItem.gameObject, () => capturedItem.Center(), () => capturedItem.GetItemName(),
+                        () => NativeIconCache.ForItem(capturedItem));
+                }
             }
 
             foreach (Luggage luggage in Luggage.ALL_LUGGAGE)
@@ -548,17 +608,30 @@ namespace SenseOfDirection.ItemPings
         /// <summary>Closest-point-on-ray distance test; ignores anything behind the ray origin or past <c>maxDistance</c> along it.</summary>
         private static bool MatchesRay(Vector3 center, Vector3 rayOrigin, Vector3 rayDirection, float maxDistance, float hitboxRadiusSq)
         {
+            return RayDistanceSq(center, rayOrigin, rayDirection, maxDistance) <= hitboxRadiusSq;
+        }
+
+        /// <summary>
+        /// Squared perpendicular distance from <paramref name="center"/> to the
+        /// aim ray, or <c>+inf</c> if it's behind the ray origin, past
+        /// <paramref name="maxDistance"/> along it, or there's no ray at all -
+        /// so callers taking a <c>Mathf.Min</c> against it (see <c>AimDistSq</c>
+        /// in <see cref="FindNear"/>) simply fall back to whatever other
+        /// distance they're comparing.
+        /// </summary>
+        private static float RayDistanceSq(Vector3 center, Vector3 rayOrigin, Vector3 rayDirection, float maxDistance)
+        {
             if (rayDirection == Vector3.zero)
             {
-                return false;
+                return float.PositiveInfinity;
             }
             float alongRay = Vector3.Dot(center - rayOrigin, rayDirection);
             if (alongRay < 0f || alongRay > maxDistance)
             {
-                return false;
+                return float.PositiveInfinity;
             }
             Vector3 closestPointOnRay = rayOrigin + rayDirection * alongRay;
-            return (center - closestPointOnRay).sqrMagnitude <= hitboxRadiusSq;
+            return (center - closestPointOnRay).sqrMagnitude;
         }
 
         /// <summary>
