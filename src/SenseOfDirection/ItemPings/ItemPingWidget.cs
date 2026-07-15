@@ -290,6 +290,15 @@ namespace SenseOfDirection.ItemPings
             _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
             _crosshairImage.color = nativeIcon != null ? Color.white : _color;
 
+            // A native icon is bigger than the mod's own diamond (44px vs.
+            // 30px), so its bottom edge sits further down than the distance
+            // label's fixed position accounted for - pushing the label into
+            // it (e.g. a native coconut icon obstructing "9m" below it). Push
+            // the label down by exactly the size difference so the gap
+            // between icon and label stays the same as with the diamond.
+            float distanceExtraDrop = nativeIcon != null ? (NativeIconSizePixels - CrosshairSizePixels) * 0.5f : 0f;
+            _distanceText.rectTransform.anchoredPosition = new Vector2(0f, -18f - distanceExtraDrop);
+
             // Off-screen, the same icon takes the place of the dart entirely
             // (rather than the dart pointing at an unseen item): the item is
             // what's worth recognizing at a glance, and its clamped edge
@@ -414,7 +423,7 @@ namespace SenseOfDirection.ItemPings
             }
 
             float top = showName ? 38f : -6f;
-            float bottom = showDistance ? -30f : 10f;
+            float bottom = showDistance ? -30f - distanceExtraDrop : 10f;
             Anchor.OverlapSize = new Vector2(widestHalf * 2f + 12f, top - bottom);
             Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
         }
