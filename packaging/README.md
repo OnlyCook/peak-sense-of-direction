@@ -1,28 +1,27 @@
 # Sense of Direction
 
-**Always know where everyone is — even off-screen.**
+**The only mod for directions you'll ever need!**
 
-> **Early WIP (v0.1.0).** This is an empty project scaffold only — no gameplay
-> features are implemented yet. See [`ROADMAP.md`](ROADMAP.md) for the full
-> planned feature set and phased implementation order.
+native feel and look
+highly customizable
+has a **quick setup preview panel** to visually show the changes and be able to change the config easily without any dependencies (*see screenshot at the bottom*)
+entirely localized in all 14 languages the game ships with. Localized languages: English, Français, Italiano, Deutsch, Español (España), 日本語, 한국어, Português (Brasil), Русский, 简体中文, Español (Latinoamérica), Українська, Polski, Türkçe.
+mod is fully client-sided except the ghost stuff (pings and free-cam)
 
-PEAK's native player labels only show up within a short range and a narrow
-view-cone, and never show distance. Existing mods that add distance numbers
-still hide the label entirely once a player goes off-screen, so finding a
-teammate who wandered off (or fell, or died) still means physically turning
-around or scanning the level — not always possible mid-climb.
+features (all are optional and freely configurable):
+- rich **player labels** with distances and host/dead/unconscious badges
+- **improved pings**: larger and screen-relatively scaled, with distances, and audio boost
+- **item pings** with icons and aim-assist (you can ping items, hazards, and creatures)
+- feature packed **compass** so show everything above in a compact manner
+- **off-screen labels** to still see any label even when its out of view
+- **ghost pings*** so that unconscious players and ghost can still ping
+- **ghost free-cam*** so that unconscious players and ghosts can freely move around (within 50m of the spectating player by default)
 
-Sense of Direction is a **fully client-sided** mod (only you need it
-installed) that will add:
+*all clients must have this mod installed for these to work (host's config decides and affects the mechanic)
 
-- **Edge-of-screen player labels** with distance, a host crown, and
-  unconscious/dead status icons — labels stick to the screen edge with a
-  directional indicator instead of disappearing when a player is off-screen
-  or out of your view.
-- **Better pings**: distance-relative scaling, a color ripple effect,
-  drastically reduced audio distance falloff, the same off-screen indicator,
-  a distance label, and an anti-spam cooldown.
-- **Ghost free-cam**: fly around freely as a dead player instead of being
-  stuck in a fixed spectate camera.
+<<insert image>>
 
-Fully open source, MIT licensed.
+...
+
+
+<<insert quick setup screenshot>>
