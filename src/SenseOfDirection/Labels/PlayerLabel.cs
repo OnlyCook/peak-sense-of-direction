@@ -54,6 +54,20 @@ namespace SenseOfDirection.Labels
         /// <summary>Horizontal breathing room added to the measured text width.</summary>
         private const float OverlapPaddingPixels = 12f;
 
+        /// <summary>Half of the 26px status badge, used to place the overlap box's lower edge around it.</summary>
+        private const float StatusBadgeHalfPixels = 13f;
+
+        /// <summary>
+        /// The dead/unconscious status badge's Y position. It hangs below the
+        /// distance sub-line when that's shown, but tucks directly under the
+        /// name when the distance line is hidden - otherwise it floats in the
+        /// empty slot the missing line left behind (ISSUES.md: the badge's
+        /// height/position must be dynamic, not fixed, so the label doesn't
+        /// leave a gap - and neither does its overlap-avoidance hitbox).
+        /// </summary>
+        private const float StatusBadgeYWithDistance = -35f;
+        private const float StatusBadgeYWithoutDistance = -20f;
+
         private PlayerLabel(
             RectTransform root, CanvasGroup canvasGroup,
             TMP_Text nameText, TMP_Text distanceText,
@@ -206,13 +220,21 @@ namespace SenseOfDirection.Labels
             _deadIcon.SetActive(showBadges && isDead);
             _unconsciousIcon.SetActive(showBadges && !isDead && isUnconscious);
 
+            // Move the status badge up to sit directly under the name when the
+            // distance line isn't there to sit under, so it doesn't hang in the
+            // gap the hidden line would have filled (both visually and in the
+            // overlap-avoidance box below).
+            float statusBadgeY = showDistance ? StatusBadgeYWithDistance : StatusBadgeYWithoutDistance;
+            ((RectTransform)_deadIcon.transform).anchoredPosition = new Vector2(0f, statusBadgeY);
+            ((RectTransform)_unconsciousIcon.transform).anchoredPosition = new Vector2(0f, statusBadgeY);
+
             // Unscaled: the preview menu freezes the game while it's open, and a
             // scaled delta is zero there - the labels would snap between shown and
             // hidden instead of fading, which is the one thing the preview is meant
             // to show honestly. In play the two are the same thing.
             _canvasGroup.alpha = Mathf.MoveTowards(_canvasGroup.alpha, targetAlpha, Time.unscaledDeltaTime * FadeSpeedPerSecond);
 
-            RefreshOverlapBox(showDistance, showBadges && isHost, showBadges && (isDead || isUnconscious));
+            RefreshOverlapBox(showDistance, showBadges && isHost, showBadges && (isDead || isUnconscious), statusBadgeY);
         }
 
         /// <summary>
@@ -221,12 +243,14 @@ namespace SenseOfDirection.Labels
         /// currently rendered, rather than a fixed worst-case guess: as wide as
         /// its widest visible line, and spanning only the elements actually
         /// shown. Vertical extents come straight from the layout above - the
-        /// crown badge tops out at +42 (anchored +29, 26 tall), the status badge
-        /// bottoms out at -48 (anchored -35), the name caps at +25 and the
-        /// distance line at -24 - which means the box is <em>not</em> centred on
-        /// the tracked point, hence the centre offset.
+        /// crown badge tops out at +42 (anchored +29, 26 tall), the name caps at
+        /// +25, and the lower edge follows whatever is actually the bottom-most
+        /// visible element: the status badge (which itself moves up when there's
+        /// no distance line), else the distance line at -24, else the bare name
+        /// at -5 - which means the box is <em>not</em> centred on the tracked
+        /// point, hence the centre offset.
         /// </summary>
-        private void RefreshOverlapBox(bool showDistance, bool showHostBadge, bool showStatusBadge)
+        private void RefreshOverlapBox(bool showDistance, bool showHostBadge, bool showStatusBadge, float statusBadgeY)
         {
             float width = _nameText.GetPreferredValues().x;
             if (showDistance)
@@ -235,7 +259,19 @@ namespace SenseOfDirection.Labels
             }
 
             float top = showHostBadge ? 42f : 25f;
-            float bottom = showStatusBadge ? -48f : (showDistance ? -24f : -5f);
+            float bottom;
+            if (showStatusBadge)
+            {
+                bottom = statusBadgeY - StatusBadgeHalfPixels;
+            }
+            else if (showDistance)
+            {
+                bottom = -24f;
+            }
+            else
+            {
+                bottom = -5f;
+            }
 
             Anchor.OverlapSize = new Vector2(width + OverlapPaddingPixels, top - bottom);
             Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
