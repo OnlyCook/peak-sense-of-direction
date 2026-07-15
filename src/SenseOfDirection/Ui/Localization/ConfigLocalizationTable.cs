@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using BepInEx.Configuration;
-using SenseOfDirection.Ui.Localization.Config;
 
 namespace SenseOfDirection.Ui.Localization
 {
@@ -10,25 +10,18 @@ namespace SenseOfDirection.Ui.Localization
     /// key alone repeats across sections (<c>show-distance</c> exists in four
     /// of them).
     ///
-    /// Deliberately modular: one file per config section under
-    /// <see cref="Config"/>, each registering only its own keys. Adding a new
-    /// config entry's translations means adding one call in that section's own
-    /// file - never touching this one - and adding a whole new section means
-    /// one new file plus one new line in <see cref="Build"/>.
+    /// Loaded from <c>Localization/config.tsv</c> (one row per section/key/
+    /// language: <c>Section\tKey\tLanguage\tName\tDescription</c>) via
+    /// <see cref="LocalizationResource"/> - see that class for why this isn't
+    /// generated C# any more. Adding a new config entry's translations means
+    /// adding 15 rows to that file, nothing here.
     /// </summary>
     internal static class ConfigLocalizationTable
     {
-        /// <summary>Handed to every section's <c>Register</c> method - the only thing those files are allowed to touch.</summary>
         internal sealed class Registry
         {
             internal readonly Dictionary<(string Section, string Key), Dictionary<LocalizedText.Language, ConfigLocalizationEntry>> Entries =
                 new Dictionary<(string, string), Dictionary<LocalizedText.Language, ConfigLocalizationEntry>>();
-
-            /// <summary>Registers one config key's full per-language table.</summary>
-            internal void Add(string section, string key, Dictionary<LocalizedText.Language, ConfigLocalizationEntry> perLanguage)
-            {
-                Entries[(section, key)] = perLanguage;
-            }
         }
 
         private static readonly Registry _registry = Build();
@@ -37,18 +30,23 @@ namespace SenseOfDirection.Ui.Localization
         {
             var registry = new Registry();
 
-            GeneralConfigLocalization.Register(registry);
-            FontsConfigLocalization.Register(registry);
-            PlayerLabelsConfigLocalization.Register(registry);
-            CampfireConfigLocalization.Register(registry);
-            PingsConfigLocalization.Register(registry);
-            PingAudioConfigLocalization.Register(registry);
-            PingAntiSpamConfigLocalization.Register(registry);
-            ItemPingsConfigLocalization.Register(registry);
-            ItemPingDetectionConfigLocalization.Register(registry);
-            CompassConfigLocalization.Register(registry);
-            GhostFreeCamConfigLocalization.Register(registry);
-            DebugConfigLocalization.Register(registry);
+            foreach (string[] row in LocalizationResource.ReadRows("config"))
+            {
+                // Section, Key, Language, Name, Description
+                if (row.Length != 5 || !Enum.TryParse(row[2], out LocalizedText.Language language))
+                {
+                    continue;
+                }
+
+                var entryKey = (row[0], row[1]);
+                if (!registry.Entries.TryGetValue(entryKey, out var perLanguage))
+                {
+                    perLanguage = new Dictionary<LocalizedText.Language, ConfigLocalizationEntry>();
+                    registry.Entries[entryKey] = perLanguage;
+                }
+
+                perLanguage[language] = new ConfigLocalizationEntry(row[3], row[4]);
+            }
 
             return registry;
         }

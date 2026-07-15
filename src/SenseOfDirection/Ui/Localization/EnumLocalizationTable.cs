@@ -4,20 +4,21 @@ using SenseOfDirection.Compass;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.ItemPings;
 using SenseOfDirection.Labels;
-using SenseOfDirection.Ui.Localization.Enums;
 using Zorro.Settings;
 
 namespace SenseOfDirection.Ui.Localization
 {
     /// <summary>
     /// Every config enum's per-value display text, keyed by (enum type, value
-    /// name) - the enum-value equivalent of <see cref="ConfigLocalizationTable"/>,
-    /// same one-file-per-enum modularity under <see cref="Enums"/>.
+    /// name) - the enum-value equivalent of <see cref="ConfigLocalizationTable"/>.
     ///
-    /// Covers every enum a dropdown in the preview menu can show, including
-    /// <c>OffOnMode</c> (Zorro's own OFF/ON enum, borrowed for every
-    /// <c>ConfigEntry&lt;bool&gt;</c> - see <see cref="ConfigBoolSetting"/>) so
-    /// a boolean setting's dropdown is exactly as localized as everything else.
+    /// Loaded from <c>Localization/enums.tsv</c> (one row per enum type/value/
+    /// language: <c>EnumType\tValue\tLanguage\tText</c>) via
+    /// <see cref="LocalizationResource"/>. Covers every enum a dropdown in the
+    /// preview menu can show, including <c>OffOnMode</c> (Zorro's own OFF/ON
+    /// enum, borrowed for every <c>ConfigEntry&lt;bool&gt;</c> - see
+    /// <see cref="ConfigBoolSetting"/>) so a boolean setting's dropdown is
+    /// exactly as localized as everything else.
     /// </summary>
     internal static class EnumLocalizationTable
     {
@@ -25,12 +26,17 @@ namespace SenseOfDirection.Ui.Localization
         {
             internal readonly Dictionary<(Type EnumType, string ValueName), Dictionary<LocalizedText.Language, string>> Entries =
                 new Dictionary<(Type, string), Dictionary<LocalizedText.Language, string>>();
-
-            internal void Add(Type enumType, string valueName, Dictionary<LocalizedText.Language, string> perLanguage)
-            {
-                Entries[(enumType, valueName)] = perLanguage;
-            }
         }
+
+        /// <summary>Every enum type a description can reference via a <c>{enumval:TypeName.Value}</c> placeholder - see <see cref="DescriptionPlaceholders"/>.</summary>
+        private static readonly Dictionary<string, Type> TypesByName = new Dictionary<string, Type>
+        {
+            ["IndicatorPlacement"] = typeof(IndicatorPlacement),
+            ["LabelDisplayMode"] = typeof(LabelDisplayMode),
+            ["ItemPingNameMode"] = typeof(ItemPingNameMode),
+            ["CompassLineColor"] = typeof(CompassLineColor),
+            ["OffOnMode"] = typeof(OffOnMode),
+        };
 
         private static readonly Registry _registry = Build();
 
@@ -38,11 +44,24 @@ namespace SenseOfDirection.Ui.Localization
         {
             var registry = new Registry();
 
-            IndicatorPlacementLocalization.Register(registry);
-            LabelDisplayModeLocalization.Register(registry);
-            ItemPingNameModeLocalization.Register(registry);
-            CompassLineColorLocalization.Register(registry);
-            OffOnModeLocalization.Register(registry);
+            foreach (string[] row in LocalizationResource.ReadRows("enums"))
+            {
+                // EnumType, Value, Language, Text
+                if (row.Length != 4 || !TryGetType(row[0], out Type enumType) ||
+                    !Enum.TryParse(row[2], out LocalizedText.Language language))
+                {
+                    continue;
+                }
+
+                var entryKey = (enumType, row[1]);
+                if (!registry.Entries.TryGetValue(entryKey, out var perLanguage))
+                {
+                    perLanguage = new Dictionary<LocalizedText.Language, string>();
+                    registry.Entries[entryKey] = perLanguage;
+                }
+
+                perLanguage[language] = row[3];
+            }
 
             return registry;
         }
@@ -64,16 +83,6 @@ namespace SenseOfDirection.Ui.Localization
 
             return fallback;
         }
-
-        /// <summary>Every enum type a description can reference via a <c>{enumval:TypeName.Value}</c> placeholder - see <see cref="DescriptionPlaceholders"/>.</summary>
-        private static readonly Dictionary<string, Type> TypesByName = new Dictionary<string, Type>
-        {
-            ["IndicatorPlacement"] = typeof(IndicatorPlacement),
-            ["LabelDisplayMode"] = typeof(LabelDisplayMode),
-            ["ItemPingNameMode"] = typeof(ItemPingNameMode),
-            ["CompassLineColor"] = typeof(CompassLineColor),
-            ["OffOnMode"] = typeof(OffOnMode),
-        };
 
         internal static bool TryGetType(string shortName, out Type enumType) => TypesByName.TryGetValue(shortName, out enumType);
     }
