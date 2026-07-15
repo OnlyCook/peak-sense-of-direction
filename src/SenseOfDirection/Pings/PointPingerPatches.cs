@@ -188,15 +188,67 @@ namespace SenseOfDirection.Pings
 
                         Array.Sort(hits, 0, hitCount, ByDistance);
 
+                        // Opened luggage is treated as transparent to the ping:
+                        // an item resting in (or behind the rim of) an
+                        // already-opened suitcase should be what the ping lands
+                        // on, not the case itself (ISSUES.md - "the luggage was
+                        // pinged instead of the item"). Items therefore win
+                        // outright, and an opened case is only kept as a target
+                        // when aimed at *directly* - the center ray actually
+                        // passes through its collider, not merely the forgiving
+                        // spherecast radius grazing its edge - and only if
+                        // nothing better (an item, or a solid occluder in front
+                        // of it) resolves first. Closed/unopened luggage is left
+                        // exactly as before: it falls through to the plain
+                        // nearest-hit branch below, so it still pings normally.
+                        RaycastHit? deferredLuggage = null;
                         for (int i = 0; i < hitCount; i++)
                         {
                             RaycastHit candidate = hits[i];
-                            if (!IsLocalHandOrHeldItem(candidate.collider))
+                            Collider col = candidate.collider;
+                            if (IsLocalHandOrHeldItem(col))
+                            {
+                                continue;
+                            }
+
+                            if (IsOpenedLuggage(col))
+                            {
+                                // In plain-raycast mode every hit is already a
+                                // direct center-ray hit; in spherecast mode,
+                                // re-test the exact ray against this one collider
+                                // so a sphere-grazed edge doesn't count as
+                                // "directly pinged". Only the nearest such direct
+                                // hit is remembered as a fallback.
+                                bool directHit = sphereRadiusUnits <= 0f || col.Raycast(ray, out _, 1000f);
+                                if (deferredLuggage == null && directHit)
+                                {
+                                    deferredLuggage = candidate;
+                                }
+                                continue;
+                            }
+
+                            if (col.GetComponentInParent<Item>() != null)
                             {
                                 hit = candidate;
                                 __result = true;
                                 return false;
                             }
+
+                            // Any other solid hit (terrain/world/closed
+                            // luggage/creature) occludes whatever's behind it. A
+                            // nearer, directly-aimed opened case still wins over
+                            // this farther hit, though - that's the "opened
+                            // luggage is pingable when directly pinging it" case.
+                            hit = deferredLuggage ?? candidate;
+                            __result = true;
+                            return false;
+                        }
+
+                        if (deferredLuggage != null)
+                        {
+                            hit = deferredLuggage.Value;
+                            __result = true;
+                            return false;
                         }
 
                         hit = default;
@@ -247,6 +299,22 @@ namespace SenseOfDirection.Pings
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// True when this collider belongs to an already-opened
+        /// <c>Luggage</c> - the case whose contents have spilled out, which
+        /// <see cref="TryGetPingHitPrefix"/> treats as transparent so a ping
+        /// aimed at an item in/behind it lands on the item, not the case
+        /// (<c>Luggage.IsOpen</c> is the same open-state check
+        /// <c>ItemPings.ItemPingDetector</c> already relies on, set on every
+        /// client by <c>Luggage.OpenLuggageRPC</c>). Closed/unopened luggage
+        /// returns false and pings normally.
+        /// </summary>
+        private static bool IsOpenedLuggage(Collider collider)
+        {
+            Luggage luggage = collider.GetComponentInParent<Luggage>();
+            return luggage != null && luggage.IsOpen;
         }
 
         /// <summary>
