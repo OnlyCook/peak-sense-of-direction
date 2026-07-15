@@ -290,14 +290,11 @@ namespace SenseOfDirection.ItemPings
             _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
             _crosshairImage.color = nativeIcon != null ? Color.white : _color;
 
-            // See IndicatorAnchor.OverlapOffsetDownwardOnly: a native icon's
-            // bigger footprint means an upward overlap-avoidance nudge can
-            // close the distance line's gap to it into a real overlap - only
-            // ever let the name's gap close instead.
-            if (Anchor != null)
-            {
-                Anchor.OverlapOffsetDownwardOnly = nativeIcon != null;
-            }
+            // OverlapOffsetDownwardOnly (a native icon's bigger on-screen
+            // footprint would turn an upward nudge into an overlap with the
+            // distance line) is decided further below, where the off-screen blend
+            // is known - off-screen the icon rides with the label, so the
+            // restriction only makes sense on-screen.
 
             // A native icon is bigger than the mod's own diamond (44px vs.
             // 30px), so its bottom edge sits further down than the distance
@@ -306,7 +303,6 @@ namespace SenseOfDirection.ItemPings
             // the label down by exactly the size difference so the gap
             // between icon and label stays the same as with the diamond.
             float distanceExtraDrop = nativeIcon != null ? (NativeIconSizePixels - CrosshairSizePixels) * 0.5f : 0f;
-            _distanceText.rectTransform.anchoredPosition = new Vector2(0f, -18f - distanceExtraDrop);
 
             // Off-screen, the same icon takes the place of the dart entirely
             // (rather than the dart pointing at an unseen item): the item is
@@ -413,17 +409,57 @@ namespace SenseOfDirection.ItemPings
             }
             Anchor.EdgeMarginPixels = Mathf.Max(48f, widestHalf + 12f);
 
-            // Same widest-visible-text measurement, reused for the overlap
-            // box (Indicators.LabelOverlapResolver) instead of a separate
-            // fixed guess - keeps overlap detection matched to what's
-            // actually on screen (e.g. a short "KING" vs. a wider
-            // "2x COCONUT").
-            // Same widest-visible-text measurement drives the box's height and
-            // centre too: the name rides above the tracked point (anchored +24,
-            // 28 tall -> tops out at +38) and the distance line below it
-            // (anchored -18, 24 tall -> bottoms out at -30), so the box is not
-            // centred on the crosshair/arrow, which stay exactly on the tracked
-            // position regardless.
+            // Name rides above the tracked point, distance below it, with the
+            // icon (on-screen crosshair / off-screen arrow) in the gap between.
+            // A native icon reaches further down than the diamond, so its bottom
+            // would poke into the distance line - drop that line by the size
+            // difference to keep the same clearance.
+            const float nameY = 24f;
+            float distY = -18f - distanceExtraDrop;
+            _distanceText.rectTransform.anchoredPosition = new Vector2(0f, distY);
+
+            // Off-screen, the arrow shows the item's icon in place of the
+            // on-screen crosshair - and, unlike the crosshair, it has no visible
+            // object under it to stay pinned to. The overlap resolver nudges only
+            // the label group to destack neighbours; left to itself the arrow
+            // would stay parked at the clamped edge while its label slid away,
+            // opening the empty gap the icon used to fill and orphaning that icon
+            // where a neighbour's label then lands on it (icons obstructing
+            // labels in-game). Ride the arrow along with the label group instead,
+            // so off-screen the icon+name+distance stay one solid unit: the icon
+            // is always centred between the two lines, and the resolver keeps the
+            // whole unit - icon included - clear of its neighbours. On-screen the
+            // arrow is hidden (the pinned crosshair shows instead), so this is a
+            // no-op there.
+            _arrow.anchoredPosition = _labelGroup.anchoredPosition;
+
+            // Off-screen, several labels can pile onto the same clamped edge
+            // point. This cap is how far one may travel along that edge before the
+            // resolver decides it belongs on the inset overflow line instead - set
+            // to roughly one column-width, the distance it would move to reach that
+            // second line, so it hops over exactly when staying put would carry it
+            // further from where it points than the hop costs. That keeps the
+            // primary line the fuller one for a genuinely tight cluster (4-2, not
+            // 2-4) while a merely crowded stack spills to the second line sooner
+            // than smearing itself across a third of the edge. On-screen, where
+            // crowding is mild and the label sits on a visible crosshair, the
+            // tighter default is kept so it never drifts far. Scaled by the blend.
+            if (Anchor != null)
+            {
+                Anchor.MaxOverlapOffset = Mathf.Lerp(LabelOverlapResolver.MaxOffsetMagnitude, 130f, offScreenBlend);
+
+                // Only restrict to a downward nudge while mostly on-screen, where
+                // a native icon really does sit fixed between the two lines; off-
+                // screen the icon rides with the label (above), so an upward nudge
+                // no longer closes any gap onto it - stacked labels must be free
+                // to spread up as well as down.
+                Anchor.OverlapOffsetDownwardOnly = nativeIcon != null && offScreenBlend < 0.5f;
+            }
+
+            // Widest-visible-text measurement drives the overlap box's width, and
+            // the name/distance line positions drive its height and centre: the
+            // name rides above the tracked point (28 tall) and the distance line
+            // below it (24 tall), so the box is not centred on the crosshair/arrow.
             if (!showName && !showDistance)
             {
                 Anchor.OverlapSize = Vector2.zero;
@@ -431,8 +467,13 @@ namespace SenseOfDirection.ItemPings
                 return;
             }
 
-            float top = showName ? 38f : -6f;
-            float bottom = showDistance ? -30f - distanceExtraDrop : 10f;
+            // Box top/bottom hug the actual rendered lines (name ~20px tall
+            // centred at nameY, distance ~16px tall centred at distY) rather than
+            // padding out to the whole widget, so stacked entries pack as close as
+            // the text really needs instead of leaving a line-sized gap between
+            // each. Width is the real half-width doubled, plus a little air.
+            float top = showName ? nameY + 10f : -6f;
+            float bottom = showDistance ? distY - 8f : 10f;
             Anchor.OverlapSize = new Vector2(widestHalf * 2f + 12f, top - bottom);
             Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
         }
