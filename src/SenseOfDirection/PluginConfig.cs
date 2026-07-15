@@ -30,6 +30,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<IndicatorPlacement> CampfirePlacement;
         public readonly ConfigEntry<IndicatorPlacement> PingPlacement;
         public readonly ConfigEntry<IndicatorPlacement> ItemPingPlacement;
+        public readonly ConfigEntry<IndicatorPlacement> PirateCompassLuggagePlacement;
         public readonly ConfigEntry<bool> EnableLabelOverlapAvoidance;
         public readonly ConfigEntry<KeyCode> PreviewMenuKey;
 
@@ -106,6 +107,11 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> CompassLineThicknessMultiplier;
         public readonly ConfigEntry<bool> CompassClampIconsToEdge;
 
+        public readonly ConfigEntry<bool> EnablePirateCompassLuggageIndicator;
+        public readonly ConfigEntry<bool> ShowPirateCompassLuggageName;
+        public readonly ConfigEntry<bool> ShowPirateCompassLuggageDistance;
+        public readonly ConfigEntry<bool> EnablePirateCompassLuggageOffScreenIndicator;
+
         public readonly ConfigEntry<bool> EnableGhostFreeCam;
         public readonly ConfigEntry<float> GhostFreeCamMaxDistanceMeters;
         public readonly ConfigEntry<bool> GhostFreeCamUnlimitedRange;
@@ -157,6 +163,12 @@ namespace SenseOfDirection
                 "Where item/luggage/creature ping highlights are drawn, using the same " +
                 "OffScreenOnly/CompassOnly/Both choice as player-label-placement " +
                 "(OffScreenOnly by default).");
+
+            PirateCompassLuggagePlacement = config.Bind(
+                "General", "pirate-compass-luggage-placement", IndicatorPlacement.Both,
+                "Where the Pirate's Compass luggage indicator is drawn, using the same " +
+                "OffScreenOnly/CompassOnly/Both choice as player-label-placement " +
+                "(Both by default).");
 
             EnableLabelOverlapAvoidance = config.Bind(
                 "General", "enable-label-overlap-avoidance", true,
@@ -631,6 +643,32 @@ namespace SenseOfDirection
                 "FOV window) are instead clamped to the nearest left/right edge of " +
                 "the tape and shown dimmed, like a mini radar, instead of not " +
                 "appearing at all. Off by default.");
+
+            // ---- Pirate's Compass: the in-game Pirate's Compass item already
+            // makes requires-holding-item show the compass tape while it's held
+            // (any CompassPointer-bearing item does), but the tape itself has no
+            // way to represent what that specific compass actually points at -
+            // the nearest unopened luggage. This adds a real indicator for that.
+            EnablePirateCompassLuggageIndicator = config.Bind(
+                "Pirate-Compass", "enable-pirate-compass-luggage-indicator", true,
+                "While holding a Pirate's Compass, show an indicator pointing at the " +
+                "nearest unopened luggage - the same target its own in-game needle " +
+                "points at, made legible as a real edge-of-screen/compass marker " +
+                "with a distance label instead of only a wobbling 3D needle.");
+
+            ShowPirateCompassLuggageName = config.Bind(
+                "Pirate-Compass", "show-luggage-name", true,
+                "Show a name label (\"LUGGAGE\") above the Pirate's Compass indicator.");
+
+            ShowPirateCompassLuggageDistance = config.Bind(
+                "Pirate-Compass", "show-luggage-distance", true,
+                "Show a distance sub-label under the Pirate's Compass indicator.");
+
+            EnablePirateCompassLuggageOffScreenIndicator = config.Bind(
+                "Pirate-Compass", "enable-off-screen-indicator", true,
+                "Show an off-screen arrow pointing toward the nearest unopened luggage " +
+                "while it isn't in view. Off shows the indicator only once it's " +
+                "actually on screen.");
 
             // ---- Ghost free-cam. The three host-controlled settings are bound
             // first, ahead of the purely-local ones, so the section reads

@@ -644,12 +644,34 @@ RESEARCH.md's license table) — nothing here is copied from it.
   `Compass/enable-compass` is off, same pattern as every other always-on
   controller in this mod.
 
+### `PirateCompass/` (ad hoc addition, done — ISSUES.md luggage-locator request)
+
+- `PirateCompassLuggageIndicatorController.cs` — singleton `MonoBehaviour`
+  (same `Instance`/no-op-when-disabled pattern as
+  `CampfireIndicator/CampfireIndicatorController.cs`) that, while the local
+  player holds an in-game item with a `CompassPointer` of
+  `CompassType.Pirate` (`Compass.CompassManager.GetHeldCompassPointer`),
+  finds the nearest not-yet-opened `Luggage` (same `IsOpen` check
+  `ItemPings/ItemPingDetector.cs` already relies on, no distance cap - matches
+  the decompiled `CompassPointer.UpdateHeadingPirate`'s own unlimited-range
+  nearest-luggage search) and points a real edge-of-screen/compass indicator
+  at it - reuses `ItemPings/ItemPingWidget.cs` wholesale rather than building
+  a new widget, since a name+distance label with an off-screen arrow and a
+  compass marker is exactly what this needs too. Keeps the same
+  widget/anchor alive across a change of *which* luggage is nearest (only
+  registers/releases at the true show/hide transition), so the indicator
+  retargets smoothly instead of flickering every time "nearest" changes
+  hands. `Pirate-Compass/enable-pirate-compass-luggage-indicator` (on by
+  default) is the master switch; `General/pirate-compass-luggage-placement`
+  (default `Both`) routes it between the two rendering surfaces like every
+  other mechanic's own placement setting.
+
 ### Not yet built
 
 Nothing — every phase in `ROADMAP.md` plus the ad hoc Phase 7 compass
-addition above is implemented. Remaining `ROADMAP.md` phases (7→8 in that
-doc's own numbering: compatibility pass, packaging/release) are process/QA
-work, not new code.
+addition and the `PirateCompass/` addition above are implemented. Remaining
+`ROADMAP.md` phases (7→8 in that doc's own numbering: compatibility pass,
+packaging/release) are process/QA work, not new code.
 
 Update this section's file list as those land — keep it to one line per
 file, don't restate what's already in `ROADMAP.md`/`RESEARCH.md`.

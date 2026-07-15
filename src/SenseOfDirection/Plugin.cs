@@ -8,6 +8,7 @@ using SenseOfDirection.Indicators;
 using SenseOfDirection.ItemPings;
 using SenseOfDirection.Labels;
 using SenseOfDirection.Pings;
+using SenseOfDirection.PirateCompass;
 using UnityEngine;
 
 namespace SenseOfDirection
@@ -57,6 +58,9 @@ namespace SenseOfDirection
 
             // Phase 7: same no-op-when-disabled pattern - internally checks EnableCompass.
             _ = CompassManager.Instance;
+
+            // Same no-op-when-disabled pattern - internally checks EnablePirateCompassLuggageIndicator.
+            _ = PirateCompassLuggageIndicatorController.Instance;
 
             // Keeps the "what's pingable in this level" sweep (and every icon/
             // widget/mesh a ping needs) off the ping path itself, so pinging

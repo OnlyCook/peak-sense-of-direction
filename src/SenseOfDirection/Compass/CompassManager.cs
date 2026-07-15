@@ -296,12 +296,23 @@ namespace SenseOfDirection.Compass
             _baseline.anchoredPosition = new Vector2(0f, -baselineY);
         }
 
-        /// <summary>Whether the local player is currently holding an in-game compass item (identified by its <c>CompassPointer</c> child component - PEAK has no dedicated "Compass" item class, it's a data-driven <c>Item</c> like any other).</summary>
-        private static bool IsHoldingCompassItem()
+        /// <summary>
+        /// The <c>CompassPointer</c> child component of whatever the local player
+        /// is currently holding, or null if that item has none - PEAK has no
+        /// dedicated "Compass" item class, it's a data-driven <c>Item</c> like
+        /// any other, identified this way instead. Exposed publicly so
+        /// <see cref="PirateCompass.PirateCompassLuggageIndicatorController"/>
+        /// can tell a held Pirate's Compass apart from a Normal/Warp one without
+        /// re-deriving this same lookup.
+        /// </summary>
+        public static CompassPointer GetHeldCompassPointer()
         {
             Item current = Character.localCharacter?.data?.currentItem;
-            return current != null && current.GetComponentInChildren<CompassPointer>() != null;
+            return current != null ? current.GetComponentInChildren<CompassPointer>() : null;
         }
+
+        /// <summary>Whether the local player is currently holding an in-game compass item of any <c>CompassPointer.CompassType</c>.</summary>
+        private static bool IsHoldingCompassItem() => GetHeldCompassPointer() != null;
 
         private void Update()
         {
@@ -431,7 +442,18 @@ namespace SenseOfDirection.Compass
 
                 if (!wantsCompass || !structurallyOk)
                 {
-                    FadeMarkerAlpha(widget, 0f);
+                    // See IndicatorAnchor.CompassInstantHide's own doc comment:
+                    // an anchor that opts into this skips the gradual fade so a
+                    // reactivation mid-fade can never show its stale, frozen
+                    // position for even a frame.
+                    if (anchor.CompassInstantHide)
+                    {
+                        widget.CanvasGroup.alpha = 0f;
+                    }
+                    else
+                    {
+                        FadeMarkerAlpha(widget, 0f);
+                    }
                     continue;
                 }
 
