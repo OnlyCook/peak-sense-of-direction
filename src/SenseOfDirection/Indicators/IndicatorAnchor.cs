@@ -155,6 +155,32 @@ namespace SenseOfDirection.Indicators
         /// <summary>None means this anchor never shows up on the compass tape.</summary>
         public CompassMarkerKind CompassKind = CompassMarkerKind.None;
 
+        /// <summary>
+        /// When true, <see cref="Compass.CompassManager.UpdateMarkers"/> snaps
+        /// this anchor's marker straight to alpha 0 the instant it stops being
+        /// structurally shown (<see cref="IsActive"/>/<see cref="IsCompassVisible"/>
+        /// false, or <see cref="GetPlacement"/> no longer wants the compass at
+        /// all), instead of gradually fading it out. False (default) keeps the
+        /// existing gradual fade every other mechanic relies on (ISSUES.md:
+        /// "fade out compass icons/labels on disappear and appear").
+        ///
+        /// The gradual fade leaves a marker visible, frozen at its last tracked
+        /// position, for the whole fade window - fine for a player/campfire/ping
+        /// anchor that rarely flips active twice within under a second, but a
+        /// mechanic whose active state toggles on a single discrete
+        /// equip/unequip action (<c>PirateCompass.PirateCompassLuggageIndicatorController</c>)
+        /// can trivially reactivate mid-fade, and the stale frozen position
+        /// (from before the player turned) is then visible for a moment before
+        /// that frame's fresh position takes over - read in-game as the marker
+        /// briefly popping in at the wrong spot before "catching up" to the
+        /// right one. An instant snap to 0 means there is no partially-faded,
+        /// stale-positioned frame to ever see: by the time it's active again,
+        /// alpha is already 0, and the ordinary fade-in path (unaffected by
+        /// this flag) takes it from there at the correct, freshly-computed
+        /// position.
+        /// </summary>
+        public bool CompassInstantHide;
+
         /// <summary>Governs whether <see cref="Widget"/>/<see cref="ArrowWidget"/> vs. the compass marker (or both) are shown for this anchor.</summary>
         public Func<IndicatorPlacement> GetPlacement = () => IndicatorPlacement.OffScreenOnly;
 
