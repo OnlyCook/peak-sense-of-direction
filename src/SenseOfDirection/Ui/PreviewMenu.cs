@@ -541,6 +541,7 @@ namespace SenseOfDirection.Ui
                     cfg.CompassElevationThresholdMeters, cfg.CompassShowNames, cfg.CompassShowDistances,
                     cfg.CompassShowDegreeNumbers, cfg.CompassLineColor, cfg.CompassLineThicknessMultiplier,
                     cfg.CompassClampIconsToEdge, cfg.CompassRequiresHoldingItem,
+                    cfg.EnablePirateCompassLuggageIndicator, cfg.PirateCompassLuggagePlacement,
                 },
             });
 
