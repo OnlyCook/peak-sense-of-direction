@@ -290,6 +290,15 @@ namespace SenseOfDirection.ItemPings
             _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
             _crosshairImage.color = nativeIcon != null ? Color.white : _color;
 
+            // See IndicatorAnchor.OverlapOffsetDownwardOnly: a native icon's
+            // bigger footprint means an upward overlap-avoidance nudge can
+            // close the distance line's gap to it into a real overlap - only
+            // ever let the name's gap close instead.
+            if (Anchor != null)
+            {
+                Anchor.OverlapOffsetDownwardOnly = nativeIcon != null;
+            }
+
             // A native icon is bigger than the mod's own diamond (44px vs.
             // 30px), so its bottom edge sits further down than the distance
             // label's fixed position accounted for - pushing the label into

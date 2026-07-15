@@ -431,8 +431,13 @@ namespace SenseOfDirection.Indicators
             for (int i = 0; i < _overlapCandidates.Count; i++)
             {
                 IndicatorAnchor anchor = _overlapCandidates[i];
+                Vector2 target = targetOffsets[i];
+                if (anchor.OverlapOffsetDownwardOnly && target.y > 0f)
+                {
+                    target.y = 0f;
+                }
                 Vector2 currentOffset = _overlapOffset.TryGetValue(anchor, out Vector2 existing) ? existing : Vector2.zero;
-                Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, targetOffsets[i], Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
+                Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, target, Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
                 _overlapOffset[anchor] = smoothedOffset;
 
                 // LabelWidget (when the anchor has one) is a local (0,0)-

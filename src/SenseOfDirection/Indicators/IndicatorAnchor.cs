@@ -59,6 +59,23 @@ namespace SenseOfDirection.Indicators
         public float MaxOverlapOffset = LabelOverlapResolver.MaxOffsetMagnitude;
 
         /// <summary>
+        /// When true, <see cref="IndicatorManager.ResolveLabelOverlaps"/> never
+        /// lets this anchor's resolved vertical offset go positive (upward).
+        /// <c>ItemPings.ItemPingWidget</c> sets this while showing a native item
+        /// icon as its crosshair: its distance sub-line sits just below that
+        /// icon and its name sits just above, so an upward nudge (clearing an
+        /// overlap with another label above it) closes the distance line's own
+        /// gap to the icon instead, and a big enough native icon can make that
+        /// gap negative - the distance label ends up drawn over the icon. A
+        /// downward nudge closes the name's gap to the icon instead, which
+        /// reads far better if it has to happen at all (ISSUES.md: "if
+        /// something should be overlapped there then the title not the
+        /// distance label"). Left off (false) by default - only widgets with
+        /// this specific above-icon-below layout need it.
+        /// </summary>
+        public bool OverlapOffsetDownwardOnly;
+
+        /// <summary>
         /// Optional child of <see cref="Widget"/>, sitting at local (0,0),
         /// that holds just this anchor's informational text (name/distance)
         /// - not its arrow/crosshair. When set, overlap resolution nudges
