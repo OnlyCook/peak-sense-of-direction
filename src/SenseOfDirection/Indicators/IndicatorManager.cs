@@ -125,6 +125,30 @@ namespace SenseOfDirection.Indicators
 
         private readonly Dictionary<IndicatorAnchor, TransitionState> _transitions = new Dictionary<IndicatorAnchor, TransitionState>();
 
+        /// <summary>
+        /// Camera yaw/pitch speed, in degrees/second, above which an on/off-
+        /// screen flip is considered a rapid snap-pan rather than a deliberate
+        /// slow turn - see <see cref="_isFastPan"/>.
+        /// </summary>
+        private const float FastPanAngularSpeedThresholdDegreesPerSecond = 130f;
+
+        /// <summary>Camera forward direction as of the previous <see cref="LateUpdate"/>, used to derive pan speed. Null on the first frame (or right after the tracked camera changes/disappears) so that frame can't be mistaken for a fast pan.</summary>
+        private Vector3? _lastCameraForward;
+
+        /// <summary>
+        /// True for the current frame's <see cref="LateUpdate"/> when the
+        /// camera turned faster than <see cref="FastPanAngularSpeedThresholdDegreesPerSecond"/>
+        /// since the previous frame. A widget whose on/off-screen state flips
+        /// on such a frame skips the eased transition entirely and snaps
+        /// straight to its target - the ease exists so a label "morphs"
+        /// between its on-/off-screen forms during ordinary looking-around,
+        /// but on a fast snap-pan the jump itself is already instant from the
+        /// player's perspective (the eye can't track a target crossing the
+        /// screen that fast), so easing it only adds a visible half-screen
+        /// slide with nothing earned in return.
+        /// </summary>
+        private bool _isFastPan;
+
         private readonly List<IndicatorAnchor> _overlapCandidates = new List<IndicatorAnchor>();
         private readonly List<Vector2> _overlapBasePositionsScratch = new List<Vector2>();
         private readonly List<Vector2> _overlapSizesScratch = new List<Vector2>();
@@ -201,6 +225,8 @@ namespace SenseOfDirection.Indicators
             Camera camera = _cameraOverride != null ? _cameraOverride : Camera.main;
             Vector2 canvasSize = CanvasTransform.rect.size;
 
+            UpdatePanSpeed(camera);
+
             _overlapCandidates.Clear();
 
             for (int i = _anchors.Count - 1; i >= 0; i--)
@@ -269,6 +295,32 @@ namespace SenseOfDirection.Indicators
         }
 
         /// <summary>
+        /// Refreshes <see cref="_isFastPan"/> from how far the camera turned
+        /// since the previous frame.
+        /// </summary>
+        private void UpdatePanSpeed(Camera camera)
+        {
+            if (camera == null)
+            {
+                _lastCameraForward = null;
+                _isFastPan = false;
+                return;
+            }
+
+            Vector3 forward = camera.transform.forward;
+            if (!_lastCameraForward.HasValue || Time.deltaTime <= 0f)
+            {
+                _isFastPan = false;
+            }
+            else
+            {
+                float angularSpeed = Vector3.Angle(_lastCameraForward.Value, forward) / Time.deltaTime;
+                _isFastPan = angularSpeed >= FastPanAngularSpeedThresholdDegreesPerSecond;
+            }
+            _lastCameraForward = forward;
+        }
+
+        /// <summary>
         /// Where this anchor's widget goes this frame: its exact tracked target,
         /// except during the brief ease that an on/off-screen flip kicks off (see
         /// <see cref="TransitionState"/>). A flip mid-transition just re-starts
@@ -301,7 +353,11 @@ namespace SenseOfDirection.Indicators
                 transition.WasOffScreen = state.IsOffScreen;
                 transition.StartPosition = transition.CurrentPosition;
                 transition.StartBlend = transition.CurrentBlend;
-                transition.Elapsed = 0f;
+                // A flip during a fast snap-pan is marked already-finished
+                // rather than started, so it snaps straight to the live
+                // target below instead of easing across the screen - see
+                // _isFastPan.
+                transition.Elapsed = _isFastPan ? TransitionDurationSeconds : 0f;
             }
 
             Vector2 position = target;
