@@ -12,7 +12,7 @@ Entirely localized in all 14 languages the game ships with: English, Français, 
 
 ## Features (all optional, all configurable)
 
-- **Player labels**: name, distance, host/dead/unconscious badges, character-color matched text, edge-of-screen clamping so a label never actually disappears when they are out of view (default toggle key: `G`)
+- **Player labels**: name, distance, host/dead/unconscious badges, character-color matched text, edge-of-screen clamping so a label never actually disappears when they are out of view (default toggle key: **`G`**)
 - **Better pings**: scale with distance so far pings aren't invisible, a 3D ripple so it reads against matching terrain, and much less audio falloff so you can hear them from far away
 - **Item pings**: ping an item, piece of luggage, hazard, or creature and get a name/icon + distance highlight on it, with aim-assist so it's easier to ping them (also works with modded items)
 - **Compass**: a top-of-screen tape showing players, pings, the campfire, and item pings all at once, as an alternative or supplement to the edge-of-screen labels
@@ -35,7 +35,7 @@ Every visual setting laid out over a live preview of what it actually does, full
 
 <img width="800" height="449" alt="ghost-free-cam" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/ghost-free-cam.gif?raw=true" />
 
-Press `V` while dead to fly around freely instead of being stuck spectating a teammate. Combine it with ghost pinging (works automatically) to scout ahead and ping dangers, loot or better paths for whoever's still alive. How free dead players are decides the host (50m within the spectating player by default).
+Press `V` while dead to fly around freely instead of being stuck spectating a teammate. Combine it with ghost pinging (works automatically) to scout ahead and ping dangers, loot or better paths for whoever's still alive. How free dead players are, decides the host (50m within the spectating player by default).
 
 ## Notes
 

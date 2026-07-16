@@ -6,7 +6,7 @@
 
 - You can install the mod through r2modman as `Sense_of_Direction`
 - On [Thunderstore](https://thunderstore.io/c/peak/p/OnlyCook/Sense_of_Direction/),
-- Or on [Nexus Mods](https://www.nexusmods.com/peak/mods/000)
+- Or on [Nexus Mods](https://www.nexusmods.com/peak/mods/192)
 
 ## For developers
 

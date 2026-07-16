@@ -18,6 +18,12 @@
 # r2modman installs the whole package into BepInEx/plugins/<Team>-SenseOfDirection/,
 # so a root-level DLL lands correctly and BepInEx loads it.
 #
+# Also writes a Nexus Mods distribution to
+# dist/nexus/SenseOfDirection-<version>-nexus.zip, which is the same file set
+# as the Thunderstore zip but nested one level under an
+# OnlyCook-SenseOfDirection/ folder, so extracting it straight into
+# BepInEx/plugins/ produces the correct layout for a manual install.
+#
 # Usage:  bash packaging/build-release.sh
 set -euo pipefail
 
@@ -25,6 +31,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PKG="$REPO_ROOT/packaging"
 PROJ="$REPO_ROOT/src/SenseOfDirection"
 DIST="$REPO_ROOT/dist"
+NEXUS_FOLDER="OnlyCook-SenseOfDirection"
 
 # Version comes from manifest.json (single source of truth for the package).
 # Bump it there ONLY, everything below mirrors it, nothing else should ever be
@@ -81,3 +88,17 @@ rm -f "$OUT"
 ( cd "$STAGE" && zip -r -q "$OUT" . )
 echo "Wrote $OUT"
 unzip -l "$OUT"
+
+# 5. Nexus dist: same file set, nested under a mod-name folder so a manual
+#    extract into BepInEx/plugins/ lands correctly.
+NEXUS_DIST="$DIST/nexus"
+mkdir -p "$NEXUS_DIST"
+NEXUS_STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE" "$NEXUS_STAGE"' EXIT
+mkdir -p "$NEXUS_STAGE/$NEXUS_FOLDER"
+cp -r "$STAGE/." "$NEXUS_STAGE/$NEXUS_FOLDER/"
+NEXUS_OUT="$NEXUS_DIST/SenseOfDirection-$VERSION-nexus.zip"
+rm -f "$NEXUS_OUT"
+( cd "$NEXUS_STAGE" && zip -r -q "$NEXUS_OUT" . )
+echo "Wrote $NEXUS_OUT"
+unzip -l "$NEXUS_OUT"
