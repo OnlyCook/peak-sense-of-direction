@@ -1,12 +1,14 @@
 using System;
 using System.Text.RegularExpressions;
+using UnityEngine.InputSystem;
 
 namespace SenseOfDirection.Ui.Localization
 {
     /// <summary>
-    /// Resolves the two placeholder forms a translated description can embed to
-    /// reference another piece of this menu's own UI, rather than spelling out
-    /// its English identifier literally:
+    /// Resolves the placeholder forms a translated description can embed to
+    /// reference another piece of this menu's own UI (or the game's own
+    /// input bindings), rather than spelling out its English identifier
+    /// literally:
     ///
     /// <list type="bullet">
     /// <item><c>{key:Section/key-name}</c> - that config entry's own current-
@@ -17,6 +19,11 @@ namespace SenseOfDirection.Ui.Localization
     /// current-language dropdown text, e.g. <c>{enumval:LabelDisplayMode.Toggle}</c>
     /// becomes "UMSCHALTEN" in German, exactly what that dropdown option reads
     /// as. See <see cref="EnumLocalizationTable"/>.</item>
+    /// <item><c>{pingkey}</c> - the vanilla <c>Ping</c> input action's own
+    /// current binding, read live off <c>InputSystem.actions</c> so a
+    /// rebind in PEAK's own controls menu is reflected here too, with no
+    /// language-specific text of its own to keep in sync (button/key names
+    /// are rendered by Unity's Input System, not by this mod).</item>
     /// </list>
     ///
     /// Why this exists at all: a description that names another setting or enum
@@ -43,6 +50,9 @@ namespace SenseOfDirection.Ui.Localization
     {
         private static readonly Regex KeyPattern = new Regex(@"\{key:([^/}]+)/([^}]+)\}", RegexOptions.Compiled);
         private static readonly Regex EnumPattern = new Regex(@"\{enumval:([^.}]+)\.([^}]+)\}", RegexOptions.Compiled);
+        private static readonly Regex PingKeyPattern = new Regex(@"\{pingkey\}", RegexOptions.Compiled);
+
+        private static InputAction _pingAction;
 
         internal static string Resolve(string text)
         {
@@ -53,6 +63,7 @@ namespace SenseOfDirection.Ui.Localization
 
             text = KeyPattern.Replace(text, ResolveKeyMatch);
             text = EnumPattern.Replace(text, ResolveEnumMatch);
+            text = PingKeyPattern.Replace(text, ResolvePingKeyMatch);
             return text;
         }
 
@@ -75,6 +86,20 @@ namespace SenseOfDirection.Ui.Localization
             return EnumLocalizationTable.TryGetType(typeName, out Type enumType)
                 ? EnumLocalizationTable.Get(enumType, valueName, mechanicalFallback)
                 : mechanicalFallback;
+        }
+
+        /// <summary>
+        /// Not cached beyond the found <see cref="InputAction"/> itself - the
+        /// action's *binding* can change at any time (PEAK's own controls
+        /// menu), so the display string has to be read fresh every call, same
+        /// as <see cref="Ui.PreviewPingMarker.PingKeyWasPressed"/> reads the
+        /// action's controls fresh every frame rather than caching a result.
+        /// </summary>
+        private static string ResolvePingKeyMatch(Match match)
+        {
+            _pingAction ??= InputSystem.actions?.FindAction("Ping");
+            string display = _pingAction?.GetBindingDisplayString();
+            return string.IsNullOrEmpty(display) ? "PING" : display.ToUpperInvariant();
         }
     }
 }

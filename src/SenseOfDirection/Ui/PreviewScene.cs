@@ -158,11 +158,11 @@ namespace SenseOfDirection.Ui
             // them needs to be in the image - an off-screen indicator never shows
             // the thing itself, only an arrow towards it.
             internal static readonly PlayerSpec PlayerOffLeftA = new PlayerSpec(
-                "OLLIE", u: -0.22f, v: 0.52f, meters: 84f,
+                "ONLYCOOK", u: -0.22f, v: 0.52f, meters: 84f,
                 color: new Color(0.93f, 0.60f, 0.23f), isHost: false, isDead: false, isUnconscious: true);
 
             internal static readonly PlayerSpec PlayerOffLeftB = new PlayerSpec(
-                "RIVER", u: -0.30f, v: 0.47f, meters: 156f,
+                "NAME", u: -0.30f, v: 0.47f, meters: 156f,
                 color: new Color(0.72f, 0.47f, 0.85f), isHost: false, isDead: true, isUnconscious: false);
 
             /// <summary>
@@ -185,7 +185,7 @@ namespace SenseOfDirection.Ui
             /// whenever the FOV happens to be wide enough to reach it.
             /// </summary>
             internal static readonly PlayerSpec PlayerOffRight = new PlayerSpec(
-                "SAM", u: 1.26f, v: 0.47f, meters: 240f,
+                "BEN", u: 1.26f, v: 0.47f, meters: 240f,
                 color: new Color(0.45f, 0.80f, 0.40f), isHost: false, isDead: false, isUnconscious: false,
                 compassBearingDegrees: 100f);
 

@@ -259,8 +259,7 @@ namespace SenseOfDirection
                 "Player-Labels", "hold-shown-duration", 1.5f,
                 new ConfigDescription(
                     "Hold mode only: how many seconds labels stay visible after the key is " +
-                    "released (also covers a quick tap, since this timer is set on press, " +
-                    "not on release).",
+                    "released (also covers a quick tap).",
                     new AcceptableValueRange<float>(0f, 10f)));
 
             PlayerLabelMaxDistanceMeters = config.Bind(
@@ -309,8 +308,7 @@ namespace SenseOfDirection
                 "Campfire", "enable-campfire-indicator", true,
                 "Show an always-on edge-of-screen indicator pointing at the current " +
                 "segment's campfire (the one you're trying to reach next), so you " +
-                "always know which way to go - the most direct answer to the question " +
-                "the mod is named after. Turn it off if you'd rather find your own way " +
+                "always know which way to go. Turn it off if you'd rather find your own way " +
                 "up and keep the rest of the mod.");
 
             ShowCampfireDistance = config.Bind(
@@ -324,7 +322,7 @@ namespace SenseOfDirection
             RemoveVisibilityCutoff = config.Bind(
                 "Pings", "remove-visibility-cutoff", true,
                 "Vanilla silently refuses to even spawn a ping's visual once its " +
-                "pinging player is more than ~40-50m from you; turning this on makes " +
+                "pinging player is more than ~45m from you; turning this on makes " +
                 "far pings still show up at all. Most of the other Pings settings only " +
                 "matter once this is on.");
 
@@ -344,15 +342,16 @@ namespace SenseOfDirection
             EnablePingRipple = config.Bind(
                 "Pings", "enable-ripple", true,
                 "Show an expanding ring in the pinging player's own character color " +
-                "at the ping location, so it reads against similarly-colored terrain.");
+                "at the ping location, so it reads against similarly-colored terrain. " +
+                "Press your ping key to preview this here.");
 
             EnablePingOffScreenIndicator = config.Bind(
                 "Pings", "enable-offscreen-indicator", true,
                 "Show an edge-of-screen arrow pointing toward an active ping when it's " +
                 "off-screen, same mechanism as the player-label/campfire indicators. " +
                 "Only the arrow; the distance line below is show-distance's own call. " +
-                "Moot while General/ping-placement is CompassOnly, which hides the whole " +
-                "edge-of-screen widget anyway.");
+                "Does nothing while General/ping-placement is CompassOnly, which hides " +
+                "the whole edge-of-screen widget anyway.");
 
             ShowPingDistanceLabel = config.Bind(
                 "Pings", "show-distance", true,
@@ -439,8 +438,8 @@ namespace SenseOfDirection
             EnableItemPings = config.Bind(
                 "Item-Pings", "enable-item-pings", true,
                 "Highlight nearby items/luggage when you ping near them, with a name " +
-                "and distance label, as a native replacement for the (now confirmed " +
-                "broken against the current game version) memiczny-PingItems mod.");
+                "and distance label, as a native replacement for the (broken/unmaintained) " +
+                "PingItems mod by memiczny.");
 
             ItemPingDurationSeconds = config.Bind(
                 "Item-Pings", "duration-seconds", 6f,
@@ -458,10 +457,9 @@ namespace SenseOfDirection
 
             EnableCreaturePings = config.Bind(
                 "Item-Pings", "enable-creature-pings", true,
-                "Also highlight creatures (beetles, spiders, capybaras, and most " +
-                "other mobs) when pinged, same as items/luggage. Off leaves creature " +
-                "pings behaving like vanilla (item/luggage highlighting is " +
-                "unaffected).");
+                "Also highlight creatures (beetles, spiders, zombies, ...) when pinged, " +
+                "same as items/luggage. OFF leaves creature pings behaving like vanilla " +
+                "(so it won't work for them).");
 
             UseNativeItemPingIcons = config.Bind(
                 "Item-Pings", "use-native-icons", true,
@@ -470,7 +468,7 @@ namespace SenseOfDirection
                 "crosshair and its compass marker, instead of the mod's generic " +
                 "item-ping icon. Only items (and the campfire) have an icon in the " +
                 "game at all; luggage, creatures and hazards keep the generic icon " +
-                "either way.");
+                "either way. Works with custom modded items as well.");
 
             ItemPingNameMode = config.Bind(
                 "Item-Pings", "name-mode", ItemPings.ItemPingNameMode.Always,
@@ -488,8 +486,8 @@ namespace SenseOfDirection
                 "Item-Pings", "enable-offscreen-indicator", true,
                 "Show an edge-of-screen arrow pointing toward a highlighted item/" +
                 "luggage when it's off-screen, same mechanism as the ping indicator. " +
-                "Moot while General/item-ping-placement is CompassOnly, which hides the " +
-                "whole edge-of-screen widget anyway.");
+                "Does nothing while General/item-ping-placement is CompassOnly, which " +
+                "hides the whole edge-of-screen widget anyway.");
 
             // ---- Item-ping detection: the "what did that ping actually hit"
             // tuning, split out from the Item-Pings tab above (which is about
@@ -575,7 +573,7 @@ namespace SenseOfDirection
                     new AcceptableValueRange<float>(40f, 200f)));
 
             CompassVerticalOffsetPixels = config.Bind(
-                "Compass", "vertical-offset-pixels", 14f,
+                "Compass", "vertical-offset-pixels", 28f,
                 new ConfigDescription(
                     "Gap between the top of the screen and the compass tape.",
                     new AcceptableValueRange<float>(0f, 300f)));
@@ -593,7 +591,7 @@ namespace SenseOfDirection
                 new ConfigDescription(
                     "How much of the horizon (in degrees) is visible on the tape at " +
                     "once before a heading/marker slides off the edge. Lower feels " +
-                    "closer to your actual view frustum; higher gives more lead time " +
+                    "closer to your actual field of view; higher gives more lead time " +
                     "for things approaching from the side.",
                     new AcceptableValueRange<float>(60f, 180f)));
 
