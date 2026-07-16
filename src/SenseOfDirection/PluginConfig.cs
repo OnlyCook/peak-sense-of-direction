@@ -52,6 +52,10 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> ShowStatusBadges;
         public readonly ConfigEntry<bool> UseCharacterColor;
         public readonly ConfigEntry<bool> ReplaceVanillaLabels;
+        public readonly ConfigEntry<bool> ShowPlayerSkeleton;
+        public readonly ConfigEntry<float> PlayerSkeletonLineThickness;
+        public readonly ConfigEntry<bool> PlayerSkeletonUseCharacterColor;
+        public readonly ConfigEntry<bool> ShowPlayerSkeletonJoints;
 
         public readonly ConfigEntry<bool> EnableCampfireIndicator;
         public readonly ConfigEntry<bool> ShowCampfireDistance;
@@ -302,6 +306,32 @@ namespace SenseOfDirection
                 "Hide the game's own close-range player name labels entirely, so " +
                 "Sense of Direction's labels are the only ones ever shown. Normally the " +
                 "two systems hand off to each other instead.");
+
+            ShowPlayerSkeleton = config.Bind(
+                "Player-Labels", "show-skeleton", false,
+                "Draw each player's skeleton over the world, visible through walls and " +
+                "terrain. Shows and hides together with the labels themselves, so the " +
+                "display-mode and toggle-key above apply to it too. Off by default: it " +
+                "gives away a lot more than a name label does.");
+
+            PlayerSkeletonLineThickness = config.Bind(
+                "Player-Labels", "skeleton-line-thickness", 2f,
+                new ConfigDescription(
+                    "How thick the skeleton's bones are drawn. Thickness stays the same " +
+                    "on screen at any distance, so a far-off player is still a readable " +
+                    "stick figure rather than a hairline.",
+                    new AcceptableValueRange<float>(1f, 8f)));
+
+            PlayerSkeletonUseCharacterColor = config.Bind(
+                "Player-Labels", "skeleton-use-character-color", true,
+                "Color each skeleton with that player's own character color. Off draws " +
+                "them all in the vanilla name-label color instead. Separate from " +
+                "use-character-color above, so the skeletons and the name labels can be " +
+                "colored differently.");
+
+            ShowPlayerSkeletonJoints = config.Bind(
+                "Player-Labels", "skeleton-show-joints", true,
+                "Draw a dot at each joint of the skeleton, on top of the bones.");
 
             // ---- Campfire.
             EnableCampfireIndicator = config.Bind(

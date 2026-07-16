@@ -496,7 +496,7 @@ namespace SenseOfDirection.Ui
                     cfg.PlayerLabelToggleKey, cfg.HoldShownDuration,
                     cfg.PlayerLabelMaxDistanceMeters, cfg.PlayerLabelNameFontSize, cfg.PlayerLabelDistanceFontSize,
                     cfg.ShowPlayerLabelDistance, cfg.ShowStatusBadges, cfg.UseCharacterColor,
-                    cfg.ReplaceVanillaLabels,
+                    cfg.ReplaceVanillaLabels, cfg.ShowPlayerSkeleton,
                 },
             });
 

@@ -100,6 +100,18 @@ namespace SenseOfDirection.Ui
         private IndicatorManager _indicators;
         private CompassManager _compass;
 
+        /// <summary>
+        /// The preview's <c>show-skeleton</c> demo, drawn over MAYA. Uses the
+        /// real <see cref="PlayerSkeletonEsp"/> rather than a lookalike - it's
+        /// the same code, fed the hand-mapped joints of
+        /// <see cref="Cast.PlayerOnScreenSkeleton"/> instead of a live rig, so
+        /// what the preview shows is what the mod actually draws.
+        /// </summary>
+        private PlayerSkeletonEsp _skeleton;
+
+        /// <summary>MAYA's joints in world space. Refilled each frame into this same dictionary rather than a fresh one - the camera never moves and its FOV/aspect are pinned (see <see cref="BuildCamera"/>), so the values don't actually change; this just keeps the joint table the single source of truth instead of caching a second copy of it.</summary>
+        private readonly Dictionary<BodypartType, Vector3> _skeletonJoints = new Dictionary<BodypartType, Vector3>();
+
         private readonly List<PlayerLabel> _playerLabels = new List<PlayerLabel>();
         private readonly List<ItemPingWidget> _itemPings = new List<ItemPingWidget>();
         private readonly List<ItemEntry> _itemEntries = new List<ItemEntry>();
@@ -151,6 +163,54 @@ namespace SenseOfDirection.Ui
             internal static readonly PlayerSpec PlayerOnScreen = new PlayerSpec(
                 "MAYA", u: 0.347f, v: 0.585f, meters: 18f,
                 color: new Color(87f / 255f, 68f / 255f, 154f / 255f), isHost: true, isDead: false, isUnconscious: false);
+
+            /// <summary>
+            /// MAYA's joints, for <c>Player-Labels/show-skeleton</c>. Measured by
+            /// hand off the screenshot in the same (u, v) space as everything else
+            /// here, because there's no rig to read: she's paint, not a
+            /// <c>Character</c>. That's fine precisely because the shot never
+            /// moves - the pose is as fixed as the pixels are.
+            ///
+            /// Left/right are hers, not the viewer's: she faces the camera, so
+            /// every <c>_L</c> joint sits right of centre in the image.
+            ///
+            /// Every joint is placed at <see cref="PlayerOnScreen"/>'s own
+            /// distance, so all of them ride the same rays the label already does
+            /// and project back to exactly the (u, v) measured here. They
+            /// therefore land on a sphere arc rather than a flat plane, which is
+            /// invisible and irrelevant: only the ray direction decides where a
+            /// point lands on screen (see <see cref="WorldPoint"/>).
+            /// </summary>
+            internal static readonly (BodypartType Type, float U, float V)[] PlayerOnScreenSkeleton =
+            {
+                (BodypartType.Head, 0.3516f, 0.5000f),
+                (BodypartType.Neck, 0.3531f, 0.4567f),
+                (BodypartType.Torso, 0.3531f, 0.4333f),
+                (BodypartType.Mid, 0.3525f, 0.4000f),
+                (BodypartType.Hip, 0.3513f, 0.3722f),
+
+                (BodypartType.Shoulder_R, 0.3297f, 0.4433f),
+                (BodypartType.Arm_R, 0.3199f, 0.4278f),
+                (BodypartType.Elbow_R, 0.3100f, 0.4122f),
+                (BodypartType.Hand_R, 0.2906f, 0.3844f),
+
+                (BodypartType.Shoulder_L, 0.3775f, 0.4400f),
+                (BodypartType.Arm_L, 0.3857f, 0.4284f),
+                (BodypartType.Elbow_L, 0.3938f, 0.4167f),
+                (BodypartType.Hand_L, 0.4069f, 0.3956f),
+
+                (BodypartType.Hip_R, 0.3406f, 0.3667f),
+                (BodypartType.Leg_R, 0.3319f, 0.3550f),
+                (BodypartType.Knee_R, 0.3231f, 0.3433f),
+                (BodypartType.Foot_R, 0.3238f, 0.3156f),
+                (BodypartType.Toe_R, 0.3125f, 0.2989f),
+
+                (BodypartType.Hip_L, 0.3625f, 0.3689f),
+                (BodypartType.Leg_L, 0.3650f, 0.3595f),
+                (BodypartType.Knee_L, 0.3675f, 0.3500f),
+                (BodypartType.Foot_L, 0.3719f, 0.3311f),
+                (BodypartType.Toe_L, 0.3875f, 0.3222f),
+            };
 
             // The two off the left edge sit at almost the same bearing on purpose:
             // their labels land on top of each other there, which is the whole
@@ -376,6 +436,14 @@ namespace SenseOfDirection.Ui
 
             scene._indicators = IndicatorManager.CreateDetached(scene._stage, scene._camera);
             scene._compass = CompassManager.CreateDetached(scene._stage, scene._camera, () => scene._indicators.Anchors);
+
+            // Before BuildWidgets, so the skeleton is an earlier sibling than the
+            // labels and draws under them - a label sits above a head, so the two
+            // barely meet, but "the name is on top" is the right way round if they
+            // ever do. Built eagerly (unlike the live one, which PlayerLabelController
+            // only creates once the setting is switched on) so that order is fixed
+            // rather than depending on when the setting was first toggled.
+            scene._skeleton = new PlayerSkeletonEsp(scene._stage);
 
             scene.BuildWidgets();
 
@@ -991,6 +1059,41 @@ namespace SenseOfDirection.Ui
             }
         }
 
+        /// <summary>
+        /// Draws MAYA's skeleton, gated exactly as
+        /// <c>PlayerLabelController.LateUpdate</c> gates the real one: the
+        /// setting itself, plus the same display-mode/max-distance state her
+        /// label already answers to (<see cref="IsPlayerVisible"/>). MAYA is the
+        /// only one of the four with a skeleton, because she's the only one
+        /// actually in the picture - the other three are off the edge of the
+        /// shot, and the real feature draws nothing for a player it can't see
+        /// (no edge clamping, by design).
+        /// </summary>
+        private void RefreshSkeleton(PluginConfig cfg)
+        {
+            if (!cfg.ShowPlayerSkeleton.Value || !IsPlayerVisible(Cast.PlayerOnScreen))
+            {
+                _skeleton.Clear();
+                return;
+            }
+
+            _skeletonJoints.Clear();
+            foreach ((BodypartType type, float u, float v) in Cast.PlayerOnScreenSkeleton)
+            {
+                _skeletonJoints[type] = WorldPoint(u, v, Cast.PlayerOnScreen.Meters);
+            }
+
+            Color color = cfg.PlayerSkeletonUseCharacterColor.Value
+                ? Cast.PlayerOnScreen.Color
+                : NativeAssets.DefaultTextColor;
+
+            _skeleton.BeginFrame();
+            _skeleton.Draw(
+                _skeletonJoints, _camera, _stage.rect.size, color,
+                cfg.PlayerSkeletonLineThickness.Value, cfg.ShowPlayerSkeletonJoints.Value);
+            _skeleton.EndFrame();
+        }
+
         private bool IsPlayerVisible(PlayerSpec spec)
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
@@ -1188,6 +1291,8 @@ namespace SenseOfDirection.Ui
             RefreshPlayer(_playerLabels[1], Cast.PlayerOffLeftA, cfg);
             RefreshPlayer(_playerLabels[2], Cast.PlayerOffLeftB, cfg);
             RefreshPlayer(_playerLabels[3], Cast.PlayerOffRight, cfg);
+
+            RefreshSkeleton(cfg);
 
             _campfire.Refresh(Cast.CampfireMeters, cfg.ShowCampfireDistance.Value);
             _ping.Refresh(Cast.PingMeters, cfg.ShowPingDistanceLabel.Value);
