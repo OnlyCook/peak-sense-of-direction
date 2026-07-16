@@ -6,7 +6,7 @@
 
 This mod keeps every teammate on your screen even when they're out of view, makes pings actually visible and useful (you can even ping items/objects), adds a powerful compass, and much more.
 
-<img width="1920" height="1080" alt="mod-screenshot" src="https://raw.githubusercontent.com/OnlyCook/peak-sense-of-direction/refs/heads/main/packaging/mod-screenshot.png" />
+<img width="1080" height="270" alt="player-labels-item-pings" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/player-labels-item-pings.png?raw=true" />
 
 Fully client-sided, no other player needs it installed for this to work. 
 
@@ -25,17 +25,19 @@ Entirely localized in all 14 languages the game ships with: English, Français, 
 - **Label overlap prevention** (on by default): nudges labels apart so they don't stack into an unreadable pile
 - **Pirate's Compass support**: holding one shows you the nearest unopened luggage visually (you can also set that you must hold any compass item for the compass ui to appear)
 
+<img width="808" height="152" alt="compass" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/compass.png?raw=true" />
+
 ## Quick setup panel
 
 > Open with **F8** at any time.
 
-Every visual setting laid out over a live preview of what it actually does, fully localized with explanations, updating in real time as you change it. No dependencies needed. Most (but not all) settings are editable here, if something seems missing check the mod's config directly, ghost free-cam options in particular are there only.
+Every visual setting laid out over a live preview of what it actually does, fully translated with explanations, updating in real time as you change it. No dependencies needed. Most (but not all) settings are editable here, if something seems missing check the mod's config directly, ghost free-cam options in particular are there only.
 
-<img width="1920" height="1080" alt="quick-setup" src="https://raw.githubusercontent.com/OnlyCook/peak-sense-of-direction/refs/heads/main/packaging/quick-setup.png" />
+<img width="1920" height="1080" alt="quick-setup" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/quick-setup.png?raw=true" />
 
 ## Ghost free-cam
 
-<img width="1920" height="1080" alt="ghost-free-cam" src="https://raw.githubusercontent.com/OnlyCook/peak-sense-of-direction/refs/heads/main/packaging/ghost-free-cam.gif" />
+<img width="800" height="449" alt="ghost-free-cam" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/ghost-free-cam.gif?raw=true" />
 
 Press **V** while dead to fly around freely instead of being stuck spectating a teammate. Combine it with ghost pinging (works automatically) to scout ahead and ping dangers, loot or better paths for whoever's still alive. How free dead players are decides the host (50m within the spectating player by default).
 
