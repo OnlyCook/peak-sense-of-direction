@@ -53,6 +53,17 @@ namespace SenseOfDirection.Labels
         private float _holdReleaseUntil;
         private bool _labelsVisible;
 
+        /// <summary>
+        /// Backs <c>show-skeleton</c>. Built lazily on first use rather than in
+        /// this controller's own setup, so the overlay canvas is only touched at
+        /// all once someone actually turns the feature on (it's off by default).
+        /// Driven from <see cref="LateUpdate"/>, not <see cref="Update"/> like
+        /// the labels: it projects bone positions directly against the camera
+        /// with no smoothing to hide a frame of lag, so it has to run after the
+        /// camera has finished moving for the frame.
+        /// </summary>
+        private PlayerSkeletonEsp _skeletonEsp;
+
         public void RegisterCharacter(Character character)
         {
             if (character == null || character.isBot || character == Character.localCharacter)
@@ -161,6 +172,77 @@ namespace SenseOfDirection.Labels
                     nameColor, cfg.PlayerLabelNameFontSize.Value, cfg.PlayerLabelDistanceFontSize.Value, targetAlpha,
                     cfg.ShowPlayerLabelDistance.Value, cfg.ShowStatusBadges.Value);
             }
+        }
+
+        /// <summary>
+        /// Draws the through-walls skeletons (see <see cref="_skeletonEsp"/>).
+        /// Gated on exactly the same <see cref="_labelsVisible"/> state and
+        /// max-distance cap as the labels, so one key press flashes both.
+        /// </summary>
+        private void LateUpdate()
+        {
+            PluginConfig cfg = Plugin.Instance.Cfg;
+
+            if (!cfg.ShowPlayerSkeleton.Value || !_labelsVisible || Character.localCharacter == null)
+            {
+                // Only ever built once the feature is switched on, so there may
+                // be nothing to clear.
+                _skeletonEsp?.Clear();
+                return;
+            }
+
+            Camera camera = Camera.main;
+            if (camera == null)
+            {
+                _skeletonEsp?.Clear();
+                return;
+            }
+
+            if (_skeletonEsp == null)
+            {
+                _skeletonEsp = new PlayerSkeletonEsp(IndicatorManager.Instance.CanvasTransform);
+            }
+
+            Vector2 canvasSize = IndicatorManager.Instance.CanvasTransform.rect.size;
+            float thickness = cfg.PlayerSkeletonLineThickness.Value;
+            bool showJoints = cfg.ShowPlayerSkeletonJoints.Value;
+
+            _skeletonEsp.BeginFrame();
+
+            foreach (var pair in _entries)
+            {
+                Character character = pair.Key;
+                if (character == null || !character.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                // A dead character's own bodypart transforms stop being a
+                // trustworthy target some time after death (the same reason
+                // RegisterCharacter freezes its label at LastLivingPosition
+                // instead of following them) - there's no equivalent "last
+                // known pose" to fall back on for a whole rig, so dead players
+                // just don't get a skeleton.
+                if (character.data.dead)
+                {
+                    continue;
+                }
+
+                float distanceMeters = Vector3.Distance(
+                    CharacterPositions.LocalViewpoint(),
+                    CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters;
+                if (distanceMeters > cfg.PlayerLabelMaxDistanceMeters.Value)
+                {
+                    continue;
+                }
+
+                Color color = cfg.PlayerSkeletonUseCharacterColor.Value
+                    ? character.refs.customization.PlayerColor
+                    : NativeAssets.DefaultTextColor;
+
+                _skeletonEsp.Draw(character, camera, canvasSize, color, thickness, showJoints);
+            }
+
+            _skeletonEsp.EndFrame();
         }
 
         private bool ComputeTargetAlpha(IsLookedAt lookedAt, float distanceMeters, bool isDead, PluginConfig cfg)

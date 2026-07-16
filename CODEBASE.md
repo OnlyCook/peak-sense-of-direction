@@ -164,6 +164,37 @@ order):
   `Character.Awake`/`OnDestroy` are private) registering/unregistering a
   label as characters spawn/despawn; confirmed as the right lifecycle hook by
   `RESEARCH.md` Q11.
+- `PlayerSkeletonEsp.cs` — backs `Player-Labels/show-skeleton` (off by
+  default): draws each tracked player's bone rig as a through-walls skeleton.
+  Bones come straight off `character.refs.ragdoll.partDict` (PEAK's characters
+  are ragdoll-driven, so every joint is a real `Bodypart` transform with a live
+  world position - `Character.GetBodypart` is `internal`, but the dictionary it
+  reads is public, so no reflection is needed). Drawn as flat UI lines projected
+  onto `IndicatorManager`'s existing overlay canvas rather than world-space
+  `LineRenderer`s with a depth-defeating material - an overlay canvas draws over
+  the world by construction, so "through walls" needs no shader or
+  render-pipeline assumption, and bones stay a constant screen thickness at any
+  distance (what an ESP wants: a far player is still a readable stick figure).
+  The one widget in the mod that registers no `IndicatorAnchor` and never
+  edge-clamps - a skeleton only reads correctly drawn exactly on the body, so
+  off-screen/behind-camera joints are skipped instead. Bones are defined as
+  ordered *chains* walked end to end, connecting consecutive present parts, so a
+  rig missing an intermediate joint still renders the whole limb. Driven from
+  `PlayerLabelController.LateUpdate` (not `Update` like the labels - it projects
+  against the camera with no smoothing to hide a frame of lag), gated on the
+  same `_labelsVisible` state and max-distance cap as the labels themselves;
+  dead players are skipped, since their bodypart transforms stop being a
+  trustworthy target after death (the same reason labels freeze at
+  `LastLivingPosition`) and a whole rig has no equivalent last-known-pose
+  fallback. `skeleton-line-thickness`/`skeleton-use-character-color`/
+  `skeleton-show-joints` tune it; only the master toggle is surfaced in the
+  preview menu (`Ui/PreviewMenu.cs`'s tab list is an explicit allowlist), per
+  maintainer direction. Takes joints either from a live `Character`'s rig or
+  from a bare `IReadOnlyDictionary<BodypartType, Vector3>` - the second overload
+  exists for the config preview menu, whose "player" is paint in a screenshot
+  rather than a `Character` (see `Ui/PreviewScene.cs`'s
+  `Cast.PlayerOnScreenSkeleton`), so the preview runs the real drawing code
+  rather than a lookalike.
 - `VanillaLabelSuppressionPatch.cs` — backs `replace-vanilla-labels` (off by
   default): prefixes `UIPlayerNames.UpdateName` to force every native label
   slot inactive when the setting is on.
