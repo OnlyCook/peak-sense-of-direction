@@ -4,10 +4,9 @@
 
 # Sense of Direction
 
-**The only mod for directions you'll ever need!**
+**The only mod for directions you'll ever need, highly cutomizable, and very user friendly to setup!**
 
 native feel and look  
-highly customizable  
 has a **quick setup preview panel** to visually show the changes and be able to change the config easily without any dependencies (*see screenshot at the bottom*)  
 entirely localized in all 14 languages the game ships with. Localized languages: English, Français, Italiano, Deutsch, Español (España), 日本語, 한국어, Português (Brasil), Русский, 简体中文, Español (Latinoamérica), Українська, Polski, Türkçe.  
 mod is fully client-sided except the ghost stuff (pings and free-cam)  

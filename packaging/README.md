@@ -9,7 +9,7 @@ mod is fully client-sided except the ghost stuff (pings and free-cam)
 
 features (all are optional and freely configurable):
 - rich **player labels** with distances and host/dead/unconscious badges
-- **improved pings**: larger and screen-relatively scaled, with distances, and audio boost
+- **improved pings**: larger and screen-relatively scaled, with distances, a 3d ripple effect and audio boost
 - **item pings** with icons and aim-assist (you can ping items, hazards, and creatures; supports other mod's custom items as well)
 - feature packed **compass** so show everything above in a compact manner
 - **off-screen labels** to still see any label even when its out of view

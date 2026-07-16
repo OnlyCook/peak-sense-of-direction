@@ -86,8 +86,8 @@ namespace SenseOfDirection.Ui
             var rowRect = (RectTransform)rowGo.transform;
 
             BuildLabel(rowRect, bound.DisplayName);
-            BuildControl(rowRect, controlPrefab, bound, handler, rootCanvas);
-            AttachHoverDescription(rowGo, bound.Tooltip, bound.DefaultValueText, onHover);
+            TMP_Dropdown dropdown = BuildControl(rowRect, controlPrefab, bound, handler, rootCanvas);
+            AttachHoverDescription(rowGo, bound.Tooltip, bound.DefaultValueText, onHover, dropdown);
 
             return rowGo;
         }
@@ -113,7 +113,7 @@ namespace SenseOfDirection.Ui
 
             BuildLabel(rowRect, displayName);
             BuildKeyBindControl(rowRect, entry);
-            AttachHoverDescription(rowGo, ConfigSettingNaming.Tooltip(entry), entry.DefaultValue.ToString().ToUpperInvariant(), onHover);
+            AttachHoverDescription(rowGo, ConfigSettingNaming.Tooltip(entry), entry.DefaultValue.ToString().ToUpperInvariant(), onHover, dropdown: null);
 
             return rowGo;
         }
@@ -290,7 +290,7 @@ namespace SenseOfDirection.Ui
             }
         }
 
-        private static void BuildControl(RectTransform row, GameObject controlPrefab, IConfigBoundSetting bound, ISettingHandler handler, RectTransform rootCanvas)
+        private static TMP_Dropdown BuildControl(RectTransform row, GameObject controlPrefab, IConfigBoundSetting bound, ISettingHandler handler, RectTransform rootCanvas)
         {
             var holderGo = new GameObject("Control", typeof(RectTransform));
             var holder = (RectTransform)holderGo.transform;
@@ -335,6 +335,8 @@ namespace SenseOfDirection.Ui
                 _dumpedOneDropdown = true;
                 UiDebugDump.DumpDeferred(row.gameObject, "dropdown row: " + bound.DisplayName);
             }
+
+            return dropdown;
         }
 
         /// <summary>
@@ -390,8 +392,12 @@ namespace SenseOfDirection.Ui
         /// a row surfaces it in the menu's shared description line rather than
         /// leaving the user to guess from the key name alone (or go read the
         /// config file, which the whole menu exists to avoid).
+        ///
+        /// <paramref name="dropdown"/>, when the row has one, keeps that
+        /// description visible while its flyout is open even after the pointer
+        /// has left the row - see <see cref="SettingRowHover"/>.
         /// </summary>
-        private static void AttachHoverDescription(GameObject rowGo, string tooltip, string defaultValueText, Action<string, string> onHover)
+        private static void AttachHoverDescription(GameObject rowGo, string tooltip, string defaultValueText, Action<string, string> onHover, TMP_Dropdown dropdown)
         {
             if (string.IsNullOrEmpty(tooltip) || onHover == null)
             {
@@ -402,6 +408,7 @@ namespace SenseOfDirection.Ui
             hover.Tooltip = tooltip;
             hover.DefaultValueText = defaultValueText;
             hover.OnHover = onHover;
+            hover.Dropdown = dropdown;
         }
     }
 
@@ -477,15 +484,58 @@ namespace SenseOfDirection.Ui
         }
     }
 
-    /// <summary>Reports its row's config description to the menu's description line while the pointer is over it.</summary>
+    /// <summary>
+    /// Reports its row's config description to the menu's description line while
+    /// the pointer is over it.
+    ///
+    /// A dropdown row's description keeps showing even after the pointer leaves
+    /// - as it must, to click one of the flown-out options - while
+    /// <see cref="Dropdown"/> reports its list open. <see cref="Update"/> catches
+    /// the close on the far side of that: if the list shuts while the pointer is
+    /// no longer over the row (option picked, or closed by clicking elsewhere),
+    /// nothing else would ever clear the description back to the placeholder.
+    /// </summary>
     internal class SettingRowHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         internal string Tooltip;
         internal string DefaultValueText;
         internal Action<string, string> OnHover;
 
-        public void OnPointerEnter(PointerEventData eventData) => OnHover?.Invoke(Tooltip, DefaultValueText);
+        /// <summary>Null for rows with no dropdown control (sliders, key rebinds).</summary>
+        internal TMP_Dropdown Dropdown;
 
-        public void OnPointerExit(PointerEventData eventData) => OnHover?.Invoke(null, null);
+        private bool _pointerOver;
+        private bool _dropdownWasExpanded;
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            _pointerOver = true;
+            OnHover?.Invoke(Tooltip, DefaultValueText);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            _pointerOver = false;
+            if (Dropdown != null && Dropdown.IsExpanded)
+            {
+                return;
+            }
+            OnHover?.Invoke(null, null);
+        }
+
+        private void Update()
+        {
+            if (Dropdown == null)
+            {
+                return;
+            }
+
+            bool expanded = Dropdown.IsExpanded;
+            if (_dropdownWasExpanded && !expanded && !_pointerOver)
+            {
+                OnHover?.Invoke(null, null);
+            }
+            _dropdownWasExpanded = expanded;
+        }
     }
 }
