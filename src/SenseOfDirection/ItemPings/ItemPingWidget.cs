@@ -64,6 +64,18 @@ namespace SenseOfDirection.ItemPings
 
         private int _lastDistanceMeters = int.MinValue;
 
+        /// <summary>
+        /// 0 = name above / distance below straddling the crosshair at full
+        /// spacing; 1 = the two lines pulled together, for a label that's been
+        /// nudged off its crosshair (the gap the crosshair sat in is then empty).
+        /// Driven by <see cref="IndicatorManager"/> via
+        /// <see cref="IndicatorAnchor.SetLabelCompaction"/>. See <see cref="ApplyLabelLayout"/>.
+        /// </summary>
+        private float _labelCompaction;
+
+        /// <summary>How much further down the distance line sits when a native icon (bigger than the diamond) is shown - folded into the spread layout only (a compacted label has left the icon behind). Cached from <see cref="Refresh"/> so <see cref="ApplyLabelLayout"/> can re-run on a compaction change without it.</summary>
+        private float _distanceExtraDrop;
+
         /// <summary>The pinging player's color, kept so the crosshair can go back to being tinted with it if it stops showing a native icon (see <see cref="Refresh"/>).</summary>
         private Color _color = Color.white;
 
@@ -81,6 +93,20 @@ namespace SenseOfDirection.ItemPings
         /// <summary>Sizes the name/distance lines are tuned at; the `Fonts` section scales these rather than replacing them (see <see cref="HudFontScale"/>).</summary>
         private const float NameFontSizeBase = 20f;
         private const float DistanceFontSizeBase = 16f;
+
+        /// <summary>Name/distance line offsets straddling the crosshair (compaction 0). The crosshair sits in the gap between them.</summary>
+        private const float SpreadNameY = 24f;
+        private const float SpreadDistanceY = -18f;
+
+        /// <summary>Name/distance line offsets closed up (compaction 1), for a label nudged off its crosshair - just enough for the two lines (~20 and ~16 tall) not to touch, with no icon between them any more.</summary>
+        private const float CompactNameY = 12f;
+        private const float CompactDistanceY = -12f;
+
+        /// <summary>Approximate half-height of the rendered distance line, for sizing how far below the icon it must sit to clear it.</summary>
+        private const float DistanceHalfHeight = 8f;
+
+        /// <summary>Gap left between the icon's bottom edge and the distance line's top edge in the spread layout, so the icon never obscures the distance digits.</summary>
+        private const float IconDistanceClearance = 3f;
 
         private ItemPingWidget(
             RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, Image arrowImage,
@@ -215,6 +241,9 @@ namespace SenseOfDirection.ItemPings
             _arrow.gameObject.SetActive(enableArrow);
 
             _labelGroup.anchoredPosition = Vector2.zero;
+            _labelCompaction = 0f;
+            _distanceExtraDrop = 0f;
+            ApplyLabelLayout();
             CanvasGroup.alpha = 1f;
             _root.gameObject.SetActive(true);
 
@@ -231,8 +260,42 @@ namespace SenseOfDirection.ItemPings
             {
                 OverlapSize = new Vector2(120f, 60f),
                 LabelWidget = _labelGroup,
+                SetLabelCompaction = SetCompaction,
                 ReleaseWidget = Release,
             };
+        }
+
+        /// <summary>
+        /// Driven 0..1 by <see cref="IndicatorManager"/> while this label is
+        /// nudged off/onto its crosshair (see <see cref="IndicatorAnchor.SetLabelCompaction"/>).
+        /// </summary>
+        private void SetCompaction(float compaction)
+        {
+            compaction = Mathf.Clamp01(compaction);
+            if (Mathf.Approximately(compaction, _labelCompaction))
+            {
+                return;
+            }
+            _labelCompaction = compaction;
+            ApplyLabelLayout();
+        }
+
+        /// <summary>
+        /// Positions the name above / distance below their shared label group,
+        /// interpolated between the crosshair-straddling layout (compaction 0) and
+        /// the closed-up one (compaction 1). Called every <see cref="Refresh"/> and
+        /// whenever the compaction changes, so the visible text and the overlap box
+        /// computed alongside it can't disagree about where the lines are.
+        /// </summary>
+        private void ApplyLabelLayout()
+        {
+            // The native-icon drop only applies to the spread layout - a compacted
+            // label has slid off the icon, so there's nothing below it to clear.
+            float spreadDistY = SpreadDistanceY - _distanceExtraDrop;
+            float nameY = Mathf.Lerp(SpreadNameY, CompactNameY, _labelCompaction);
+            float distY = Mathf.Lerp(spreadDistY, CompactDistanceY, _labelCompaction);
+            _nameText.rectTransform.anchoredPosition = new Vector2(0f, nameY);
+            _distanceText.rectTransform.anchoredPosition = new Vector2(0f, distY);
         }
 
         /// <summary>
@@ -290,19 +353,20 @@ namespace SenseOfDirection.ItemPings
             _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
             _crosshairImage.color = nativeIcon != null ? Color.white : _color;
 
-            // OverlapOffsetDownwardOnly (a native icon's bigger on-screen
-            // footprint would turn an upward nudge into an overlap with the
-            // distance line) is decided further below, where the off-screen blend
-            // is known - off-screen the icon rides with the label, so the
-            // restriction only makes sense on-screen.
-
-            // A native icon is bigger than the mod's own diamond (44px vs.
-            // 30px), so its bottom edge sits further down than the distance
-            // label's fixed position accounted for - pushing the label into
-            // it (e.g. a native coconut icon obstructing "9m" below it). Push
-            // the label down by exactly the size difference so the gap
-            // between icon and label stays the same as with the diamond.
-            float distanceExtraDrop = nativeIcon != null ? (NativeIconSizePixels - CrosshairSizePixels) * 0.5f : 0f;
+            // The crosshair/icon stays pinned to the tracked point (y=0) while the
+            // spread distance line sits just below it, so a big enough icon reaches
+            // straight over that line and hides it entirely - and unlike the name
+            // (a long word an icon can only clip a letter or two of, which the eye
+            // still fills in), a couple of obscured digits leave the distance
+            // unreadable. So drop the distance line just far enough that the icon's
+            // bottom clears it, sized from the icon actually shown (bigger native
+            // icons drop it further). The name is deliberately left where it is: if
+            // anything has to sit under the icon it's the name's bottom edge, which
+            // reads through far better. Only affects the spread layout - a compacted
+            // label has slid off the icon, so it needs no drop at all.
+            float iconHalf = crosshairSize * 0.5f;
+            float distanceClearY = -(iconHalf + DistanceHalfHeight + IconDistanceClearance);
+            float distanceExtraDrop = Mathf.Max(0f, SpreadDistanceY - distanceClearY);
 
             // Off-screen, the same icon takes the place of the dart entirely
             // (rather than the dart pointing at an unseen item): the item is
@@ -413,10 +477,12 @@ namespace SenseOfDirection.ItemPings
             // icon (on-screen crosshair / off-screen arrow) in the gap between.
             // A native icon reaches further down than the diamond, so its bottom
             // would poke into the distance line - drop that line by the size
-            // difference to keep the same clearance.
-            const float nameY = 24f;
-            float distY = -18f - distanceExtraDrop;
-            _distanceText.rectTransform.anchoredPosition = new Vector2(0f, distY);
+            // difference to keep the same clearance. ApplyLabelLayout folds this
+            // into the spread layout and blends toward the compacted one per the
+            // current _labelCompaction (driven by IndicatorManager).
+            _distanceExtraDrop = distanceExtraDrop;
+            ApplyLabelLayout();
+            float spreadDistY = SpreadDistanceY - distanceExtraDrop;
 
             // Off-screen, the arrow shows the item's icon in place of the
             // on-screen crosshair - and, unlike the crosshair, it has no visible
@@ -448,12 +514,14 @@ namespace SenseOfDirection.ItemPings
             {
                 Anchor.MaxOverlapOffset = Mathf.Lerp(LabelOverlapResolver.MaxOffsetMagnitude, 130f, offScreenBlend);
 
-                // Only restrict to a downward nudge while mostly on-screen, where
-                // a native icon really does sit fixed between the two lines; off-
-                // screen the icon rides with the label (above), so an upward nudge
-                // no longer closes any gap onto it - stacked labels must be free
-                // to spread up as well as down.
-                Anchor.OverlapOffsetDownwardOnly = nativeIcon != null && offScreenBlend < 0.5f;
+                // No longer force a downward-only nudge on-screen: the label now
+                // compacts (name/distance close up) as it's pushed clear of the
+                // crosshair, so an upward nudge no longer risks the distance line
+                // landing on a native icon - the whole label has left the icon
+                // behind either way. Keeping it off lets an on-screen stack split
+                // symmetrically (both labels share the move) instead of piling the
+                // entire offset onto the lower one.
+                Anchor.OverlapOffsetDownwardOnly = false;
             }
 
             // Widest-visible-text measurement drives the overlap box's width, and
@@ -463,19 +531,40 @@ namespace SenseOfDirection.ItemPings
             if (!showName && !showDistance)
             {
                 Anchor.OverlapSize = Vector2.zero;
+                Anchor.OverlapPlacementSize = Vector2.zero;
                 Anchor.OverlapCenterOffset = Vector2.zero;
                 return;
             }
 
-            // Box top/bottom hug the actual rendered lines (name ~20px tall
-            // centred at nameY, distance ~16px tall centred at distY) rather than
-            // padding out to the whole widget, so stacked entries pack as close as
-            // the text really needs instead of leaving a line-sized gap between
-            // each. Width is the real half-width doubled, plus a little air.
-            float top = showName ? nameY + 10f : -6f;
-            float bottom = showDistance ? distY - 8f : 10f;
-            Anchor.OverlapSize = new Vector2(widestHalf * 2f + 12f, top - bottom);
+            // Detection box: top/bottom hug the actual rendered lines at their
+            // spread positions (name ~20px tall centred at SpreadNameY, distance
+            // ~16px tall centred at spreadDistY) rather than padding out to the
+            // whole widget. Width is the real half-width doubled, plus a little
+            // air. This is the footprint used to decide whether two labels collide.
+            float width = widestHalf * 2f + 12f;
+            float top = showName ? SpreadNameY + 10f : -6f;
+            float bottom = showDistance ? spreadDistY - 8f : 10f;
+            Anchor.OverlapSize = new Vector2(width, top - bottom);
             Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
+
+            // Placement box: the same footprint measured against the compacted
+            // layout (name/distance closed up over the crosshair gap). The
+            // on-screen resolver spaces stacked labels by this tighter box - which
+            // is where they end up once nudged clear and compacted - so they pack
+            // as close as the text really needs, while still being detected on the
+            // taller spread box above (so they stay reliably clustered rather than
+            // oscillating in and out of overlap). Only when both lines show; a
+            // single line has no gap to close, so it falls back to the spread box.
+            if (showName && showDistance)
+            {
+                float compTop = CompactNameY + 10f;
+                float compBottom = CompactDistanceY - 8f;
+                Anchor.OverlapPlacementSize = new Vector2(width, compTop - compBottom);
+            }
+            else
+            {
+                Anchor.OverlapPlacementSize = Vector2.zero;
+            }
         }
 
         /// <summary>Half the rendered width of <paramref name="text"/>, re-measured only when its string has changed since the last call.</summary>

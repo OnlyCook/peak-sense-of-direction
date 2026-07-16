@@ -38,6 +38,32 @@ namespace SenseOfDirection.Indicators
         public Vector2 OverlapSize = Vector2.zero;
 
         /// <summary>
+        /// Optional tighter box used only for the on-screen resolver's
+        /// <em>spacing</em> (how far apart two resolved labels must sit), while
+        /// <see cref="OverlapSize"/> still decides <em>detection</em> (whether
+        /// they collide at all). An item ping normally straddles its crosshair
+        /// with a wide empty gap between the name and distance lines; once a
+        /// label is nudged off that crosshair it compacts the two lines together
+        /// (<see cref="SetLabelCompaction"/>), so it can pack far closer to its
+        /// neighbour than its full straddling footprint would allow. Detecting on
+        /// the taller (spread) box but spacing on the shorter (compact) one keeps
+        /// two labels reliably clustered once they touch - so they can't
+        /// oscillate in and out of compaction - while still packing them tight.
+        /// Zero (default) means "same as <see cref="OverlapSize"/>".
+        /// </summary>
+        public Vector2 OverlapPlacementSize = Vector2.zero;
+
+        /// <summary>
+        /// Optional hook, mirroring <c>Compass.CompassMarkerWidget.SetLabelCompaction</c>:
+        /// <see cref="IndicatorManager"/> drives this 0..1 every frame for an
+        /// on-screen label, easing to 1 while the label is nudged clear of its
+        /// crosshair (so the name/distance lines close up over the now-empty gap
+        /// the crosshair used to fill) and back to 0 when it returns to sitting on
+        /// it. Null (default) means the widget has no such compact form.
+        /// </summary>
+        public Action<float> SetLabelCompaction;
+
+        /// <summary>
         /// Where this anchor's <see cref="OverlapSize"/> box actually sits
         /// relative to the tracked point. Most widgets aren't centred on it - a
         /// player label runs from its crown badge (+42) down to its status badge

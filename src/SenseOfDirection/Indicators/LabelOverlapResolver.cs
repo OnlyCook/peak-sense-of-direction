@@ -65,6 +65,21 @@ namespace SenseOfDirection.Indicators
         /// </summary>
         public const float MaxOffsetMagnitude = 56f;
 
+        /// <summary>
+        /// Default cap on the sideways (cross-axis) fan the on-screen planar
+        /// resolver adds on top of a mostly-vertical split, so two labels stacked
+        /// near the same screen X slide slightly apart diagonally rather than into
+        /// a rigid column. Deliberately small ("slightly", per the request) - the
+        /// vertical split still does the real separating.
+        /// </summary>
+        public const float OnScreenFanCapPixels = 26f;
+
+        /// <summary>Relaxation passes for the on-screen planar resolver - a single pair clears in one, more members settle over a few (see <see cref="RelaxCluster"/>).</summary>
+        private const int PlanarIterations = 16;
+
+        /// <summary>Under-relaxation for the planar pass: applying only part of each pass's computed push per iteration keeps three-plus overlapping labels from ping-ponging under simultaneous (Jacobi) updates.</summary>
+        private const float PlanarRelaxation = 0.6f;
+
         /// <summary>Extra breathing room between two resolved boxes, beyond just touching edges.</summary>
         private const float Padding = 3f;
 
@@ -85,6 +100,7 @@ namespace SenseOfDirection.Indicators
         /// for it, which is what makes this safe.
         /// </summary>
         private static Vector2[] _offsets = new Vector2[16];
+        private static Vector2[] _accum = new Vector2[16];
         private static float[] _caps = new float[16];
         private static readonly List<int> _live = new List<int>();
         private static readonly Dictionary<int, int> _parent = new Dictionary<int, int>();
@@ -254,6 +270,164 @@ namespace SenseOfDirection.Indicators
             _sortPositions = null;
             return _offsets;
         }
+
+        /// <summary>
+        /// On-screen variant: instead of spreading a cluster along one fixed axis
+        /// (what the edge/compass callers want, since their labels all share a
+        /// baseline), it separates each colliding pair in 2D - fully clearing the
+        /// overlap along whichever axis is cheapest, and adding a small capped
+        /// nudge on the other so two labels stacked near the same screen X fan
+        /// apart into a slight diagonal rather than a rigid vertical column.
+        ///
+        /// <paramref name="detectSizes"/> decides which labels collide (and so get
+        /// solved together); <paramref name="placementSizes"/> - optionally tighter
+        /// (a compacted item ping closes the empty gap its crosshair used to sit
+        /// in) - decides how far apart the resolved labels end up. Detecting on the
+        /// taller box but spacing on the shorter one is what lets two labels pack
+        /// close without flickering in and out of overlap. When a placement size is
+        /// zero the detect size is used for both.
+        ///
+        /// Same shared-buffer contract as <see cref="ComputeOffsets"/>: the
+        /// returned array is valid only until the next call into this class.
+        /// </summary>
+        public static Vector2[] ComputeOffsetsOnScreen(
+            IReadOnlyList<Vector2> basePositions,
+            IReadOnlyList<Vector2> detectSizes,
+            IReadOnlyList<Vector2> placementSizes,
+            IReadOnlyList<float> maxOffsets,
+            float fanCapPixels = OnScreenFanCapPixels)
+        {
+            int count = basePositions.Count;
+            EnsureCapacity(ref _offsets, count);
+            EnsureCapacity(ref _accum, count);
+            for (int i = 0; i < count; i++)
+            {
+                _offsets[i] = Vector2.zero;
+            }
+
+            _live.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                if (detectSizes[i].x > 0f && detectSizes[i].y > 0f)
+                {
+                    _live.Add(i);
+                }
+            }
+
+            // Cluster on the detection boxes (vertical reach, matching how these
+            // labels are actually allowed to move) so a stack stays one cluster.
+            FindClusters(_live, basePositions, detectSizes, maxOffsets, true);
+
+            foreach (List<int> cluster in _clusterValues)
+            {
+                if (cluster.Count < 2)
+                {
+                    continue;
+                }
+                RelaxCluster(cluster, basePositions, detectSizes, placementSizes, maxOffsets, fanCapPixels);
+            }
+
+            return _offsets;
+        }
+
+        /// <summary>
+        /// Symmetric, geometry-only 2D separation of one on-screen cluster, written
+        /// into <see cref="_offsets"/>. Every overlapping pair pushes both its
+        /// members equally and oppositely, so the result never depends on list
+        /// order or on which neighbour happened to conflict (the drift trap the
+        /// old greedy resolver fell into). The push fully clears the cheaper
+        /// (smaller-penetration) axis and only nudges the other, capped at
+        /// <paramref name="fanCap"/>; when one axis' centres nearly coincide the
+        /// tie is broken off the other axis, so a dead-straight stack fans out
+        /// consistently instead of picking a side at random.
+        /// </summary>
+        private static void RelaxCluster(
+            List<int> cluster,
+            IReadOnlyList<Vector2> basePositions,
+            IReadOnlyList<Vector2> detectSizes,
+            IReadOnlyList<Vector2> placementSizes,
+            IReadOnlyList<float> maxOffsets,
+            float fanCap)
+        {
+            for (int iter = 0; iter < PlanarIterations; iter++)
+            {
+                for (int k = 0; k < cluster.Count; k++)
+                {
+                    _accum[cluster[k]] = Vector2.zero;
+                }
+
+                bool anyOverlap = false;
+                for (int a = 0; a < cluster.Count; a++)
+                {
+                    for (int b = a + 1; b < cluster.Count; b++)
+                    {
+                        int i = cluster[a], j = cluster[b];
+                        Vector2 ci = basePositions[i] + _offsets[i];
+                        Vector2 cj = basePositions[j] + _offsets[j];
+
+                        Vector2 sizeI = PlacementSize(placementSizes[i], detectSizes[i]);
+                        Vector2 sizeJ = PlacementSize(placementSizes[j], detectSizes[j]);
+                        float halfW = (sizeI.x + sizeJ.x) * 0.5f + Padding;
+                        float halfH = (sizeI.y + sizeJ.y) * 0.5f + Padding;
+
+                        float dx = ci.x - cj.x;
+                        float dy = ci.y - cj.y;
+                        float penX = halfW - Mathf.Abs(dx);
+                        float penY = halfH - Mathf.Abs(dy);
+                        if (penX <= 0f || penY <= 0f)
+                        {
+                            continue;
+                        }
+                        anyOverlap = true;
+
+                        // Break a near-coincident axis off the other one, so a
+                        // straight stack fans diagonally (top-of-pair one way,
+                        // bottom the other) rather than arbitrarily.
+                        float sx = Mathf.Abs(dx) > 0.5f ? Mathf.Sign(dx) : Sign(dy);
+                        float sy = Mathf.Abs(dy) > 0.5f ? Mathf.Sign(dy) : Sign(dx);
+
+                        // Clear the cheaper axis fully; nudge the other only a
+                        // little (capped) for the diagonal fan.
+                        float moveX, moveY;
+                        if (penY <= penX)
+                        {
+                            moveY = penY;
+                            moveX = Mathf.Min(penX, fanCap * 2f);
+                        }
+                        else
+                        {
+                            moveX = penX;
+                            moveY = Mathf.Min(penY, fanCap * 2f);
+                        }
+
+                        var half = new Vector2(sx * moveX * 0.5f, sy * moveY * 0.5f);
+                        _accum[i] += half;
+                        _accum[j] -= half;
+                    }
+                }
+
+                if (!anyOverlap)
+                {
+                    break;
+                }
+
+                for (int k = 0; k < cluster.Count; k++)
+                {
+                    int idx = cluster[k];
+                    Vector2 o = _offsets[idx] + _accum[idx] * PlanarRelaxation;
+                    float cap = maxOffsets[idx];
+                    o.x = Mathf.Clamp(o.x, -fanCap, fanCap);
+                    o.y = Mathf.Clamp(o.y, -cap, cap);
+                    _offsets[idx] = o;
+                }
+            }
+        }
+
+        private static Vector2 PlacementSize(Vector2 placement, Vector2 detect) =>
+            placement.x > 0f && placement.y > 0f ? placement : detect;
+
+        /// <summary>Sign that never returns 0 (Mathf.Sign(0) is +1 already, but be explicit for the tie-break's intent).</summary>
+        private static float Sign(float v) => v < 0f ? -1f : 1f;
 
         /// <summary>
         /// All-zero offsets ("nobody moves"), for callers whose overlap
