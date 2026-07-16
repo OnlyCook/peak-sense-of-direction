@@ -18,10 +18,11 @@ features (all are optional and freely configurable):
 - **item pings** with icons and aim-assist (you can ping items, hazards, and creatures; supports other mod's custom items as well)
 - feature packed **compass** so show everything above in a compact manner
 - **off-screen labels** to still see any label even when its out of view
+- label **overlap prevention** (enabled by default) to stop labels from obstructing another
 - **ghost pings*** so that unconscious players and ghost can still ping
 - **ghost free-cam*** so that unconscious players and ghosts can freely move around (within 50m of the spectating player by default)
 
-**the host and all clients must have this mod installed for these to work (host's config decides and affects the mechanic)*
+**the host and all clients must have this mod installed for these last two features to work (host's config decides and affects the mechanic)*
 
 <<insert image>>
 

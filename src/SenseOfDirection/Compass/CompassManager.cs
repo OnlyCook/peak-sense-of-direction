@@ -481,24 +481,8 @@ namespace SenseOfDirection.Compass
                     : (relative / halfFov) * halfWidth;
                 widget.Root.anchoredPosition = new Vector2(x, -baselineY);
 
-                // Overlap resolution (see ResolveMarkerOverlaps) only ever
-                // needs to push markers apart along the tape's one axis (all
-                // markers already share the same baseline Y) - box width is
-                // whichever of icon/name/distance is currently the widest
-                // visible element, since a wide name label can overlap a
-                // neighbor even when the icons themselves don't.
-                float markerWidth = cfg.CompassIconSizePixels.Value;
-                if (cfg.CompassShowNames.Value && !string.IsNullOrEmpty(anchor.GetCompassLabel()))
-                {
-                    markerWidth = Mathf.Max(markerWidth, 160f);
-                }
-                if (cfg.CompassShowDistances.Value)
-                {
-                    markerWidth = Mathf.Max(markerWidth, 120f);
-                }
                 _overlapCandidates.Add(anchor);
                 _markerBaseX[anchor] = x;
-                _markerSize[anchor] = new Vector2(markerWidth, MarkerLabelHeight);
 
                 // With clamp-to-edge on, the fade floor is ClampedEdgeAlpha
                 // instead of 0 (both inside the fade-out quarter and once
@@ -542,6 +526,17 @@ namespace SenseOfDirection.Compass
                     anchor.GetIsDead(),
                     anchor.GetIsUnconscious(),
                     anchor.GetCompassIcon());
+
+                // Overlap resolution (see ResolveMarkerOverlaps) only pushes
+                // markers apart along the tape's one axis (all share the same
+                // baseline Y), so only the box width matters. Measured from the
+                // now-current text rather than a fixed reservation, so a short
+                // label claims only the room it needs instead of a blanket 160px
+                // - that fixed width was what made lone/short-labelled markers
+                // falsely collide and get shoved onto a second row (ISSUES.md).
+                _markerSize[anchor] = new Vector2(
+                    widget.MeasureOverlapWidth(cfg.CompassIconSizePixels.Value),
+                    MarkerLabelHeight);
             }
 
             ResolveMarkerOverlaps();

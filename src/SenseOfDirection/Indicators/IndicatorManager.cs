@@ -78,6 +78,15 @@ namespace SenseOfDirection.Indicators
         private const float OverlapOffsetSpeedPixelsPerSecond = 240f;
 
         /// <summary>
+        /// A crowded edge stack may fan out into at most this many lines - the
+        /// primary line along the edge plus one overflow line inset toward the
+        /// screen centre, so it never reaches far enough in to touch the crosshair.
+        /// The overflow line's inward step is sized to the labels themselves inside
+        /// <see cref="LabelOverlapResolver"/>, not fixed here.
+        /// </summary>
+        private const int EdgeLabelMaxLines = 2;
+
+        /// <summary>
         /// How long an anchor's widget takes to slide between its on-screen
         /// form (sitting on the projected point) and its off-screen form
         /// (clamped to the canvas edge) when the tracked point crosses that
@@ -150,10 +159,31 @@ namespace SenseOfDirection.Indicators
         private bool _isFastPan;
 
         private readonly List<IndicatorAnchor> _overlapCandidates = new List<IndicatorAnchor>();
+
+        /// <summary>The overlap candidates split by how they're anchored this frame - each group spreads along a different axis (see <see cref="ResolveLabelOverlaps"/>).</summary>
+        private readonly List<IndicatorAnchor> _groupOnScreen = new List<IndicatorAnchor>();
+        private readonly List<IndicatorAnchor> _groupLeftRightEdge = new List<IndicatorAnchor>();
+        private readonly List<IndicatorAnchor> _groupTopBottomEdge = new List<IndicatorAnchor>();
+
         private readonly List<Vector2> _overlapBasePositionsScratch = new List<Vector2>();
         private readonly List<Vector2> _overlapSizesScratch = new List<Vector2>();
+        private readonly List<Vector2> _overlapPlacementSizesScratch = new List<Vector2>();
         private readonly List<float> _overlapCapsScratch = new List<float>();
         private readonly Dictionary<IndicatorAnchor, Vector2> _overlapBasePosition = new Dictionary<IndicatorAnchor, Vector2>();
+
+        /// <summary>
+        /// Per-anchor 0..1 label compaction (see <see cref="IndicatorAnchor.SetLabelCompaction"/>),
+        /// eased towards 1 while an on-screen label is nudged clear of its
+        /// crosshair and back to 0 when it settles onto it. Mirrors the compass's
+        /// own <c>_markerLabelCompaction</c>.
+        /// </summary>
+        private readonly Dictionary<IndicatorAnchor, float> _overlapCompaction = new Dictionary<IndicatorAnchor, float>();
+
+        /// <summary>Resolved-offset magnitude past which an on-screen label is considered nudged off its crosshair and starts compacting its name/distance lines together.</summary>
+        private const float CompactionMoveThresholdPixels = 8f;
+
+        /// <summary>Per-second rate the label compaction eases at - the whole 0..1 travelled over roughly this many pixels of offset, so the lines close up over the same short slide the label makes rather than snapping.</summary>
+        private const float OverlapCompactionSpeedPerSecond = OverlapOffsetSpeedPixelsPerSecond / 30f;
 
         /// <summary>Each candidate's overlap <em>box</em> centre (tracked position + <see cref="IndicatorAnchor.OverlapCenterOffset"/>) - what the resolver reasons about, as opposed to the widget position it gets applied to.</summary>
         private readonly Dictionary<IndicatorAnchor, Vector2> _overlapBoxPosition = new Dictionary<IndicatorAnchor, Vector2>();
@@ -198,6 +228,7 @@ namespace SenseOfDirection.Indicators
             _overlapBasePosition.Remove(anchor);
             _overlapBoxPosition.Remove(anchor);
             _overlapOffset.Remove(anchor);
+            _overlapCompaction.Remove(anchor);
             _transitions.Remove(anchor);
 
             if (anchor.ReleaseWidget != null)
@@ -291,7 +322,7 @@ namespace SenseOfDirection.Indicators
                 }
             }
 
-            ResolveLabelOverlaps();
+            ResolveLabelOverlaps(canvasSize);
         }
 
         /// <summary>
@@ -390,7 +421,7 @@ namespace SenseOfDirection.Indicators
         /// rather than applied directly, so a label sliding into/out of overlap
         /// doesn't snap.
         /// </summary>
-        private void ResolveLabelOverlaps()
+        private void ResolveLabelOverlaps(Vector2 canvasSize)
         {
             if (_overlapCandidates.Count == 0)
             {
@@ -402,56 +433,185 @@ namespace SenseOfDirection.Indicators
             // this feature existed - target offsets all stay zero (still
             // smoothed towards, so toggling this off mid-overlap eases labels
             // back instead of snapping them).
-            bool enabled = Plugin.Instance.Cfg.EnableLabelOverlapAvoidance.Value;
-
-            Vector2[] targetOffsets;
-            if (enabled)
+            if (!Plugin.Instance.Cfg.EnableLabelOverlapAvoidance.Value)
             {
-                _overlapBasePositionsScratch.Clear();
-                _overlapSizesScratch.Clear();
-                _overlapCapsScratch.Clear();
                 foreach (IndicatorAnchor anchor in _overlapCandidates)
                 {
-                    _overlapBasePositionsScratch.Add(_overlapBoxPosition[anchor]);
-                    _overlapSizesScratch.Add(anchor.OverlapSize);
-                    _overlapCapsScratch.Add(anchor.MaxOverlapOffset);
+                    ApplyResolvedOffset(anchor, Vector2.zero, canvasSize);
+                }
+                return;
+            }
+
+            // Which way a label should spread depends on how it's anchored this
+            // frame, so the candidates are split and each group resolved on its
+            // own axis:
+            //  - on-screen (sitting on a visible point, not an edge): spread
+            //    vertically, single line - the original behaviour, left untouched.
+            //  - clamped to the left/right edge: spread vertically along that edge,
+            //    with one overflow column inset toward the centre.
+            //  - clamped to the top/bottom edge: spread horizontally along that
+            //    edge, with one overflow row inset toward the centre.
+            // Spreading a top/bottom stack vertically (as one global pass did) is
+            // what made those edges a jittering pile - the labels had nowhere to
+            // go along their actual edge. Groups sit on different edges, far apart,
+            // so resolving them separately loses no real cross-group collision.
+            _groupOnScreen.Clear();
+            _groupLeftRightEdge.Clear();
+            _groupTopBottomEdge.Clear();
+            float halfW = Mathf.Max(1f, canvasSize.x * 0.5f);
+            float halfH = Mathf.Max(1f, canvasSize.y * 0.5f);
+            foreach (IndicatorAnchor anchor in _overlapCandidates)
+            {
+                if (anchor.OffScreenBlend < 0.5f)
+                {
+                    _groupOnScreen.Add(anchor);
+                    continue;
                 }
 
-                // Vertical only, no row staggering: labels here have the whole
-                // screen height to spread into, and pushing them sideways instead
-                // (which is what a second "row" would mean on this axis) reads as
-                // a diagonal jumble rather than a stack.
-                targetOffsets = LabelOverlapResolver.ComputeOffsets(_overlapBasePositionsScratch, _overlapSizesScratch, LabelOverlapResolver.Axis.Vertical, _overlapCapsScratch);
+                // Which edge it's clamped to: whichever axis its tracked point is
+                // pinned closest to the limit on.
+                Vector2 p = _overlapBasePosition[anchor];
+                bool leftRight = Mathf.Abs(p.x) / halfW >= Mathf.Abs(p.y) / halfH;
+                (leftRight ? _groupLeftRightEdge : _groupTopBottomEdge).Add(anchor);
+            }
+
+            ResolveOnScreenGroup(_groupOnScreen, canvasSize);
+            ResolveGroup(_groupLeftRightEdge, LabelOverlapResolver.Axis.Vertical, EdgeLabelMaxLines, true, canvasSize);
+            ResolveGroup(_groupTopBottomEdge, LabelOverlapResolver.Axis.Horizontal, EdgeLabelMaxLines, true, canvasSize);
+        }
+
+        /// <summary>
+        /// The on-screen group's own resolver: unlike the two edge groups (which
+        /// spread along one shared axis), on-screen labels sit on scattered
+        /// visible points, so they separate in 2D - splitting apart vertically and
+        /// fanning slightly sideways into a diagonal rather than a rigid column
+        /// (<see cref="LabelOverlapResolver.ComputeOffsetsOnScreen"/>). Detection
+        /// uses each label's full footprint (<see cref="IndicatorAnchor.OverlapSize"/>);
+        /// spacing uses its tighter compacted footprint
+        /// (<see cref="IndicatorAnchor.OverlapPlacementSize"/>) when it has one, so
+        /// stacked labels pack as close as their name/distance lines really need
+        /// once compacted.
+        /// </summary>
+        private void ResolveOnScreenGroup(List<IndicatorAnchor> group, Vector2 canvasSize)
+        {
+            if (group.Count == 0)
+            {
+                return;
+            }
+
+            _overlapBasePositionsScratch.Clear();
+            _overlapSizesScratch.Clear();
+            _overlapPlacementSizesScratch.Clear();
+            _overlapCapsScratch.Clear();
+            foreach (IndicatorAnchor anchor in group)
+            {
+                _overlapBasePositionsScratch.Add(_overlapBoxPosition[anchor]);
+                _overlapSizesScratch.Add(anchor.OverlapSize);
+                _overlapPlacementSizesScratch.Add(anchor.OverlapPlacementSize);
+                _overlapCapsScratch.Add(anchor.MaxOverlapOffset);
+            }
+
+            Vector2[] targetOffsets = LabelOverlapResolver.ComputeOffsetsOnScreen(
+                _overlapBasePositionsScratch, _overlapSizesScratch,
+                _overlapPlacementSizesScratch, _overlapCapsScratch);
+
+            for (int i = 0; i < group.Count; i++)
+            {
+                ApplyResolvedOffset(group[i], targetOffsets[i], canvasSize);
+            }
+        }
+
+        /// <summary>
+        /// Resolves one edge/on-screen group's overlaps on the given axis and
+        /// applies the result. The resolver hands back a shared buffer valid only
+        /// until its next call, so each group is fully consumed here before the
+        /// next <see cref="ResolveGroup"/> runs.
+        /// </summary>
+        private void ResolveGroup(List<IndicatorAnchor> group, LabelOverlapResolver.Axis axis, int maxLines, bool densePack, Vector2 canvasSize)
+        {
+            if (group.Count == 0)
+            {
+                return;
+            }
+
+            _overlapBasePositionsScratch.Clear();
+            _overlapSizesScratch.Clear();
+            _overlapCapsScratch.Clear();
+            foreach (IndicatorAnchor anchor in group)
+            {
+                _overlapBasePositionsScratch.Add(_overlapBoxPosition[anchor]);
+                _overlapSizesScratch.Add(anchor.OverlapSize);
+                _overlapCapsScratch.Add(anchor.MaxOverlapOffset);
+            }
+
+            Vector2[] targetOffsets = LabelOverlapResolver.ComputeOffsets(
+                _overlapBasePositionsScratch, _overlapSizesScratch, axis, _overlapCapsScratch,
+                maxRows: maxLines, densePack: densePack);
+
+            for (int i = 0; i < group.Count; i++)
+            {
+                ApplyResolvedOffset(group[i], targetOffsets[i], canvasSize);
+            }
+        }
+
+        /// <summary>
+        /// Clamps, smooths and applies one anchor's resolved overlap offset to its
+        /// label (or whole widget). Shared by every resolution group and by the
+        /// "avoidance off" path (which passes a zero target so labels ease back).
+        /// </summary>
+        private void ApplyResolvedOffset(IndicatorAnchor anchor, Vector2 target, Vector2 canvasSize)
+        {
+            if (anchor.OverlapOffsetDownwardOnly && target.y > 0f)
+            {
+                target.y = 0f;
+            }
+
+            // Compaction leads off the resolver's raw target (before the screen-
+            // edge clamp below), so the name/distance lines close up as the label
+            // travels rather than chasing it: a label pushed clear of its own
+            // crosshair no longer wants the empty gap that crosshair sat in. Only
+            // on-screen labels compact - off-screen the icon rides with the label,
+            // so the gap is still real - and only widgets that offer the hook.
+            if (anchor.SetLabelCompaction != null)
+            {
+                float targetCompaction = anchor.OffScreenBlend < 0.5f && target.magnitude > CompactionMoveThresholdPixels
+                    ? 1f
+                    : 0f;
+                float currentCompaction = _overlapCompaction.TryGetValue(anchor, out float existingCompaction) ? existingCompaction : 0f;
+                float smoothedCompaction = Mathf.MoveTowards(currentCompaction, targetCompaction, Time.deltaTime * OverlapCompactionSpeedPerSecond);
+                _overlapCompaction[anchor] = smoothedCompaction;
+                anchor.SetLabelCompaction(smoothedCompaction);
+            }
+
+            // Keep the resolved box fully on-screen: a stack clamped to an edge
+            // could otherwise be spread (or an overflow line stepped) right off it,
+            // hiding a label or part of an icon entirely. Clamp the box centre so
+            // its whole footprint stays inside the canvas - better a residual
+            // overlap at the very edge than an invisible entry. The box is the
+            // label's footprint (OverlapCenterOffset + OverlapSize) around the
+            // tracked point.
+            Vector2 boxBase = _overlapBoxPosition[anchor];
+            Vector2 half = anchor.OverlapSize * 0.5f;
+            float limitX = Mathf.Max(0f, canvasSize.x * 0.5f - half.x);
+            float limitY = Mathf.Max(0f, canvasSize.y * 0.5f - half.y);
+            target.x = Mathf.Clamp(boxBase.x + target.x, -limitX, limitX) - boxBase.x;
+            target.y = Mathf.Clamp(boxBase.y + target.y, -limitY, limitY) - boxBase.y;
+
+            Vector2 currentOffset = _overlapOffset.TryGetValue(anchor, out Vector2 existing) ? existing : Vector2.zero;
+            Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, target, Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
+            _overlapOffset[anchor] = smoothedOffset;
+
+            // LabelWidget (when the anchor has one) is a local (0,0)-homed child of
+            // Widget holding just the text - nudge that instead of Widget itself,
+            // so an arrow/crosshair that needs to stay exactly on the tracked
+            // position never moves.
+            if (anchor.LabelWidget != null)
+            {
+                anchor.LabelWidget.anchoredPosition = smoothedOffset;
             }
             else
             {
-                targetOffsets = LabelOverlapResolver.ZeroOffsets(_overlapCandidates.Count);
-            }
-
-            for (int i = 0; i < _overlapCandidates.Count; i++)
-            {
-                IndicatorAnchor anchor = _overlapCandidates[i];
-                Vector2 target = targetOffsets[i];
-                if (anchor.OverlapOffsetDownwardOnly && target.y > 0f)
-                {
-                    target.y = 0f;
-                }
-                Vector2 currentOffset = _overlapOffset.TryGetValue(anchor, out Vector2 existing) ? existing : Vector2.zero;
-                Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, target, Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
-                _overlapOffset[anchor] = smoothedOffset;
-
-                // LabelWidget (when the anchor has one) is a local (0,0)-
-                // homed child of Widget holding just the text - nudge that
-                // instead of Widget itself, so an arrow/crosshair that needs
-                // to stay exactly on the tracked position never moves.
-                if (anchor.LabelWidget != null)
-                {
-                    anchor.LabelWidget.anchoredPosition = smoothedOffset;
-                }
-                else
-                {
-                    anchor.Widget.anchoredPosition = _overlapBasePosition[anchor] + smoothedOffset;
-                }
+                anchor.Widget.anchoredPosition = _overlapBasePosition[anchor] + smoothedOffset;
             }
         }
     }

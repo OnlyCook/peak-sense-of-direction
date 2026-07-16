@@ -321,6 +321,55 @@ namespace SenseOfDirection.Compass
         /// the marker's real bearing. (An icon can never be staggered onto
         /// another row for the same reason.)
         /// </summary>
+        /// <summary>
+        /// The marker's real horizontal footprint on the tape, for overlap
+        /// resolution: the widest of the icon and whichever of the name/distance
+        /// lines is actually shown, measured from the live rendered text
+        /// (<see cref="TMP_Text.preferredWidth"/>) rather than a fixed reservation.
+        /// A short label ("84m", "SAM") then claims only the room it needs, so it
+        /// stops falsely colliding with a neighbour and getting dragged into a
+        /// multi-row stagger it doesn't need. Both lines are centred on the icon,
+        /// so the box is symmetric around the marker's bearing and its width is
+        /// just the widest single element. Call after <see cref="Refresh"/> has
+        /// set this frame's text/font size.
+        /// </summary>
+        public float MeasureOverlapWidth(float iconSizePixels)
+        {
+            float width = iconSizePixels;
+            if (_nameText.gameObject.activeSelf)
+            {
+                // GetPreferredValues(text), not the preferredWidth property: the
+                // property returns a cached value only refreshed on a layout
+                // rebuild, so when a grouped ping's name grows a frame earlier
+                // ("QUEEN" -> "2x QUEEN") it kept reporting the old, narrower
+                // width - the box stayed sized for "QUEEN" and the extra "2x "
+                // (and the tail of the name) bled into the neighbour. Forcing a
+                // fresh measurement of the exact current string fixes it.
+                width = Mathf.Max(width, _nameText.GetPreferredValues(_nameText.text).x + ReadabilityMargin(_nameText.fontSize));
+            }
+            if (_distanceText.gameObject.activeSelf)
+            {
+                width = Mathf.Max(width, _distanceText.GetPreferredValues(_distanceText.text).x + ReadabilityMargin(_distanceText.fontSize));
+            }
+            return width;
+        }
+
+        /// <summary>
+        /// Extra width folded into a text line's overlap box beyond its raw
+        /// <see cref="TMP_Text.preferredWidth"/>. <c>preferredWidth</c> measures
+        /// the glyph geometry only, but this font renders a thick SDF outline
+        /// that spills a few pixels past it on every side, so two boxes resolved
+        /// to "just touching" still have their outlines overlap - two names read
+        /// as one run ("KNIGHTPAWN"), a longer one bleeds into its neighbour.
+        /// Reserving roughly a font-size's worth here (so it scales with the
+        /// compass font-size config, outline and all) keeps a real, readable gap
+        /// between adjacent labels and makes the resolver treat near-touching
+        /// ones as the overlap they visually are. Half of it lands on each side
+        /// of the centred label, so the on-screen gap between two touching boxes
+        /// is one whole margin (plus the resolver's own padding).
+        /// </summary>
+        private static float ReadabilityMargin(float fontSize) => fontSize;
+
         public void SetLabelCompaction(float compaction)
         {
             compaction = Mathf.Clamp01(compaction);
