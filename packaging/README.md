@@ -4,9 +4,9 @@ This mod keeps every teammate on your screen even when they're out of view, make
 
 <img width="1080" height="270" alt="player-labels-item-pings" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/player-labels-item-pings.png?raw=true" />
 
-Fully client-sided, no other player needs it installed for this to work. 
+Client-sided, no other player needs it installed for this to work. 
 
-Entirely localized in all 14 languages the game ships with: English, Français, Italiano, Deutsch, Español (España), 日本語, 한국어, Português (Brasil), Русский, 简体中文, Español (Latinoamérica), Українська, Polski, Türkçe.
+Fully localized in all 14 languages the game ships with: English, Français, Italiano, Deutsch, Español (España), 日本語, 한국어, Português (Brasil), Русский, 简体中文, Español (Latinoamérica), Українська, Polski, Türkçe.
 
 ---
 
@@ -35,7 +35,7 @@ Every visual setting laid out over a live preview of what it actually does, full
 
 <img width="800" height="449" alt="ghost-free-cam" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/ghost-free-cam.gif?raw=true" />
 
-Press `V` while dead to fly around freely instead of being stuck spectating a teammate. Combine it with ghost pinging (works automatically) to scout ahead and ping dangers, loot or better paths for whoever's still alive. How free dead players are, decides the host (50m within the spectating player by default).
+Press `V` while dead to fly around freely instead of being stuck spectating a teammate. Combine it with ghost pinging (works automatically) to scout ahead and ping dangers, loot or better paths for whoever's still alive. How limited dead players are, decides the host (50m within the spectating player by default).
 
 ## Notes
 
