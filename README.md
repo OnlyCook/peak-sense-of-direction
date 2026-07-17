@@ -60,9 +60,9 @@ Config file: `BepInEx/config/OnlyCook.SenseOfDirection.cfg`.
 
 If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/ModConfig/) installed, every setting below is also editable in the game's settings under **Mod Settings → Sense of Direction**, no need to touch the config file by hand. Easiest way to get an overview and tweak things visually, is the **F8** quick setup panel described above though (but it doesn't contain everything).
 
-- **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, the quick setup panel's key (**F8**).
+- **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, the quick setup panel's key (`F8`).
 - **Fonts**: separate size multipliers for on-screen, off-screen, and compass text.
-- **Player-Labels**: master switch, toggle key (default **G**), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
+- **Player-Labels**: master switch, toggle key (default `G`), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
 - **Campfire**: master switch and whether to show distance.
 - **Pings**: distance scaling and its multiplier, the color ripple, off-screen indicator, distance label, and ghost pinging.
 - **Ping-Audio**: audio boost toggle, range, minimum distance, and volume multiplier.
@@ -70,7 +70,7 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 - **Item-Pings**: master switch, highlight duration, grouping, creature pings, native icons, name mode, distance, and off-screen indicator, plus separate detection radii and hit/ray assist for landing pings on hard-to-hit items.
 - **Compass**: master switch, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color and thickness, and whether it requires holding an in-game compass item.
 - **Pirate-Compass**: luggage indicator toggle, name/distance display, off-screen indicator.
-- **Luggage-Ping**: master switch, key, radius, duration, cooldown (optional).
+- **Luggage-Ping**: master switch, key (default `T`), radius, duration, cooldown (optional).
 - **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **V**), move speed and sprint multiplier, crosshair, key hint, and hiding every ghost from your own view.
 - **Debug**: verbose logging, plus a couple of QA-only toggles. Please keep logging on when reporting issues.
 
