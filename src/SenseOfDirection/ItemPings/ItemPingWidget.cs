@@ -328,10 +328,23 @@ namespace SenseOfDirection.ItemPings
             Pool.Push(this);
         }
 
+        /// <summary>
+        /// Every letter (both cases), digit and punctuation mark that shows up
+        /// in an actual item/luggage/creature/hazard display name - unlike
+        /// "WARMUP", which was only ever exercising 6 distinct letters. TMP's
+        /// dynamic font atlas only rasterizes a glyph the first time it's
+        /// actually rendered, and doing that mid-frame (a texture repack +
+        /// GPU reupload) is exactly the kind of hitch this class exists to
+        /// front-load - a real item's name (whichever glyphs it happens to
+        /// need) was otherwise still paying that cost on the first ping that
+        /// ever highlighted one, prewarmed widget pool or not.
+        /// </summary>
+        private const string FullGlyphSample = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 x()-'";
+
         /// <summary>Drives one throwaway layout/mesh build per text so a prewarmed widget's first real Refresh isn't also TMP's first.</summary>
         private void WarmText()
         {
-            _nameText.text = "WARMUP";
+            _nameText.text = FullGlyphSample;
             _distanceText.text = "0m";
             _nameText.ForceMeshUpdate();
             _distanceText.ForceMeshUpdate();

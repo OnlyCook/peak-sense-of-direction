@@ -171,6 +171,16 @@ namespace SenseOfDirection.Compass
             pooled.Push(widget);
         }
 
+        /// <summary>
+        /// Same full-alphabet/digit/punctuation coverage as
+        /// <c>ItemPingWidget</c>'s own equivalent constant, and for the same
+        /// reason - this marker's name label shows the exact same
+        /// item/creature/hazard display names, so a "WARMUP"-only warm-up
+        /// left TMP's dynamic font atlas to rasterize whatever glyphs a real
+        /// name needed on the first ping that actually showed one.
+        /// </summary>
+        private const string FullGlyphSample = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 x()-'";
+
         /// <summary>Builds markers of this kind up front and parks them in the pool - see <see cref="Common.PingPrewarm"/>.</summary>
         public static void Prewarm(RectTransform parent, CompassMarkerKind kind, int count)
         {
@@ -183,7 +193,7 @@ namespace SenseOfDirection.Compass
             while (pooled.Count < count)
             {
                 CompassMarkerWidget widget = Create(parent, kind);
-                widget._nameText.text = "WARMUP";
+                widget._nameText.text = FullGlyphSample;
                 widget._distanceText.text = "0m";
                 widget._nameText.ForceMeshUpdate();
                 widget._distanceText.ForceMeshUpdate();

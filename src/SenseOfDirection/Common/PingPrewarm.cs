@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using SenseOfDirection.Compass;
 using SenseOfDirection.ItemPings;
 using SenseOfDirection.Labels;
@@ -20,9 +21,18 @@ namespace SenseOfDirection.Common
     ///   both first touched by the first ping's own widget.
     /// - The first ping/item-ping widget and compass marker of a session build
     ///   TMP text objects, which pull in font materials and grow the font atlas
-    ///   for glyphs it hasn't rendered yet.
+    ///   for glyphs it hasn't rendered yet - both pools are now warmed with a
+    ///   full alphabet/digit/punctuation sample rather than one throwaway word,
+    ///   since a real item/creature/hazard name can need any of those glyphs,
+    ///   not just the handful "WARMUP" itself covered.
     /// - <see cref="PingRipple"/>'s sphere mesh and material.
     /// - The registry's first scene sweep (<see cref="PingableRegistry"/>).
+    /// - The ping marker's own material: <c>Pings.PointPingerPatches.SpawnPingNow</c>
+    ///   instantiates a clone of the local character's own body material and
+    ///   sets a shader float on it for every single ping - first use of that
+    ///   shader/keyword combination is a variant compile, same class of hitch
+    ///   as the font atlas one above, and one this file didn't touch at all
+    ///   before.
     ///
     /// Runs once the game is actually in a level with its own UI up (the fonts
     /// this borrows from PEAK's HUD don't exist before that - see
@@ -105,12 +115,54 @@ namespace SenseOfDirection.Common
             // a level, could be the ping itself waiting on an empty registry.
             PingableRegistry.Instance.Rebuild();
 
+            WarmPingMaterial();
+            WarmItemPingDetection();
+
             if (Plugin.Instance.Cfg.EnableDebugLogging.Value)
             {
                 Plugin.Instance.Log.LogInfo(
                     $"PingPrewarm: built {PrewarmedItemPingWidgets} item-ping widgets, {PrewarmedPingWidgets} ping widgets, "
                     + "their compass markers, the ripple mesh/material and the ping icons.");
             }
+        }
+
+        /// <summary>
+        /// Mirrors <c>Pings.PointPingerPatches.SpawnPingNow</c>'s own
+        /// <c>Instantiate(character.refs.mainRenderer.sharedMaterial)</c> +
+        /// <c>SetFloat("_Opacity", ...)</c> exactly, then throws the clone away -
+        /// every ping does this, but the very first time this exact
+        /// shader/keyword combination is instantiated is a shader variant
+        /// compile, not just a cheap clone, and that cost otherwise landed on
+        /// whichever ping happened to be first rather than here.
+        /// </summary>
+        private static void WarmPingMaterial()
+        {
+            Material sharedMaterial = Character.localCharacter.refs.mainRenderer.sharedMaterial;
+            if (sharedMaterial == null)
+            {
+                return;
+            }
+            Material warm = UnityEngine.Object.Instantiate(sharedMaterial);
+            warm.SetFloat("_Opacity", 1f);
+            UnityEngine.Object.Destroy(warm);
+        }
+
+        /// <summary>
+        /// Same call shape <see cref="ItemPingSpawner.SpawnFor"/> makes into
+        /// <see cref="ItemPingDetector.FindNear"/> on every real ping, but with
+        /// every radius zeroed out so it can never actually match a real
+        /// item/luggage/creature/hazard - existing purely to pay this (large,
+        /// closure-heavy) method's JIT cost, and its static buffers'/
+        /// <c>NamedHazards</c> table's one-time initialization, once and
+        /// silently rather than on whichever ping happens to be the first one
+        /// that actually finds something to highlight.
+        /// </summary>
+        private static void WarmItemPingDetection()
+        {
+            Vector3 point = Character.localCharacter.Head;
+            List<PingableTarget> found = ItemPingDetector.FindNear(
+                point, 0f, 0f, 0f, point, Vector3.forward, 0f, 0f, includeCreatures: true);
+            found.Clear();
         }
     }
 }
