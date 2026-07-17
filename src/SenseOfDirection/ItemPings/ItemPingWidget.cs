@@ -109,7 +109,13 @@ namespace SenseOfDirection.ItemPings
         private const float IconDistanceClearance = 3f;
 
         /// <summary>The crosshair/icon sits exactly on the tracked point by construction, but that reads as hugging the name label above it with a comparatively large gap to the distance line below - nudging it down a few pixels (name/distance lines themselves untouched, both anchored under <see cref="_labelGroup"/> rather than <see cref="_root"/>) balances the two gaps visually.</summary>
-        private const float CrosshairYOffset = -7f;
+        private const float CrosshairYOffset = -4f;
+
+        /// <summary>Nudges the off-screen arrow/native-icon down a few pixels off the label group's exact centre point, to read as visually centered between the name and distance lines the same way <see cref="CrosshairYOffset"/> balances the on-screen crosshair.</summary>
+        private const float ArrowYOffset = -3f;
+
+        /// <summary>Fallback dart size shown off-screen when the item has no native icon, a touch larger than <see cref="OffScreenArrow.DartSize"/> so it reads clearly at a glance - only applied here (not the shared constant) so it doesn't also grow <see cref="Pings.PingWidget"/>'s arrow.</summary>
+        private static readonly Vector2 ItemArrowSize = new Vector2(22f, 24f);
 
         private ItemPingWidget(
             RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, Image arrowImage,
@@ -385,7 +391,7 @@ namespace SenseOfDirection.ItemPings
             }
             _arrow.sizeDelta = nativeIcon != null
                 ? new Vector2(NativeIconSizePixels, NativeIconSizePixels)
-                : OffScreenArrow.DartSize;
+                : ItemArrowSize;
             _arrowImage.color = nativeIcon != null ? Color.white : _color;
             if (Anchor != null)
             {
@@ -500,7 +506,7 @@ namespace SenseOfDirection.ItemPings
             // whole unit - icon included - clear of its neighbours. On-screen the
             // arrow is hidden (the pinned crosshair shows instead), so this is a
             // no-op there.
-            _arrow.anchoredPosition = _labelGroup.anchoredPosition;
+            _arrow.anchoredPosition = _labelGroup.anchoredPosition + new Vector2(0f, ArrowYOffset);
 
             // Off-screen, several labels can pile onto the same clamped edge
             // point. This cap is how far one may travel along that edge before the
