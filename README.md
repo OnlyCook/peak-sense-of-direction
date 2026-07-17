@@ -70,6 +70,7 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 - **Item-Pings**: master switch, highlight duration, grouping, creature pings, native icons, name mode, distance, and off-screen indicator, plus separate detection radii and hit/ray assist for landing pings on hard-to-hit items.
 - **Compass**: master switch, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color and thickness, and whether it requires holding an in-game compass item.
 - **Pirate-Compass**: luggage indicator toggle, name/distance display, off-screen indicator.
+- **Luggage-Ping**: master switch, key, radius, duration, cooldown (optional).
 - **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **V**), move speed and sprint multiplier, crosshair, key hint, and hiding every ghost from your own view.
 - **Debug**: verbose logging, plus a couple of QA-only toggles. Please keep logging on when reporting issues.
 

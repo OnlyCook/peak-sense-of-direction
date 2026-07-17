@@ -155,7 +155,12 @@ namespace SenseOfDirection.Common
         /// closure-heavy) method's JIT cost, and its static buffers'/
         /// <c>NamedHazards</c> table's one-time initialization, once and
         /// silently rather than on whichever ping happens to be the first one
-        /// that actually finds something to highlight.
+        /// that actually finds something to highlight. This also covers
+        /// <c>FindNear</c>'s live <c>Physics.OverlapSphere</c>/
+        /// <c>TryGetItemFromCollider</c> pass for kinematic (just-spawned,
+        /// e.g. luggage) loot - it's unconditional inside <c>FindNear</c>
+        /// (runs regardless of the zeroed radii), so it's warmed here for
+        /// free rather than needing its own separate prewarm call.
         /// </summary>
         private static void WarmItemPingDetection()
         {

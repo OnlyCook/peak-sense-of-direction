@@ -42,10 +42,18 @@ namespace SenseOfDirection.ItemPings
     /// reachable in play is loot appearing mid-run (a luggage opening right in
     /// front of you, then someone pinging it a second later), so
     /// <see cref="ItemPingDetector"/> additionally unions in the game's own
-    /// <c>Item.ALL_ACTIVE_ITEMS</c> - a short, live list that a freshly spawned
-    /// (non-kinematic) item always lands in - at match time. That's cheap
-    /// because it's small, and it covers precisely the objects a periodic sweep
-    /// can be behind on.
+    /// <c>Item.ALL_ACTIVE_ITEMS</c> at match time - though that list turned out
+    /// to *not* actually cover luggage loot (confirmed via debug logging,
+    /// ISSUES.md): those items spawn (and stay) kinematic until picked up, and
+    /// <c>Item.WasActive()</c> - the only thing that adds an item to
+    /// <c>ALL_ACTIVE_ITEMS</c> - is gated on <c>!rig.isKinematic</c>, so it's
+    /// never called for them at all. <see cref="ItemPingDetector"/> closes
+    /// that gap with a third, live source instead (a bounded
+    /// <c>OverlapSphere</c> resolved through <c>Item.TryGetItemFromCollider</c>,
+    /// unaffected by kinematic state) - this registry's own periodic sweep is
+    /// still what eventually settles such an item into <see cref="Items"/>
+    /// itself, just not fast enough for a ping landing in the first few
+    /// seconds after a luggage opens.
     /// </summary>
     public class PingableRegistry : MonoBehaviour
     {

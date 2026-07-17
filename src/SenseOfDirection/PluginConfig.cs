@@ -729,7 +729,7 @@ namespace SenseOfDirection
                 "Key that triggers a luggage ping.");
 
             LuggagePingRadiusMeters = config.Bind(
-                "Luggage-Ping", "radius-meters", 50f,
+                "Luggage-Ping", "radius-meters", 100f,
                 new ConfigDescription(
                     "How far around you luggage gets highlighted. Capped well below " +
                     "the level's own size so this can't turn into a full map-wide " +

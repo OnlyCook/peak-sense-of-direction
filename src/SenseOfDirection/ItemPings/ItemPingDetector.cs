@@ -202,6 +202,41 @@ namespace SenseOfDirection.ItemPings
                 CollectItem(item);
             }
 
+            // Live bounded sweep, closing a gap the two sources above both
+            // miss (confirmed via debug logging, ISSUES.md: pinging an item
+            // directly on the crosshair right after opening a luggage
+            // intermittently registered as a plain ping, not an item ping).
+            // Luggage-spawned loot is instantiated *kinematic* (Spawner's own
+            // `isKinematic` field defaults true, and InitializePhysics forces
+            // it via a buffered SetKinematicRPC right after spawn) and stays
+            // that way until picked up - Item.WasActive() (the only thing
+            // that adds an item to ALL_ACTIVE_ITEMS) is gated on
+            // `!rig.isKinematic`, so it's never called at all, and the item
+            // is invisible to detection until the next periodic
+            // PingableRegistry sweep (every 5s) happens to catch it. Item's
+            // own COLLIDER_TO_ITEM map (queried via TryGetItemFromCollider),
+            // by contrast, is populated unconditionally in Item.Awake() -
+            // unaffected by kinematic state - so a bounded OverlapSphere
+            // right at the ping point resolves the same item
+            // TryGetPingHitPrefix's own ray/spherecast already physically
+            // landed on, without waiting on either cache.
+            {
+                int liveHitCount = Physics.OverlapSphereNonAlloc(point, itemRadiusUnits, OverlapBuffer, ~0, QueryTriggerInteraction.Collide);
+                Collider[] liveHits = OverlapBuffer;
+                if (liveHitCount == OverlapBuffer.Length)
+                {
+                    liveHits = Physics.OverlapSphere(point, itemRadiusUnits, ~0, QueryTriggerInteraction.Collide);
+                    liveHitCount = liveHits.Length;
+                }
+                for (int i = 0; i < liveHitCount; i++)
+                {
+                    if (Item.TryGetItemFromCollider(liveHits[i], out Item liveItem))
+                    {
+                        CollectItem(liveItem);
+                    }
+                }
+            }
+
             // Cross-kind radius filter (ISSUES.md): grouping is meant to cluster
             // items of the *same* kind ("2x COCONUT"), so those keep the full
             // itemRadius. A *different* item, though, should only be highlighted
