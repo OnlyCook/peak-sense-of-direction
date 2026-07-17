@@ -108,6 +108,9 @@ namespace SenseOfDirection.ItemPings
         /// <summary>Gap left between the icon's bottom edge and the distance line's top edge in the spread layout, so the icon never obscures the distance digits.</summary>
         private const float IconDistanceClearance = 3f;
 
+        /// <summary>The crosshair/icon sits exactly on the tracked point by construction, but that reads as hugging the name label above it with a comparatively large gap to the distance line below - nudging it down a few pixels (name/distance lines themselves untouched, both anchored under <see cref="_labelGroup"/> rather than <see cref="_root"/>) balances the two gaps visually.</summary>
+        private const float CrosshairYOffset = -7f;
+
         private ItemPingWidget(
             RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, Image arrowImage,
             RectTransform crosshair, Image crosshairImage, RectTransform labelGroup,
@@ -221,7 +224,7 @@ namespace SenseOfDirection.ItemPings
             var crosshairRect = (RectTransform)crosshairGo.transform;
             crosshairRect.SetParent(root, false);
             crosshairRect.sizeDelta = new Vector2(CrosshairSizePixels, CrosshairSizePixels);
-            crosshairRect.anchoredPosition = Vector2.zero;
+            crosshairRect.anchoredPosition = new Vector2(0f, CrosshairYOffset);
 
             var crosshairIcon = crosshairGo.GetComponent<Image>();
             crosshairIcon.sprite = IconAssets.ItemPingDiamond;
