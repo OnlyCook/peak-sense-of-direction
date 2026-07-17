@@ -136,7 +136,16 @@ namespace SenseOfDirection.ItemPings
             return found.Count;
         }
 
-        private static void SpawnOrMerge(List<PingableTarget> cluster, Color color, float duration, bool enableArrow)
+        /// <summary>
+        /// Spawns (or merges into an existing) highlight for a single caller-built
+        /// cluster, bypassing <see cref="SpawnFor"/>'s own point-radius detection -
+        /// used by <see cref="LuggagePing.LuggagePingController"/>, which finds its
+        /// own targets (every unopened luggage within a flat radius of the player,
+        /// not a ping point) but still wants a re-ping of an already-highlighted
+        /// luggage to merge/refresh rather than stack a duplicate highlight, same
+        /// as a normal ping would.
+        /// </summary>
+        public static void SpawnOrMerge(List<PingableTarget> cluster, Color color, float duration, bool enableArrow)
         {
             ItemPingHighlight existing = null;
             foreach (PingableTarget target in cluster)

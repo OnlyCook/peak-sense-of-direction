@@ -7,6 +7,7 @@ using SenseOfDirection.GhostFreeCam;
 using SenseOfDirection.Indicators;
 using SenseOfDirection.ItemPings;
 using SenseOfDirection.Labels;
+using SenseOfDirection.LuggagePing;
 using SenseOfDirection.Pings;
 using SenseOfDirection.PirateCompass;
 using UnityEngine;
@@ -61,6 +62,9 @@ namespace SenseOfDirection
 
             // Same no-op-when-disabled pattern - internally checks EnablePirateCompassLuggageIndicator.
             _ = PirateCompassLuggageIndicatorController.Instance;
+
+            // Same no-op-when-disabled pattern - internally checks EnableLuggagePing.
+            _ = LuggagePingController.Instance;
 
             // Keeps the "what's pingable in this level" sweep (and every icon/
             // widget/mesh a ping needs) off the ping path itself, so pinging

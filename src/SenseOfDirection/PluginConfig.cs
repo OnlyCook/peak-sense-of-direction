@@ -117,6 +117,12 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> ShowPirateCompassLuggageDistance;
         public readonly ConfigEntry<bool> EnablePirateCompassLuggageOffScreenIndicator;
 
+        public readonly ConfigEntry<bool> EnableLuggagePing;
+        public readonly ConfigEntry<KeyCode> LuggagePingKey;
+        public readonly ConfigEntry<float> LuggagePingRadiusMeters;
+        public readonly ConfigEntry<float> LuggagePingDurationSeconds;
+        public readonly ConfigEntry<float> LuggagePingCooldownSeconds;
+
         public readonly ConfigEntry<bool> EnableGhostFreeCam;
         public readonly ConfigEntry<float> GhostFreeCamMaxDistanceMeters;
         public readonly ConfigEntry<bool> GhostFreeCamUnlimitedRange;
@@ -706,6 +712,45 @@ namespace SenseOfDirection
                 "Show an off-screen arrow pointing toward the nearest unopened luggage " +
                 "while it isn't in view. Off shows the indicator only once it's " +
                 "actually on screen.");
+
+            // ---- Luggage Ping: inspired by the "Compass UI" mod's own suitcase-
+            // ping key, for players coming from that mod. Press the key to
+            // highlight every unopened luggage within radius-meters, using the
+            // same item-ping highlight (name/distance label, off-screen arrow,
+            // compass marker) item-ping-placement already routes - purely local,
+            // never sent to other players, unlike a real ping.
+            EnableLuggagePing = config.Bind(
+                "Luggage-Ping", "enable-luggage-ping", true,
+                "Master switch: press key below to highlight every unopened luggage " +
+                "within radius-meters of you, visible only to yourself.");
+
+            LuggagePingKey = config.Bind(
+                "Luggage-Ping", "key", KeyCode.T,
+                "Key that triggers a luggage ping.");
+
+            LuggagePingRadiusMeters = config.Bind(
+                "Luggage-Ping", "radius-meters", 50f,
+                new ConfigDescription(
+                    "How far around you luggage gets highlighted. Capped well below " +
+                    "the level's own size so this can't turn into a full map-wide " +
+                    "luggage ESP.",
+                    new AcceptableValueRange<float>(10f, 250f)));
+
+            LuggagePingDurationSeconds = config.Bind(
+                "Luggage-Ping", "duration-seconds", 6f,
+                new ConfigDescription(
+                    "How long each highlighted luggage stays visible before fading " +
+                    "out (ends early regardless if it's opened first).",
+                    new AcceptableValueRange<float>(2f, 20f)));
+
+            LuggagePingCooldownSeconds = config.Bind(
+                "Luggage-Ping", "cooldown-seconds", 15f,
+                new ConfigDescription(
+                    "How long you have to wait between luggage pings. Trying to " +
+                    "ping again while this is still running shows a brief on-screen " +
+                    "reminder instead of doing nothing silently. 0 disables the " +
+                    "cooldown entirely.",
+                    new AcceptableValueRange<float>(0f, 120f)));
 
             // ---- Ghost free-cam. The three host-controlled settings are bound
             // first, ahead of the purely-local ones, so the section reads

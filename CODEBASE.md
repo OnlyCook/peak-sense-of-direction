@@ -697,6 +697,39 @@ RESEARCH.md's license table) — nothing here is copied from it.
   (default `Both`) routes it between the two rendering surfaces like every
   other mechanic's own placement setting.
 
+### `LuggagePing/` (ad hoc addition, done — Compass UI-inspired suitcase ping)
+
+- `LuggagePingController.cs` — singleton `MonoBehaviour` (same `Instance`/
+  no-op-when-disabled pattern as `PirateCompass/PirateCompassLuggageIndicatorController.cs`)
+  that, on `Luggage-Ping/key` (default T, edge-detected the same manual-GetKey
+  way `Labels/PlayerLabelController.cs` does, to dodge the same GetKeyDown/
+  held-WASD Unity bug), highlights every unopened `Luggage` within
+  `Luggage-Ping/radius-meters` of the player - one `ItemPings.ItemPingHighlight`
+  per luggage, spawned directly via a new `ItemPingSpawner.SpawnOrMerge`
+  (exposed, not new logic) so a re-trigger on already-highlighted luggage
+  merges/refreshes instead of stacking a duplicate, same as a real ping would.
+  Never goes through `Pings/PointPingerPatches`/the game's own ping RPC -
+  nothing here is networked, so only the local player ever sees it, unlike
+  every other kind of ping in this mod. Idea and default feel (a flat radius
+  around the player, not a ping point) taken from the "Compass UI" mod's own
+  suitcase-ping key - see README credits; that mod's own decompile was read
+  as inspiration only (no LICENSE, same situation as every other reference
+  zip), not copied from. `Luggage-Ping/enable-luggage-ping` is the master
+  switch; radius is capped at 250m so this can't become a map-wide luggage
+  ESP. Reuses `Item-Pings/item-ping-placement` for where the highlight shows
+  (off-screen widget/compass marker) rather than adding a redundant
+  placement setting of its own, since it's the same widget type.
+  `Luggage-Ping/cooldown-seconds` (default 15, 0 disables it) gates repeat
+  triggers via a plain `Time.time` timestamp; a press while still on
+  cooldown never re-triggers the ping and instead shows
+  `LuggagePingCooldownIndicator`.
+- `LuggagePingCooldownIndicator.cs` — small always-instantiated singleton
+  (same lazy-`Instance` pattern as the controller): a low-opacity TMP text
+  under `Indicators/IndicatorManager`'s overlay canvas, bottom-center above
+  the vanilla stamina bar, that holds briefly then fades - feedback for a
+  key-press that would otherwise silently do nothing while on cooldown,
+  easily mistaken for the key not working at all.
+
 ### Not yet built
 
 Nothing — every phase in `ROADMAP.md` plus the ad hoc Phase 7 compass
