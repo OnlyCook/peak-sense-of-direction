@@ -579,7 +579,18 @@ namespace SenseOfDirection.Ui
             var scaler = _root.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+
+            // Match purely on height rather than the old width/height blend. At
+            // 16:9 (the reference aspect) the two are identical - width and height
+            // ratios agree, so the blend was a no-op. But on anything wider (21:9,
+            // 32:9) the blend let the extra width drag the canvas's *vertical*
+            // reference-pixel count down with it, shrinking the canvas below the
+            // panel's own 1010px height and clipping the tab row and footer.
+            // Matching height alone keeps the canvas a constant 1080 reference
+            // pixels tall no matter the aspect, so the panel's height always fits;
+            // only the available width changes with aspect, and anything wider
+            // than 16:9 only ever has more of that, never less.
+            scaler.matchWidthOrHeight = 1f;
 
             _root.AddComponent<GraphicRaycaster>();
 
@@ -594,6 +605,21 @@ namespace SenseOfDirection.Ui
             // No dim of its own - it shares one with the loading screen, see EnsureDimUi.
             _panel = JaggedPanel.Create((RectTransform)_root.transform, "Panel", new Vector2(PanelWidth, PanelHeight));
             var panelRect = (RectTransform)_panel.transform;
+
+            // The height match above guarantees the panel's 1010px height always
+            // fits a canvas that's a constant 1080 reference pixels tall. Width
+            // isn't covered by that: it still varies with aspect, and while
+            // anything 16:9 or wider only ever has *more* of it than the panel
+            // needs, an unusually narrow screen (e.g. a portrait monitor) could
+            // have less. Shrinking the whole panel uniformly - rather than
+            // reflowing it - is a no-op at every aspect this panel was actually
+            // designed for, and only kicks in for that narrow edge case.
+            float canvasWidthUnits = (float)Screen.width / Screen.height * scaler.referenceResolution.y;
+            float fitScale = Mathf.Min(1f, (canvasWidthUnits - PanelPadding * 2f) / PanelWidth);
+            if (fitScale < 1f)
+            {
+                panelRect.localScale = new Vector3(fitScale, fitScale, 1f);
+            }
 
             float contentTop = PanelHeight * 0.5f - PanelPadding;
 
