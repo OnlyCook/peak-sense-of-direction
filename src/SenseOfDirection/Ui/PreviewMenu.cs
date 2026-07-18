@@ -1070,7 +1070,7 @@ namespace SenseOfDirection.Ui
             image.type = Image.Type.Sliced;
             image.raycastTarget = false;
 
-            TMP_Text label = CreateText(rect, "Key", key, 16f, PanelChrome.ChipTextColor, TextAlignmentOptions.Center);
+            TMP_Text label = CreateText(rect, "Key", key, 16f, PanelChrome.ChipTextColor, TextAlignmentOptions.Center, applyOutlineMaterial: false);
             var labelRect = (RectTransform)label.transform;
             labelRect.anchorMin = Vector2.zero;
             labelRect.anchorMax = Vector2.one;
@@ -1240,7 +1240,15 @@ namespace SenseOfDirection.Ui
         }
 
         /// <summary>Text in the game's own chunky display font, so the menu reads as part of PEAK rather than as a debug overlay.</summary>
-        private static TMP_Text CreateText(RectTransform parent, string name, string content, float fontSize, Color color, TextAlignmentOptions alignment)
+        /// <param name="applyOutlineMaterial">
+        /// peak-checkpoint-save's SavePicker footer key badges deliberately keep
+        /// their text on the font's plain default material - only the chrome
+        /// labels around them (title, footer captions) get the borrowed
+        /// outline+shadow material. That outline material's face dilate reads as
+        /// unreadable faux-bold at the key badge's small size, so this mirrors
+        /// that: false for key badges, true (the default) everywhere else.
+        /// </param>
+        private static TMP_Text CreateText(RectTransform parent, string name, string content, float fontSize, Color color, TextAlignmentOptions alignment, bool applyOutlineMaterial = true)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
             var rect = (RectTransform)go.transform;
@@ -1257,7 +1265,7 @@ namespace SenseOfDirection.Ui
             {
                 text.font = NativeAssets.Font;
             }
-            if (NativeAssets.OutlineMaterial != null)
+            if (applyOutlineMaterial && NativeAssets.OutlineMaterial != null)
             {
                 text.fontSharedMaterial = NativeAssets.OutlineMaterial;
             }
