@@ -69,6 +69,9 @@ namespace SenseOfDirection.GhostFreeCam
         /// <summary>Player's toggle intent - reset to false whenever they stop being eligible (revived, no valid spectate target, or the host has ghost free-cam off).</summary>
         private static bool _active;
 
+        /// <summary>Toggle state for <see cref="PluginConfig.EnableGhostFreeCamKeyHintPreview"/>'s dev/QA hint preview - kept separate from <see cref="_active"/> so the preview can't affect real free-cam engage/disengage state.</summary>
+        private static bool _debugPreviewActive;
+
         /// <summary>True once <see cref="_lastPosition"/>/<see cref="_lastRotation"/> hold a live free-cam pose from last frame, rather than a stale/unseeded one.</summary>
         private static bool _engagedLastFrame;
 
@@ -123,6 +126,22 @@ namespace SenseOfDirection.GhostFreeCam
         {
             GhostFreeCamConfigSync.Tick();
 
+            PluginConfig cfg = Plugin.Instance.Cfg;
+
+            // Dev/QA-only preview: lets the hint's exact look be checked
+            // without dying first. Runs ahead of (and independent of) the
+            // real passed-out gate below, using its own toggle state rather
+            // than `_active` so it can't interfere with the real free-cam
+            // engage/disengage logic once actually a ghost.
+            if (cfg.EnableGhostFreeCamKeyHintPreview.Value)
+            {
+                if (Input.GetKeyDown(cfg.GhostFreeCamToggleKey.Value))
+                {
+                    _debugPreviewActive = !_debugPreviewActive;
+                }
+                GhostFreeCamKeyHint.SetState(_debugPreviewActive, cfg.GhostFreeCamToggleKey.Value);
+            }
+
             Character local = Character.localCharacter;
             if (local == null || !local.data.fullyPassedOut)
             {
@@ -130,7 +149,6 @@ namespace SenseOfDirection.GhostFreeCam
                 return;
             }
 
-            PluginConfig cfg = Plugin.Instance.Cfg;
             if (Input.GetKeyDown(cfg.GhostFreeCamToggleKey.Value))
             {
                 _active = !_active;
@@ -281,7 +299,15 @@ namespace SenseOfDirection.GhostFreeCam
             _active = false;
             _engagedLastFrame = false;
             GhostFreeCamCrosshair.SetVisible(false);
-            GhostFreeCamKeyHint.Hide();
+
+            // Leave the hint alone while the dev/QA preview is on - it's
+            // driven independently above and would otherwise be hidden
+            // again on this same frame every time this runs (e.g. every
+            // frame the local player isn't actually a ghost).
+            if (!Plugin.Instance.Cfg.EnableGhostFreeCamKeyHintPreview.Value)
+            {
+                GhostFreeCamKeyHint.Hide();
+            }
         }
 
         /// <summary>

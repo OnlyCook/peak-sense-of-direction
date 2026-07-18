@@ -11,13 +11,22 @@ namespace SenseOfDirection.GhostFreeCam
     /// statue!") has no mention of this mod's toggle key at all, so players
     /// have no in-UI way to discover it.
     ///
-    /// Badge background is a small procedurally-drawn rounded square (same
-    /// feathered-alpha technique as <see cref="Compass.CompassIcons"/>), and
-    /// both the badge digit/letter and the label text use
-    /// <see cref="Labels.NativeAssets.Font"/> - the same chunky rounded font
-    /// vanilla's own "you are a ghost" text uses, with its own plain
-    /// (non-outline) material - rather than TMP's default font, so this
-    /// reads as part of that panel.
+    /// The badge itself reuses vanilla's own per-key keyboard glyph icon
+    /// (<see cref="Labels.NativeAssets.KeyboardSprites"/> - the same TMP
+    /// sprite atlas vanilla's own interact/rebind prompts draw from, see
+    /// <see cref="Labels.NativeKeySpriteIndex"/>) whenever the bound
+    /// <see cref="KeyCode"/> has a glyph in that atlas, so it's pixel-
+    /// identical to vanilla's own key badges rather than an approximation -
+    /// no separate background image needed, the glyph already bakes its own
+    /// flat rounded swatch in. Falls back to the small procedurally-drawn
+    /// rounded square (same feathered-alpha technique as
+    /// <see cref="Compass.CompassIcons"/>) with a plain-font letter only for
+    /// the rare bound key with no vanilla glyph at all.
+    ///
+    /// The label text (not the badge) uses <see cref="Labels.NativeAssets.Font"/>
+    /// - the same chunky rounded font vanilla's own "you are a ghost" text
+    /// uses, with its own plain (non-outline) material - rather than TMP's
+    /// default font, so this reads as part of that panel.
     ///
     /// Laid out via a <see cref="HorizontalLayoutGroup"/> +
     /// <see cref="ContentSizeFitter"/> on the root (pivot centered
@@ -36,20 +45,41 @@ namespace SenseOfDirection.GhostFreeCam
     {
         private const float BadgeSize = 44f;
 
+        /// <summary>
+        /// TMP scales a sprite tag like any other glyph, proportional to
+        /// fontSize - this value (rather than <see cref="BadgeSize"/>, which
+        /// is tuned for the hand-drawn fallback badge instead) was picked by
+        /// comparing rendered size directly against a vanilla interact-
+        /// prompt badge screenshot at the same UI scale.
+        /// </summary>
+        private const float KeySpriteFontSize = 32f;
+
         /// <summary>Badge fill - exact color sampled from the reference key-badge art the maintainer supplied.</summary>
         private static readonly Color32 BadgeFillColor = new Color32(222, 217, 193, 255);
 
-        /// <summary>Badge outline/letter - exact color sampled from the same reference art.</summary>
-        private static readonly Color32 BadgeOutlineColor = new Color32(116, 111, 91, 255);
+        /// <summary>Badge letter - exact color sampled from the same reference art.</summary>
+        private static readonly Color32 BadgeLetterColor = new Color32(116, 111, 91, 255);
 
         private static RectTransform _root;
         private static TMP_Text _badgeText;
         private static Image _badgeImage;
         private static LayoutElement _badgeLayoutElement;
         private static TMP_Text _labelText;
+        private static RectTransform _labelTextRect;
         private static TMP_Text _labelShadowText;
+        private static RectTransform _labelShadowTextRect;
         private static LayoutElement _labelLayoutElement;
         private static KeyCode _lastKey = (KeyCode)(-1);
+
+        /// <summary>
+        /// The "go into free-cam mode" label reads as sitting a couple px
+        /// too high compared to "leave free-cam mode" - both share the exact
+        /// same rect/font/alignment, so this is nudged down by hand per
+        /// state rather than chasing a layout cause. Magnitude/sign derived
+        /// by comparing screenshots of both states' shared "mode" word pixel
+        /// row (identical glyphs in both, so directly comparable).
+        /// </summary>
+        private const float EnterLabelVerticalNudge = -2.5f;
 
         public static void Hide()
         {
@@ -70,25 +100,68 @@ namespace SenseOfDirection.GhostFreeCam
             if (toggleKey != _lastKey)
             {
                 _lastKey = toggleKey;
-                _badgeText.text = KeyCodeToBadgeLabel(toggleKey);
 
-                // Longer labels (e.g. "Alt", "Shift") need a wider badge, not
-                // a squeezed-in single-letter-width one - width grows from
-                // BadgeSize as a floor, height always stays fixed. Rebakes
-                // the background at the new aspect ratio (rather than
-                // 9-slicing a fixed texture) so the rounded corners are
-                // always exactly right regardless of size - Image.Type
-                // .Sliced turned out unreliable here, auto-shrinking the
-                // border into a distorted blob at some sizes.
-                float padding = BadgeSize * 0.55f;
-                float width = Mathf.Max(BadgeSize, _badgeText.GetPreferredValues().x + padding);
-                _badgeLayoutElement.preferredWidth = width;
-                _badgeImage.sprite = BuildBadgeSprite(width / BadgeSize);
+                TMP_SpriteAsset keyboardSprites = Labels.NativeAssets.KeyboardSprites;
+                if (keyboardSprites != null && Labels.NativeKeySpriteIndex.TryGetIndex(toggleKey, out int spriteIndex))
+                {
+                    // Vanilla's own glyph already draws its whole badge look
+                    // (rounded swatch + letter) - no separate background
+                    // image needed, so it's hidden and the TMP text becomes
+                    // just this one sprite tag, sized like any other glyph
+                    // via fontSize rather than the manual width/height
+                    // fallback path below. The source art itself is a plain
+                    // grayscale mask (white swatch, gray letter) that vanilla
+                    // recolors via the sprite tag's own "tint=1" (use current
+                    // vertex color) rather than baking color into the
+                    // texture - confirmed by comparing an untinted render
+                    // (came out pure white) against a real interact-prompt
+                    // badge screenshot, so this must set a color explicitly
+                    // too, same as vanilla's own DefaultTextColor.
+                    _badgeImage.enabled = false;
+                    _badgeText.spriteAsset = keyboardSprites;
+                    _badgeText.color = Labels.NativeAssets.DefaultTextColor;
+                    _badgeText.fontSize = KeySpriteFontSize;
+                    _badgeText.text = $"<sprite={spriteIndex} tint=1>";
+
+                    Vector2 preferred = _badgeText.GetPreferredValues();
+                    _badgeLayoutElement.preferredWidth = preferred.x;
+                    _badgeLayoutElement.preferredHeight = preferred.y;
+                }
+                else
+                {
+                    _badgeImage.enabled = true;
+                    _badgeText.spriteAsset = null;
+                    _badgeText.color = BadgeLetterColor;
+                    _badgeText.fontSize = 26f;
+                    _badgeText.font = Labels.NativeAssets.FallbackFont != null ? Labels.NativeAssets.FallbackFont : _badgeText.font;
+                    _badgeText.text = KeyCodeToBadgeLabel(toggleKey);
+
+                    // Longer labels (e.g. "Alt", "Shift") need a wider badge,
+                    // not a squeezed-in single-letter-width one - width grows
+                    // from BadgeSize as a floor, height always stays fixed.
+                    // Rebakes the background at the new aspect ratio (rather
+                    // than 9-slicing a fixed texture) so the rounded corners
+                    // are always exactly right regardless of size - Image
+                    // .Type.Sliced turned out unreliable here, auto-
+                    // shrinking the border into a distorted blob at some
+                    // sizes.
+                    float padding = BadgeSize * 0.55f;
+                    float width = Mathf.Max(BadgeSize, _badgeText.GetPreferredValues().x + padding);
+                    _badgeLayoutElement.preferredWidth = width;
+                    _badgeLayoutElement.preferredHeight = BadgeSize;
+                    _badgeImage.sprite = BuildBadgeSprite(width / BadgeSize);
+                }
             }
 
             string text = GhostFreeCamLocalization.GetLabel(freeCamActive);
             _labelText.text = text;
             _labelShadowText.text = text;
+
+            float nudge = freeCamActive ? 0f : EnterLabelVerticalNudge;
+            _labelTextRect.offsetMin = new Vector2(0f, nudge);
+            _labelTextRect.offsetMax = new Vector2(0f, nudge);
+            _labelShadowTextRect.offsetMin = new Vector2(1.5f, -1.5f + nudge);
+            _labelShadowTextRect.offsetMax = new Vector2(1.5f, -1.5f + nudge);
 
             // The label's own TMP text is nested inside a plain child
             // GameObject now (see EnsureCreated) rather than living directly
@@ -159,9 +232,7 @@ namespace SenseOfDirection.GhostFreeCam
             _badgeText = badgeTextGo.AddComponent<TextMeshProUGUI>();
             _badgeText.fontSize = 26f;
             _badgeText.alignment = TextAlignmentOptions.Center;
-            // Same exact color as the badge's own outline, matching the
-            // reference art (letter and outline are the same tone there).
-            _badgeText.color = BadgeOutlineColor;
+            _badgeText.color = BadgeLetterColor;
             _badgeText.raycastTarget = false;
             _badgeText.enableWordWrapping = false;
 
@@ -177,12 +248,12 @@ namespace SenseOfDirection.GhostFreeCam
             _labelLayoutElement.minHeight = BadgeSize;
 
             var labelShadowGo = new GameObject("Shadow", typeof(RectTransform));
-            var labelShadowRect = (RectTransform)labelShadowGo.transform;
-            labelShadowRect.SetParent(labelRect, false);
-            labelShadowRect.anchorMin = Vector2.zero;
-            labelShadowRect.anchorMax = Vector2.one;
-            labelShadowRect.offsetMin = new Vector2(1.5f, -1.5f);
-            labelShadowRect.offsetMax = new Vector2(1.5f, -1.5f);
+            _labelShadowTextRect = (RectTransform)labelShadowGo.transform;
+            _labelShadowTextRect.SetParent(labelRect, false);
+            _labelShadowTextRect.anchorMin = Vector2.zero;
+            _labelShadowTextRect.anchorMax = Vector2.one;
+            _labelShadowTextRect.offsetMin = new Vector2(1.5f, -1.5f);
+            _labelShadowTextRect.offsetMax = new Vector2(1.5f, -1.5f);
             _labelShadowText = labelShadowGo.AddComponent<TextMeshProUGUI>();
             _labelShadowText.fontSize = 26f;
             _labelShadowText.alignment = TextAlignmentOptions.MidlineLeft;
@@ -191,12 +262,12 @@ namespace SenseOfDirection.GhostFreeCam
             _labelShadowText.enableWordWrapping = false;
 
             var labelTextGo = new GameObject("Text", typeof(RectTransform));
-            var labelTextRect = (RectTransform)labelTextGo.transform;
-            labelTextRect.SetParent(labelRect, false);
-            labelTextRect.anchorMin = Vector2.zero;
-            labelTextRect.anchorMax = Vector2.one;
-            labelTextRect.offsetMin = Vector2.zero;
-            labelTextRect.offsetMax = Vector2.zero;
+            _labelTextRect = (RectTransform)labelTextGo.transform;
+            _labelTextRect.SetParent(labelRect, false);
+            _labelTextRect.anchorMin = Vector2.zero;
+            _labelTextRect.anchorMax = Vector2.one;
+            _labelTextRect.offsetMin = Vector2.zero;
+            _labelTextRect.offsetMax = Vector2.zero;
             _labelText = labelTextGo.AddComponent<TextMeshProUGUI>();
             _labelText.fontSize = 26f;
             _labelText.alignment = TextAlignmentOptions.MidlineLeft;
@@ -222,9 +293,10 @@ namespace SenseOfDirection.GhostFreeCam
             // PlayerLabel/CompassMarkerWidget) - vanilla's own "you are a
             // ghost" text this hint sits next to has no outline at all, so
             // this just takes the font asset's own plain default material.
-            if (_badgeText.font != font)
+            // Not applied to _badgeText - its font (or lack thereof, for the
+            // vanilla-sprite path) is decided per bound key in SetState.
+            if (_labelText.font != font)
             {
-                _badgeText.font = font;
                 _labelText.font = font;
                 _labelShadowText.font = font;
             }
@@ -235,13 +307,11 @@ namespace SenseOfDirection.GhostFreeCam
         }
 
         /// <summary>
-        /// Bakes the actual final fill/outline/shadow colors directly into
-        /// the texture (rather than tinting a single-color mask via
-        /// <see cref="Image.color"/>) since this badge needs three distinct
-        /// colors composited together - a single tint multiply can't produce
-        /// that. Texture row 0 is the bottom of the sprite (Unity's own
-        /// <c>SetPixels32</c> convention), so the shadow center is offset
-        /// toward smaller x/y to land south-west, per the reference art.
+        /// Bakes a single flat rounded-square fill directly into the texture
+        /// (rather than tinting a plain white sprite via <see cref="Image.color"/>)
+        /// so the corner radius/feather can be redone exactly on every
+        /// rebake - no outline ring or drop shadow, matching vanilla's own
+        /// flat key-badge style.
         ///
         /// Rebaked at the exact target <paramref name="aspectWidthOverHeight"/>
         /// (badge display width / <see cref="BadgeSize"/>) rather than 9-sliced
@@ -265,15 +335,9 @@ namespace SenseOfDirection.GhostFreeCam
             float halfExtentY = texHeight * 0.30f;
             float halfExtentX = halfExtentY + (texWidth - texHeight) * 0.5f;
             float cornerRadius = halfExtentY * 0.55f;
-            const float outlineThickness = 3f;
             const float feather = 1.3f;
 
-            const float shadowAngleDegrees = 30f;
-            float shadowOffset = 3f;
-            float shadowDx = shadowOffset * Mathf.Cos(shadowAngleDegrees * Mathf.Deg2Rad);
-            float shadowDy = shadowOffset * Mathf.Sin(shadowAngleDegrees * Mathf.Deg2Rad);
-            const float shadowFeather = 3f;
-            const float shadowMaxAlpha = 0.4f;
+            var fillColor = new Color(BadgeFillColor.r / 255f, BadgeFillColor.g / 255f, BadgeFillColor.b / 255f);
 
             var pixels = new Color32[texWidth * texHeight];
             for (int y = 0; y < texHeight; y++)
@@ -283,19 +347,9 @@ namespace SenseOfDirection.GhostFreeCam
                     float px = x + 0.5f;
                     float py = y + 0.5f;
 
-                    float shadowDist = RoundedBoxSdf(px, py, centerX - shadowDx, centerY - shadowDy, halfExtentX, halfExtentY, cornerRadius);
-                    float shadowAlpha = shadowMaxAlpha * Mathf.Clamp01(0.5f - shadowDist / shadowFeather);
-                    Color result = new Color(0f, 0f, 0f, shadowAlpha);
-
-                    float outlineDist = RoundedBoxSdf(px, py, centerX, centerY, halfExtentX, halfExtentY, cornerRadius);
-                    float outlineAlpha = Mathf.Clamp01(0.5f - outlineDist / feather);
-                    result = Over(new Color(BadgeOutlineColor.r / 255f, BadgeOutlineColor.g / 255f, BadgeOutlineColor.b / 255f, outlineAlpha), result);
-
-                    float fillDist = RoundedBoxSdf(px, py, centerX, centerY, halfExtentX - outlineThickness, halfExtentY - outlineThickness, cornerRadius - outlineThickness);
+                    float fillDist = RoundedBoxSdf(px, py, centerX, centerY, halfExtentX, halfExtentY, cornerRadius);
                     float fillAlpha = Mathf.Clamp01(0.5f - fillDist / feather);
-                    result = Over(new Color(BadgeFillColor.r / 255f, BadgeFillColor.g / 255f, BadgeFillColor.b / 255f, fillAlpha), result);
-
-                    pixels[y * texWidth + x] = result;
+                    pixels[y * texWidth + x] = new Color(fillColor.r, fillColor.g, fillColor.b, fillAlpha);
                 }
             }
 
@@ -312,20 +366,6 @@ namespace SenseOfDirection.GhostFreeCam
             float outsideX = Mathf.Max(qx, 0f);
             float outsideY = Mathf.Max(qy, 0f);
             return Mathf.Sqrt(outsideX * outsideX + outsideY * outsideY) + Mathf.Min(Mathf.Max(qx, qy), 0f) - radius;
-        }
-
-        /// <summary>Standard "src over dst" alpha compositing.</summary>
-        private static Color Over(Color src, Color dst)
-        {
-            float outAlpha = src.a + dst.a * (1f - src.a);
-            if (outAlpha <= 0.0001f)
-            {
-                return new Color(0f, 0f, 0f, 0f);
-            }
-
-            Color result = (src * src.a + dst * dst.a * (1f - src.a)) / outAlpha;
-            result.a = outAlpha;
-            return result;
         }
 
         /// <summary>Short, readable label for the badge - single glyph for letters/digits, otherwise a compacted <see cref="KeyCode"/> name (e.g. <c>LeftShift</c> -&gt; "Shift").</summary>

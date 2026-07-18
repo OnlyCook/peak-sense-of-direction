@@ -17,6 +17,24 @@ namespace SenseOfDirection.Labels
         public static TMP_FontAsset Font { get; private set; }
         public static Material OutlineMaterial { get; private set; }
 
+        /// <summary>
+        /// TMP's stock "LiberationSans SDF" fallback font - not a vanilla PEAK
+        /// asset, just the plain sans font already bundled with TMP (present
+        /// in <c>resources.assets</c> as TMP's own fallback), used where a
+        /// plain non-decorative font reads better than <see cref="Font"/>
+        /// (e.g. <see cref="GhostFreeCam.GhostFreeCamKeyHint"/>'s badge
+        /// letter when no <see cref="KeyboardSprites"/> glyph covers the key).
+        /// </summary>
+        public static TMP_FontAsset FallbackFont { get; private set; }
+
+        /// <summary>
+        /// Vanilla's own per-key keyboard glyph atlas (<c>InputSpriteData
+        /// .keyboardSprites</c>) - a public, always-`Resources.Load`-able
+        /// singleton asset (see <c>SingletonAsset&lt;T&gt;</c>), not
+        /// discovered by scanning live instances like <see cref="Font"/>.
+        /// </summary>
+        public static TMP_SpriteAsset KeyboardSprites { get; private set; }
+
         /// <summary>Vanilla's own player-name-label text color, e.g. for the "use plain color" fallback.</summary>
         public static Color DefaultTextColor { get; private set; } = Color.white;
 
@@ -47,6 +65,20 @@ namespace SenseOfDirection.Labels
             {
                 TryFindCampfireIcon();
             }
+            // Best-effort, not folded into the return value below - neither
+            // is required by any existing caller of TryFindAll, and both
+            // resolve trivially (KeyboardSprites via a direct Resources.Load,
+            // FallbackFont via a name match against TMP's own always-loaded
+            // stock font) so there's no real "not ready yet" case to gate on.
+            if (KeyboardSprites == null)
+            {
+                KeyboardSprites = InputSpriteData.Instance != null ? InputSpriteData.Instance.keyboardSprites : null;
+            }
+            if (FallbackFont == null)
+            {
+                TryFindFallbackFont();
+            }
+
             return Font != null && OutlineMaterial != null && HostStarSprite != null
                    && _foundDefaultTextColor && CampfireIconSprite != null;
         }
@@ -86,6 +118,19 @@ namespace SenseOfDirection.Labels
                 }
                 if (HostStarSprite != null && _foundDefaultTextColor)
                 {
+                    return;
+                }
+            }
+        }
+
+        private static void TryFindFallbackFont()
+        {
+            var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+            foreach (var font in fonts)
+            {
+                if (font.name.Contains("LiberationSans SDF"))
+                {
+                    FallbackFont = font;
                     return;
                 }
             }

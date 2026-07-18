@@ -136,6 +136,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> EnableDebugLogging;
         public readonly ConfigEntry<bool> EnableIndicatorTestHarness;
         public readonly ConfigEntry<bool> EnableZombieDebugEsp;
+        public readonly ConfigEntry<bool> EnableGhostFreeCamKeyHintPreview;
 
         public PluginConfig(ConfigFile config)
         {
@@ -786,7 +787,7 @@ namespace SenseOfDirection
                 "being overpowered.");
 
             GhostFreeCamToggleKey = config.Bind(
-                "Ghost-Free-Cam", "toggle-key", KeyCode.V,
+                "Ghost-Free-Cam", "toggle-key", KeyCode.B,
                 "Purely local. Key that toggles free-fly camera mode on/off while " +
                 "you're dead and spectating; each player binds their own. Only does " +
                 "anything while enable-ghost-free-cam ends up effectively on (see that " +
@@ -845,6 +846,13 @@ namespace SenseOfDirection
                 "naturally-spawned zombie in the level, through walls, to speed up " +
                 "testing zombie-ping detection without hunting a whole level for a " +
                 "rare spawn. Not a real feature; leave off for normal play.");
+
+            EnableGhostFreeCamKeyHintPreview = config.Bind(
+                "Debug", "enable-ghost-free-cam-key-hint-preview", false,
+                "Dev/QA aid: always shows the ghost free-cam key hint badge/label " +
+                "(toggle-key still flips it between its 'go into'/'leave' text), " +
+                "even while alive, to check its look without dying first. Not a " +
+                "real feature; leave off for normal play.");
         }
     }
 }
