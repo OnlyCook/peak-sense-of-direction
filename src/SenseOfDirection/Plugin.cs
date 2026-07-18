@@ -66,6 +66,12 @@ namespace SenseOfDirection
             // Same no-op-when-disabled pattern - internally checks EnableLuggagePing.
             _ = LuggagePingController.Instance;
 
+            // Always instantiated - clears every player label on any scene
+            // load (main menu, lobby, a run) so a label whose Character never
+            // fired OnDestroy can't stay stuck on screen forever. See its own
+            // doc comment.
+            _ = Common.SceneResetCoordinator.Instance;
+
             // Keeps the "what's pingable in this level" sweep (and every icon/
             // widget/mesh a ping needs) off the ping path itself, so pinging
             // never has to stop and build something first.

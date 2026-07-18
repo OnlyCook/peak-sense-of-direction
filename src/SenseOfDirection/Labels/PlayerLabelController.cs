@@ -133,6 +133,72 @@ namespace SenseOfDirection.Labels
             }
         }
 
+        /// <summary>
+        /// Called by <see cref="Common.SceneResetCoordinator"/> on every scene
+        /// load - unconditionally clears every currently tracked label,
+        /// whether or not its <c>Character</c> ever fired
+        /// <see cref="UnregisterCharacter"/> on its own (see that class's own
+        /// doc comment for why one can slip through). Fades every label out
+        /// over <see cref="ResetFadeDurationSeconds"/> first rather than
+        /// destroying them this same frame, so one still visible right as the
+        /// new scene loads eases away instead of popping off. Safe to call
+        /// with nothing tracked (e.g. a scene load with no stale labels at
+        /// all) - it's then a no-op.
+        /// </summary>
+        public void ResetAll()
+        {
+            if (_entries.Count == 0)
+            {
+                return;
+            }
+            StartCoroutine(FadeOutAndClearAll(new List<Character>(_entries.Keys)));
+        }
+
+        private const float ResetFadeDurationSeconds = 0.25f;
+
+        private System.Collections.IEnumerator FadeOutAndClearAll(List<Character> characters)
+        {
+            var labels = new List<PlayerLabel>();
+            foreach (Character character in characters)
+            {
+                if (_entries.TryGetValue(character, out Entry entry))
+                {
+                    labels.Add(entry.Label);
+                }
+            }
+
+            // Unscaled, matching PlayerLabel.Refresh's own fade - a scene load
+            // can happen with the game paused/frozen, and a scaled delta would
+            // be zero there, turning this into an instant pop instead of a fade.
+            float elapsed = 0f;
+            while (elapsed < ResetFadeDurationSeconds)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float alpha = 1f - Mathf.Clamp01(elapsed / ResetFadeDurationSeconds);
+                foreach (PlayerLabel label in labels)
+                {
+                    // Min, not a direct set: a label already more faded than
+                    // this (e.g. it was fading out on its own right as the
+                    // reset began) should keep heading to 0 on its own curve,
+                    // not visibly pop back up towards this one's.
+                    label.Alpha = Mathf.Min(label.Alpha, alpha);
+                }
+                yield return null;
+            }
+
+            foreach (Character character in characters)
+            {
+                if (_entries.TryGetValue(character, out Entry entry))
+                {
+                    IndicatorManager.Instance.UnregisterAnchor(entry.Label.Anchor);
+                    entry.Label.Destroy();
+                    _entries.Remove(character);
+                }
+            }
+
+            _skeletonEsp?.Clear();
+        }
+
         private void Update()
         {
             NativeAssets.TryFindAll();

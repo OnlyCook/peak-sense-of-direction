@@ -58,7 +58,7 @@ Config file: `BepInEx/config/OnlyCook.SenseOfDirection.cfg`.
 
 <summary><b>View config information</b></summary>
 
-If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/ModConfig/) installed, every setting below is also editable in the game's settings under **Mod Settings → Sense of Direction**, no need to touch the config file by hand. Easiest way to get an overview and tweak things visually, is the **F8** quick setup panel described above though (but it doesn't contain everything).
+If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/ModConfig/) installed, every setting below is also editable in the game's settings under **Mod Settings → Sense of Direction**, no need to touch the config file by hand. Easiest way to get an overview and tweak things visually, is the `F8` quick setup panel described above though (but it doesn't contain everything).
 
 - **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, the quick setup panel's key (`F8`).
 - **Fonts**: separate size multipliers for on-screen, off-screen, and compass text.
@@ -71,7 +71,7 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 - **Compass**: master switch, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color and thickness, and whether it requires holding an in-game compass item.
 - **Pirate-Compass**: luggage indicator toggle, name/distance display, off-screen indicator.
 - **Luggage-Ping**: master switch, key (default `T`), radius, duration, cooldown (optional).
-- **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **V**), move speed and sprint multiplier, crosshair, key hint, and hiding every ghost from your own view.
+- **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default `V`), move speed and sprint multiplier, crosshair, key hint, and hiding every ghost from your own view.
 - **Debug**: verbose logging, plus a couple of QA-only toggles. Please keep logging on when reporting issues.
 
 </details>

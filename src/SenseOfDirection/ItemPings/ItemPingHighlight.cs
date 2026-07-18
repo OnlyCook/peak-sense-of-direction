@@ -45,6 +45,7 @@ namespace SenseOfDirection.ItemPings
         private ItemPingWidget _widget;
         private float _remainingSeconds;
         private bool _endingEarly;
+        private bool _fadeStarted;
 
         /// <summary>Full label ("COCONUT" / "3x COCONUT"), and the bare count ("3x", null for a single target) that's left of it when the name itself is suppressed - see <see cref="_currentLabel"/>.</summary>
         private string _currentDisplayName;
@@ -110,6 +111,20 @@ namespace SenseOfDirection.ItemPings
             }
             highlight._remainingSeconds = durationSeconds;
             highlight._widget = ItemPingWidget.Rent(highlight.GetGroupCenter, color, enableArrow);
+
+            // Belt-and-suspenders alongside the OnDestroy fix above: every
+            // other anchor owner in this mod (PlayerLabelController,
+            // CampfireIndicatorController, ZombieDebugEsp) gates IsActive on
+            // a plain Unity-null check of the thing it tracks, so
+            // IndicatorManager never calls GetWorldPosition on something
+            // already gone. This one never had that gate, which is exactly
+            // why a missing OnDestroy turned into a silent per-frame
+            // exception (GetGroupCenter's fallback touches this now-
+            // destroyed instance's own transform) instead of just a hidden
+            // widget - keeping it means a future gap in this class's own
+            // cleanup fails safe (widget quietly hides) instead of failing
+            // loud (frozen sticker + spammed errors).
+            highlight._widget.Anchor.IsActive = () => highlight != null;
 
             highlight._widget.Anchor.CompassKind = CompassMarkerKind.ItemPing;
             highlight._widget.Anchor.GetPlacement = () => Plugin.Instance.Cfg.ItemPingPlacement.Value;
@@ -266,9 +281,53 @@ namespace SenseOfDirection.ItemPings
         private void BeginFadeOut()
         {
             _endingEarly = true;
+            StartFade();
+            Destroy(gameObject, 1f);
+        }
+
+        /// <summary>
+        /// The actual fade-start work, split out of <see cref="BeginFadeOut"/>
+        /// so <see cref="OnDestroy"/> can trigger the exact same cleanup - see
+        /// its own doc comment for why that's needed. <see cref="_fadeStarted"/>
+        /// makes it safe to call twice: <see cref="BeginFadeOut"/>'s own
+        /// <c>Destroy(gameObject, 1f)</c> means <see cref="OnDestroy"/> always
+        /// runs a second later regardless, and it must no-op then rather than
+        /// starting a second fade over a widget the first one already handed
+        /// back to its pool.
+        /// </summary>
+        private void StartFade()
+        {
+            if (_fadeStarted)
+            {
+                return;
+            }
+            _fadeStarted = true;
             OnFadeStart?.Invoke();
             PingWidgetFadeOut.Begin(_widget.CanvasGroup, _widget.Anchor);
-            Destroy(gameObject, 1f);
+        }
+
+        /// <summary>
+        /// Safety net for being torn down some way other than this class's own
+        /// <see cref="BeginFadeOut"/> - chiefly a scene unload (leaving a run
+        /// through the gate, returning to the airport, quitting to the main
+        /// menu), which destroys this GameObject directly with no further
+        /// <see cref="Update"/> to ever notice the targets are gone/the timer
+        /// ran out and start the fade itself. Without this, the widget - built
+        /// under <see cref="Indicators.IndicatorManager"/>'s own
+        /// <c>DontDestroyOnLoad</c> canvas, so it outlives the scene unload
+        /// that just destroyed this highlight - was left registered forever
+        /// with nothing left alive to ever unregister it: its position getter
+        /// is a delegate bound to this (now-destroyed) instance, so
+        /// recomputing it every frame started throwing instead of updating,
+        /// freezing the widget exactly where it last was - permanently stuck
+        /// item-ping icons/labels on the compass and off-screen indicators,
+        /// surviving all the way into the main menu. <see cref="PingWidgetLink"/>
+        /// (regular, non-item pings) already had this same handler, which is
+        /// why only item/luggage pings ever showed the bug.
+        /// </summary>
+        private void OnDestroy()
+        {
+            StartFade();
         }
     }
 }

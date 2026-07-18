@@ -175,6 +175,19 @@ namespace SenseOfDirection.Labels
         }
 
         /// <summary>
+        /// Direct read/write of the label's own fade alpha, bypassing the
+        /// targetAlpha <see cref="Refresh"/> would otherwise drive it towards.
+        /// Only <see cref="PlayerLabelController.ResetAll"/> uses the setter,
+        /// to ease a label out on a scene load rather than destroying it
+        /// outright while still visible.
+        /// </summary>
+        public float Alpha
+        {
+            get => _canvasGroup.alpha;
+            set => _canvasGroup.alpha = value;
+        }
+
+        /// <summary>
         /// Updates text/colors/icon visibility/fade for the current frame.
         /// Font size, font asset/material, and the show-distance/show-badges
         /// toggles are all re-applied every call (cheap) rather than baked

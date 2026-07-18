@@ -367,7 +367,38 @@ the same anti-spam/ghost-ping gating the ping itself already went through.
   `duration-seconds` countdown (reset by `Refresh` on a merge),
   early fade-out the instant every target in its group stops being valid.
   Reuses `Pings/PingWidgetFadeOut` unchanged (it only needs a
-  `CanvasGroup`/`IndicatorAnchor` pair).
+  `CanvasGroup`/`IndicatorAnchor` pair). `OnDestroy` (added after a real
+  "pinged items/luggage stick around forever, even into the main menu" bug
+  report) starts that same fade regardless of *why* this GameObject died -
+  not just its own voluntary `BeginFadeOut`/`Destroy(gameObject, 1f)` path.
+  Root cause: this highlight is scene-scoped, but its widget lives under
+  `Indicators/IndicatorManager.cs`'s own `DontDestroyOnLoad` canvas - a real
+  Unity scene unload (leaving a run through the gate, returning to the
+  airport, quitting to the main menu) destroys this GameObject directly with
+  no further `Update()` to ever notice the targets are gone/the timer ran
+  out and start the fade itself, leaving the widget registered forever with
+  nothing left alive to unregister it (its position getter is a delegate
+  bound to this now-destroyed instance, so recomputing it every frame threw
+  instead of updating, freezing the widget exactly where it last was).
+  `Pings/PingWidgetLink.cs` (regular, non-item pings) already had this same
+  `OnDestroy` handler, which is why only item/luggage pings ever showed the
+  bug. A `_fadeStarted` guard makes the shared fade-start logic
+  (`StartFade`) idempotent, since `BeginFadeOut`'s own delayed
+  `Destroy(gameObject, 1f)` always runs `OnDestroy` a second later too.
+  `Spawn` now also sets `Anchor.IsActive = () => highlight != null` -
+  every other anchor owner in this mod (`PlayerLabelController`,
+  `CampfireIndicatorController`, `ZombieDebugEsp`) already gates `IsActive`
+  on a plain Unity-null check of the thing it tracks, and this was the one
+  that didn't; that gap is exactly why a missing `OnDestroy` turned into a
+  silent per-frame exception (`GetGroupCenter`'s zero-valid-targets fallback
+  touches this now-destroyed instance's own `transform`) instead of just a
+  hidden widget. Belt-and-suspenders alongside the `OnDestroy` fix: a future
+  gap in this class's own cleanup now fails safe (widget quietly hides)
+  instead of failing loud (frozen sticker + spammed errors). As a side
+  effect, `ItemPingSpawner.ActiveByTarget`'s registry entries (previously
+  only ever dropped via the voluntary fade path) are now reliably cleaned up
+  on every highlight destruction too, since `OnFadeStart` fires from the new
+  `OnDestroy` path as well.
 
 **Ray-based item-hitbox assist (physics-independent):**
 `ItemPingDetector.FindNear` also accepts an approximate aim ray
@@ -729,6 +760,28 @@ RESEARCH.md's license table) — nothing here is copied from it.
   the vanilla stamina bar, that holds briefly then fades - feedback for a
   key-press that would otherwise silently do nothing while on cooldown,
   easily mistaken for the key not working at all.
+
+### `Common/SceneResetCoordinator.cs` (ad hoc addition, done — ISSUES.md "labels stuck forever" bug fix)
+
+Singleton `MonoBehaviour` (same `DontDestroyOnLoad`/lazy-`Instance` pattern as
+every other controller) that subscribes to `SceneManager.sceneLoaded` once
+and calls `Labels.PlayerLabelController.ResetAll()` on every scene load - main
+menu, lobby, a run, all of them. Root cause of the bug: `PlayerLabelController`
+only ever drops a tracked `Character` via `Character.OnDestroy`
+(`Labels/PlayerLabelPatches.cs`) - a character that carries over a scene
+change without that firing left its label frozen (visible or not) with
+nothing left to ever unregister it, observed both leaving a run back to the
+lobby and leaving all the way out to the main menu. Every other controller
+owning a persistent anchor already self-heals every frame by re-deriving its
+own tracked target and tearing itself down once it disappears
+(`CampfireIndicator/CampfireIndicatorController.cs`,
+`PirateCompass/PirateCompassLuggageIndicatorController.cs`) - only the
+player-label roster needed an explicit sweep like this.
+`PlayerLabelController.ResetAll()` fades every tracked label out over 0.25s
+(unscaled, same reasoning as `PlayerLabel.Refresh`'s own fade) before
+unregistering/destroying it, so one still visible right as the new scene
+loads eases away instead of popping off - `PlayerLabel.Alpha` is a small
+direct read/write added for this one caller only.
 
 ### Not yet built
 
