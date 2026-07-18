@@ -59,6 +59,7 @@ namespace SenseOfDirection
 
         public readonly ConfigEntry<bool> EnableCampfireIndicator;
         public readonly ConfigEntry<bool> ShowCampfireDistance;
+        public readonly ConfigEntry<bool> HideCampfireName;
 
         public readonly ConfigEntry<bool> RemoveVisibilityCutoff;
         public readonly ConfigEntry<bool> EnablePingScaling;
@@ -351,6 +352,12 @@ namespace SenseOfDirection
             ShowCampfireDistance = config.Bind(
                 "Campfire", "show-distance", true,
                 "Show the distance sub-line under the campfire indicator.");
+
+            HideCampfireName = config.Bind(
+                "Campfire", "hide-name", true,
+                "Never show the campfire's name label (\"Campfire\") on the compass. " +
+                "On by default since the icon alone already makes it obvious which " +
+                "marker is the campfire.");
 
             // ---- Pings. remove-visibility-cutoff is bound first because it's
             // the foundation the rest of this section sits on: with it off,
@@ -722,12 +729,15 @@ namespace SenseOfDirection
             // never sent to other players, unlike a real ping.
             EnableLuggagePing = config.Bind(
                 "Luggage-Ping", "enable-luggage-ping", true,
-                "Master switch: press key below to highlight every unopened luggage " +
-                "within radius-meters of you, visible only to yourself.");
+                "Master switch: press LUGGAGE PING KEY below to highlight every " +
+                "unopened luggage within the set radius (100m by default) of you, " +
+                "visible only to yourself. Comes with a cooldown by default (15s) " +
+                "which is able to be changed through the mod's config, the same " +
+                "goes for the radius.");
 
             LuggagePingKey = config.Bind(
                 "Luggage-Ping", "key", KeyCode.T,
-                "Key that triggers a luggage ping.");
+                "Key that triggers a luggage ping (see above) if enabled and not on a cooldown.");
 
             LuggagePingRadiusMeters = config.Bind(
                 "Luggage-Ping", "radius-meters", 100f,

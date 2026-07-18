@@ -61,7 +61,7 @@ namespace SenseOfDirection.CampfireIndicator
 
                     _widget.Anchor.CompassKind = CompassMarkerKind.Campfire;
                     _widget.Anchor.GetPlacement = () => Plugin.Instance.Cfg.CampfirePlacement.Value;
-                    _widget.Anchor.GetCompassLabel = () => "Campfire";
+                    _widget.Anchor.GetCompassLabel = () => Plugin.Instance.Cfg.HideCampfireName.Value ? null : CampfireLocalization.Name;
 
                     IndicatorManager.Instance.RegisterAnchor(_widget.Anchor);
                 }

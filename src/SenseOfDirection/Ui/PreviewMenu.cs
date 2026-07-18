@@ -519,6 +519,7 @@ namespace SenseOfDirection.Ui
                     cfg.EnableItemPings, cfg.ItemPingPlacement, cfg.ItemPingDurationSeconds, cfg.EnableItemPingGrouping,
                     cfg.EnableCreaturePings, cfg.UseNativeItemPingIcons, cfg.ItemPingNameMode,
                     cfg.ShowItemPingDistance, cfg.EnableItemPingOffScreenIndicator,
+                    cfg.EnableLuggagePing, cfg.LuggagePingKey,
                 },
             });
 
@@ -528,6 +529,7 @@ namespace SenseOfDirection.Ui
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnableCampfireIndicator, cfg.CampfirePlacement, cfg.ShowCampfireDistance,
+                    cfg.HideCampfireName,
                 },
             });
 

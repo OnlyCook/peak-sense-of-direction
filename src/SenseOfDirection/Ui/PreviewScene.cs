@@ -1110,6 +1110,7 @@ namespace SenseOfDirection.Ui
             anchor.GetPlacement = () => Plugin.Instance.Cfg.CampfirePlacement.Value;
             anchor.IsActive = () => Plugin.Instance.Cfg.EnableCampfireIndicator.Value;
             anchor.IsCompassVisible = () => Plugin.Instance.Cfg.EnableCampfireIndicator.Value;
+            anchor.GetCompassLabel = () => Plugin.Instance.Cfg.HideCampfireName.Value ? null : CampfireLocalization.Name;
 
             _indicators.RegisterAnchor(anchor);
         }

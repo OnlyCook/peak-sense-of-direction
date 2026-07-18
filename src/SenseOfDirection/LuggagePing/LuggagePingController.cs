@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using SenseOfDirection.Common;
 using SenseOfDirection.ItemPings;
+using SenseOfDirection.Ui;
 using UnityEngine;
 
 namespace SenseOfDirection.LuggagePing
@@ -41,6 +42,23 @@ namespace SenseOfDirection.LuggagePing
 
         private bool _keyWasDown;
 
+        /// <summary>
+        /// Set the instant a rebind starts capturing input and held until the
+        /// (possibly newly-assigned) key is next seen physically up. Needed
+        /// because <see cref="KeyRebindControl"/> assigns the new
+        /// <see cref="KeyCode"/> from the same keypress it captured - that key
+        /// is still physically held down for at least the rest of that press,
+        /// so without this, the frame capturing ends would otherwise see a
+        /// fresh "just pressed" edge on the very key that was just bound and
+        /// fire a ping immediately. Requiring one real release first (rather
+        /// than just masking the trigger while <c>IsCapturing</c> is true)
+        /// also covers the key having changed identity mid-rebind, which a
+        /// same-key mask alone can't - <see cref="_keyWasDown"/> was tracking
+        /// the *old* key's state, so a switch to a different key that happens
+        /// to already be held would otherwise still read as a fresh edge too.
+        /// </summary>
+        private bool _suppressUntilKeyUp;
+
         /// <summary><see cref="Time.time"/> of the last successful ping, or negative infinity before the first one - so the very first press of a session is never itself blocked by the cooldown.</summary>
         private float _lastPingTime = float.NegativeInfinity;
 
@@ -52,6 +70,7 @@ namespace SenseOfDirection.LuggagePing
             if (!cfg.EnableLuggagePing.Value || local == null)
             {
                 _keyWasDown = false;
+                _suppressUntilKeyUp = false;
                 return;
             }
 
@@ -60,8 +79,26 @@ namespace SenseOfDirection.LuggagePing
             // Input Manager can silently miss a key-down edge when another key
             // (e.g. a WASD movement key) is already held that same frame.
             KeyCode key = cfg.LuggagePingKey.Value;
-            bool keyDownNow = key != KeyCode.None && Input.GetKey(key);
-            if (keyDownNow && !_keyWasDown)
+            bool physicallyDown = key != KeyCode.None && Input.GetKey(key);
+
+            if (KeyRebindControl.IsCapturing)
+            {
+                _keyWasDown = physicallyDown;
+                _suppressUntilKeyUp = true;
+                return;
+            }
+
+            if (_suppressUntilKeyUp)
+            {
+                _keyWasDown = physicallyDown;
+                if (!physicallyDown)
+                {
+                    _suppressUntilKeyUp = false;
+                }
+                return;
+            }
+
+            if (physicallyDown && !_keyWasDown)
             {
                 float cooldown = cfg.LuggagePingCooldownSeconds.Value;
                 float remaining = cooldown - (Time.time - _lastPingTime);
@@ -78,7 +115,7 @@ namespace SenseOfDirection.LuggagePing
                     TriggerPing(cfg, local);
                 }
             }
-            _keyWasDown = keyDownNow;
+            _keyWasDown = physicallyDown;
         }
 
         private static void TriggerPing(PluginConfig cfg, Character local)
