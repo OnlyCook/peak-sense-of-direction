@@ -452,7 +452,27 @@ namespace SenseOfDirection.ItemPings
                 if (MapHandler.ExistsAndInitialized)
                 {
                     Campfire campfire = MapHandler.CurrentCampfire;
-                    if (campfire != null && campfire.gameObject.activeInHierarchy && Matches(campfire.transform.position, itemRadiusSq))
+                    // Only an unlit campfire can be deliberately item-pinged
+                    // (a lit one has nothing left to "find" - the player's
+                    // already there). Without this check, a lit campfire
+                    // still caught pings landing anywhere within its radius
+                    // even though there was no way to intentionally target
+                    // it, since CampfireIndicatorController already gives it
+                    // a permanent edge indicator regardless of ping state.
+                    // Matched against luggageRadiusSq, not itemRadiusSq - same
+                    // "bigger target" forgiveness given to luggage/creatures
+                    // above, since an unlit campfire's own structure is far
+                    // larger than a hand-sized item.
+                    bool campfireMatched = campfire != null && !campfire.Lit && campfire.gameObject.activeInHierarchy
+                        && Matches(campfire.transform.position, luggageRadiusSq);
+                    if (Plugin.Instance.Cfg.EnableDebugLogging.Value && campfire != null)
+                    {
+                        Plugin.Instance.Log.LogInfo(
+                            $"ItemPingDetector: campfire check - lit={campfire.Lit} state={campfire.state} " +
+                            $"pointDist={Vector3.Distance(campfire.transform.position, point):F2} " +
+                            $"luggageRadius={luggageRadiusUnits:F2} matches={campfireMatched}");
+                    }
+                    if (campfireMatched)
                     {
                         Add(campfire.gameObject, () => campfire.transform.position, () => "Campfire",
                             () => NativeAssets.CampfireIconSprite);

@@ -201,13 +201,38 @@ namespace SenseOfDirection.Pings
                         // of it) resolves first. Closed/unopened luggage is left
                         // exactly as before: it falls through to the plain
                         // nearest-hit branch below, so it still pings normally.
+                        bool debugLog = cfg.EnableDebugLogging.Value;
+                        if (debugLog)
+                        {
+                            _log?.LogInfo($"TryGetPingHitPrefix: sphereRadiusUnits={sphereRadiusUnits:F2} hitCount={hitCount}");
+                        }
+
                         RaycastHit? deferredLuggage = null;
                         for (int i = 0; i < hitCount; i++)
                         {
                             RaycastHit candidate = hits[i];
                             Collider col = candidate.collider;
+
+                            if (debugLog)
+                            {
+                                Campfire dbgCampfire = col.GetComponentInParent<Campfire>();
+                                string dbgCampfireInfo = dbgCampfire != null
+                                    ? $" [Campfire lit={dbgCampfire.Lit} state={dbgCampfire.state} dist={Vector3.Distance(candidate.point, dbgCampfire.transform.position):F2}]"
+                                    : string.Empty;
+                                _log?.LogInfo($"  hit[{i}]: {col.name} (root: {col.transform.root.name}) dist={candidate.distance:F2}{dbgCampfireInfo}");
+                            }
+
                             if (IsLocalHandOrHeldItem(col))
                             {
+                                continue;
+                            }
+
+                            if (IsLitCampfireCollider(col))
+                            {
+                                if (debugLog)
+                                {
+                                    _log?.LogInfo($"  hit[{i}]: skipped as lit campfire collider (transparent while lit)");
+                                }
                                 continue;
                             }
 
@@ -231,6 +256,10 @@ namespace SenseOfDirection.Pings
                             {
                                 hit = candidate;
                                 __result = true;
+                                if (debugLog)
+                                {
+                                    _log?.LogInfo($"  -> selected hit[{i}] (item) at {candidate.point}");
+                                }
                                 return false;
                             }
 
@@ -241,12 +270,20 @@ namespace SenseOfDirection.Pings
                             // luggage is pingable when directly pinging it" case.
                             hit = deferredLuggage ?? candidate;
                             __result = true;
+                            if (debugLog)
+                            {
+                                _log?.LogInfo($"  -> selected hit[{i}] (solid occluder{(deferredLuggage != null ? ", deferred luggage" : string.Empty)}) at {hit.point}, collider={col.name}");
+                            }
                             return false;
                         }
 
                         if (deferredLuggage != null)
                         {
                             hit = deferredLuggage.Value;
+                            if (debugLog)
+                            {
+                                _log?.LogInfo($"  -> selected deferred luggage hit at {hit.point}");
+                            }
                             __result = true;
                             return false;
                         }
@@ -315,6 +352,29 @@ namespace SenseOfDirection.Pings
         {
             Luggage luggage = collider.GetComponentInParent<Luggage>();
             return luggage != null && luggage.IsOpen;
+        }
+
+        /// <summary>
+        /// True whenever this collider belongs to a lit campfire - made
+        /// fully transparent to the hit-selection loop below, not just to
+        /// the spherecast's forgiveness radius. First attempt only skipped
+        /// it for sphere-assisted (non-direct-ray) hits, on the assumption a
+        /// literal ray hit meant a real aim - but the campfire's own
+        /// lighting-interaction collider is generous/wide by design, so a
+        /// *direct* ray hit anywhere near it was still common and, before
+        /// this, still absorbed the ping as a solid occluder, blocking
+        /// anything actually sitting behind the campfire from ever being hit
+        /// (confirmed via live testing: an unlit campfire correctly let pings
+        /// through to whatever was behind it, but a lit one always ate the
+        /// hit, direct or not). Since <see cref="ItemPingDetector"/> already
+        /// refuses to label a lit campfire as a pinged target at all, there's
+        /// nothing lost by never letting its collider stop a cast - it's
+        /// simply not part of the ping hitbox once lit.
+        /// </summary>
+        private static bool IsLitCampfireCollider(Collider collider)
+        {
+            Campfire campfire = collider.GetComponentInParent<Campfire>();
+            return campfire != null && campfire.Lit;
         }
 
         /// <summary>
