@@ -19,13 +19,14 @@ Fully localized in all 14 languages the game ships with: English, Français, Ita
 - **Campfire indicator**: always know which way the next campfire is
 - **Ghost free-cam**: dead/unconscious players get a free-flying camera instead of being locked to a teammate's view, so they can scout ahead and still ping hazards/loot for alive players
 - **Label overlap prevention** (on by default): nudges labels apart so they don't stack into an unreadable pile
+- **Luggage area ping**: press **`T`** to show all unopened luggage within 100m temporarily, has a 15s cooldown
 - **Pirate's Compass support**: holding one shows you the nearest unopened luggage visually (you can also set that you must hold any compass item for the compass ui to appear)
 
 <img width="808" height="152" alt="compass" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/compass.png?raw=true" />
 
 ## Quick setup panel
 
-> Open with `F8` at any time.
+> Open with **`F8`** at any time.
 
 Every visual setting laid out over a live preview of what it actually does, fully translated with explanations, updating in real time as you change it. No dependencies needed. Most (but not all) settings are editable here, if something seems missing check the mod's config directly, ghost free-cam options in particular are there only.
 
@@ -35,7 +36,7 @@ Every visual setting laid out over a live preview of what it actually does, full
 
 <img width="800" height="449" alt="ghost-free-cam" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/ghost-free-cam.gif?raw=true" />
 
-Press `V` while dead to fly around freely instead of being stuck spectating a teammate. Combine it with ghost pinging (works automatically) to scout ahead and ping dangers, loot or better paths for whoever's still alive. How limited dead players are, decides the host (50m within the spectating player by default).
+Press **`B`** while dead to fly around freely instead of being stuck spectating a teammate. Combine it with ghost pinging (works automatically) to scout ahead and ping dangers, loot or better paths for whoever's still alive. How limited dead players are, decides the host (50m within the spectating player by default).
 
 ## Notes
 
@@ -54,20 +55,20 @@ Config file: `BepInEx/config/OnlyCook.SenseOfDirection.cfg`.
 
 <summary><b>View config information</b></summary>
 
-If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/ModConfig/) installed, every setting below is also editable in the game's settings under **Mod Settings → Sense of Direction**, no need to touch the config file by hand. Easiest way to get an overview and tweak things visually, is the `F8` quick setup panel described above though (but it doesn't contain everything).
+If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/ModConfig/) installed, every setting below is also editable in the game's settings under **Mod Settings → Sense of Direction**, no need to touch the config file by hand. Easiest way to get an overview and tweak things visually, is the **`F8`** quick setup panel described above though (but it doesn't contain everything).
 
-- **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, the quick setup panel's key (`F8`).
+- **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, the quick setup panel's key (**`F8`**).
 - **Fonts**: separate size multipliers for on-screen, off-screen, and compass text.
-- **Player-Labels**: master switch, toggle key (default `G`), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
-- **Campfire**: master switch and whether to show distance.
+- **Player-Labels**: master switch, toggle key (default **`G`**), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
+- **Campfire**: master switch, show distance label, and hide name label.
 - **Pings**: distance scaling and its multiplier, the color ripple, off-screen indicator, distance label, and ghost pinging.
 - **Ping-Audio**: audio boost toggle, range, minimum distance, and volume multiplier.
 - **Ping-Anti-Spam**: how many pings are free before slow-mode kicks in, the slow-mode interval, queue length, and reset timing.
 - **Item-Pings**: master switch, highlight duration, grouping, creature pings, native icons, name mode, distance, and off-screen indicator, plus separate detection radii and hit/ray assist for landing pings on hard-to-hit items.
 - **Compass**: master switch, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color and thickness, and whether it requires holding an in-game compass item.
 - **Pirate-Compass**: luggage indicator toggle, name/distance display, off-screen indicator.
-- **Luggage-Ping**: master switch, key (default `T`), radius, duration, cooldown (optional).
-- **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default `V`), move speed and sprint multiplier, crosshair, key hint, and hiding every ghost from your own view.
+- **Luggage-Ping**: master switch, key (default **`T`**), radius, duration, cooldown (optional).
+- **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **`B`**), move speed and sprint multiplier, crosshair, key hint, and hiding every ghost from your own view.
 - **Debug**: verbose logging, plus a couple of QA-only toggles. Please keep logging on when reporting issues.
 
 </details>

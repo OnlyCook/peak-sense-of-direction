@@ -1,6 +1,6 @@
 {
     "name": "Sense_of_Direction",
-    "version_number": "1.0.1",
+    "version_number": "1.0.2",
     "website_url": "https://github.com/OnlyCook/peak-sense-of-direction",
     "description": "The only mod for directions you'll ever need! Includes: player labels, better pings, item pings, compass, ghost free-cam and more",
     "dependencies": [
