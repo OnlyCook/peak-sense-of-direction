@@ -403,9 +403,10 @@ namespace SenseOfDirection
 
             EnableGhostPing = config.Bind(
                 "Pings", "enable-ghost-ping", true,
-                "Let dead players keep pinging as ghosts (vanilla blocks pinging once " +
-                "dead), colored using their own character color same as when alive. " +
-                "Requires both sides to have this mod installed.");
+                "Let dead or unconscious players keep pinging (vanilla blocks pinging " +
+                "once passed out, well before actual death), colored using their own " +
+                "character color same as when alive. Requires both sides to have this " +
+                "mod installed.");
 
             // ---- Ping audio: its own section rather than four more keys in
             // Pings, since all four are inert unless the boost is on.

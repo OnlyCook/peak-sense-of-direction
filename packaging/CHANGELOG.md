@@ -1,6 +1,8 @@
 ## 1.0.3
 
 - Fixed camera getting stuck/frozen on becoming unconscious when [PEAKSleepTalk](https://thunderstore.io/c/peak/p/Lokno/PEAKSleepTalk) is installed (or similar mods) and not being able to spectate other players anymore. This also fixes the ghost free-cam not working when said mod is installed.
+- Now you can ping while in ghost free-cam mode and unconscious.
+- 'E' / 'Q' to ascend/descend respectively now do not work while unconscious (to stop unintended behavior as the 'E' key speeds up the dying process).
 
 ## 1.0.2
 

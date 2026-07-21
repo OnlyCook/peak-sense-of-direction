@@ -315,7 +315,7 @@ namespace SenseOfDirection.GhostFreeCam
             camTransform.rotation = _lastRotation;
 
             ApplyLook(camTransform);
-            ApplyMovement(camTransform, cfg);
+            ApplyMovement(camTransform, cfg, local);
 
             Vector3 anchor = spec.GetSpectatePosition();
             if (!unlimited)
@@ -374,15 +374,27 @@ namespace SenseOfDirection.GhostFreeCam
             camTransform.rotation = Quaternion.Euler(_pitch, _yaw, 0f);
         }
 
-        private static void ApplyMovement(Transform camTransform, PluginConfig cfg)
+        /// <summary>
+        /// While merely unconscious (<c>fullyPassedOut</c> but not yet
+        /// <c>dead</c>), <c>E</c> is vanilla's own key to speed up dying (and
+        /// <c>Q</c> sits right next to it) - free-cam must not read either
+        /// key at all in that state, or a player flying around during that
+        /// window could accidentally hasten their own death just by using
+        /// the up/down flight keys. Space/Ctrl remain available throughout,
+        /// including once actually dead, so vertical movement still works
+        /// for a full ghost.
+        /// </summary>
+        private static void ApplyMovement(Transform camTransform, PluginConfig cfg, Character local)
         {
+            bool unconsciousNotDead = local.data.fullyPassedOut && !local.data.dead;
+
             Vector3 moveInput = Vector3.zero;
             if (Input.GetKey(KeyCode.W)) moveInput += Vector3.forward;
             if (Input.GetKey(KeyCode.S)) moveInput += Vector3.back;
             if (Input.GetKey(KeyCode.A)) moveInput += Vector3.left;
             if (Input.GetKey(KeyCode.D)) moveInput += Vector3.right;
-            if (Input.GetKey(KeyCode.Space) || Input.GetKey(KeyCode.E)) moveInput += Vector3.up;
-            if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.Q)) moveInput += Vector3.down;
+            if (Input.GetKey(KeyCode.Space) || (!unconsciousNotDead && Input.GetKey(KeyCode.E))) moveInput += Vector3.up;
+            if (Input.GetKey(KeyCode.LeftControl) || (!unconsciousNotDead && Input.GetKey(KeyCode.Q))) moveInput += Vector3.down;
 
             if (moveInput.sqrMagnitude <= 0f)
             {

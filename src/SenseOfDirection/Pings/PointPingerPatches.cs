@@ -382,7 +382,15 @@ namespace SenseOfDirection.Pings
         /// on (RESEARCH.md Q9) - a prefix replacing the conditional rather
         /// than an index-based IL transpiler like the GhostPing reference mod
         /// used, since a transpiler is fragile against any PEAK update that
-        /// reorders this property's IL.
+        /// reorders this property's IL. Also covers a merely-unconscious
+        /// player (<c>fullyPassedOut</c> but not yet <c>dead</c>) - vanilla's
+        /// own <c>canPing</c> gates on <c>fullyConscious</c>
+        /// (RESEARCH.md Q3), which is already false the moment someone goes
+        /// down, well before actual death - so this is the same bypass, just
+        /// triggered a stage earlier, matching the same window
+        /// <c>GhostFreeCam/GhostFreeCamPatches.cs</c> already lets a player
+        /// free-cam in (that also gates on <c>fullyPassedOut</c>, not
+        /// <c>dead</c>).
         /// </summary>
         private static bool CanPingGetterPrefix(PointPinger __instance, ref bool __result)
         {
@@ -390,7 +398,7 @@ namespace SenseOfDirection.Pings
             {
                 return true;
             }
-            if (__instance.character == null || !__instance.character.data.dead)
+            if (__instance.character == null || !(__instance.character.data.dead || __instance.character.data.fullyPassedOut))
             {
                 return true;
             }
