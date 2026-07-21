@@ -69,6 +69,39 @@ namespace SenseOfDirection.GhostFreeCam
         /// <summary>Player's toggle intent - reset to false whenever they stop being eligible (revived, no valid spectate target, or the host has ghost free-cam off).</summary>
         private static bool _active;
 
+        /// <summary>
+        /// Consecutive frames <c>local.data.fullyPassedOut</c> has read false
+        /// since it last read true. Some third-party mods (e.g. PEAKSleepTalk's
+        /// <c>CharacterVoiceHandler.Update</c>/<c>AnimatedMouth.ProcessMicData</c>
+        /// patches, which let passed-out players keep talking) transiently
+        /// flip <c>CharacterData.passedOut</c>/<c>.fullyPassedOut</c> to
+        /// <see langword="false"/> and back to <see langword="true"/> within a
+        /// single method call every frame - normally fully contained within
+        /// Unity's Update phase, well before this postfix (which runs in
+        /// LateUpdate) ever observes it. But if such a mod throws between its
+        /// own prefix and postfix (a bad interaction with a *third* mod, a
+        /// game-version mismatch in what it patches, etc.) the restore never
+        /// happens and <c>fullyPassedOut</c> can read false for one or more
+        /// stray frames despite the player still actually being passed
+        /// out/dead. Reacting to that immediately would incorrectly
+        /// <see cref="Disengage"/> (dropping <see cref="_active"/> and hiding
+        /// the key hint) for however long the flicker lasts. Requiring a
+        /// short run of consecutive false reads before treating the player as
+        /// no-longer-eligible absorbs single-frame flicker like this without
+        /// meaningfully delaying real re-conscious/revive transitions (which
+        /// hold false indefinitely, not for one frame).
+        /// </summary>
+        private static int _notFullyPassedOutStreak;
+
+        private const int NotFullyPassedOutStreakToDisengage = 3;
+
+        private static float _lastDiagLogTime;
+
+        /// <summary>Set once <see cref="Compatibility.SleepTalkCompat"/> has run - deferred to the first LateUpdate postfix call (rather than <see cref="Apply"/> itself) so every other mod's own Awake, including PEAKSleepTalk's <c>harmony.PatchAll()</c>, has already had a chance to run first; BepInEx finishes all plugins' Awake before any MonoBehaviour Update/LateUpdate ever fires.</summary>
+        private static bool _compatChecked;
+
+        private static Harmony _harmony;
+
         /// <summary>Toggle state for <see cref="PluginConfig.EnableGhostFreeCamKeyHintPreview"/>'s dev/QA hint preview - kept separate from <see cref="_active"/> so the preview can't affect real free-cam engage/disengage state.</summary>
         private static bool _debugPreviewActive;
 
@@ -91,10 +124,14 @@ namespace SenseOfDirection.GhostFreeCam
         public static void Apply(Harmony harmony, ManualLogSource log)
         {
             _log = log;
+            _harmony = harmony;
             try
             {
                 var lateUpdate = AccessTools.Method(typeof(MainCameraMovement), "LateUpdate");
-                harmony.Patch(lateUpdate, postfix: new HarmonyMethod(typeof(GhostFreeCamPatches), nameof(LateUpdatePostfix)));
+                harmony.Patch(
+                    lateUpdate,
+                    postfix: new HarmonyMethod(typeof(GhostFreeCamPatches), nameof(LateUpdatePostfix)),
+                    finalizer: new HarmonyMethod(typeof(GhostFreeCamPatches), nameof(LateUpdateFinalizer)));
 
                 var ghostUpdate = AccessTools.Method(typeof(PlayerGhost), "Update");
                 harmony.Patch(ghostUpdate, postfix: new HarmonyMethod(typeof(GhostFreeCamPatches), nameof(GhostUpdatePostfix)));
@@ -107,6 +144,48 @@ namespace SenseOfDirection.GhostFreeCam
             {
                 log.LogError($"GhostFreeCamPatches.Apply failed (non-fatal, ghost free-cam won't work): {e}");
             }
+        }
+
+        private static float _lastThirdPartyExceptionLogTime;
+
+        /// <summary>
+        /// Harmony finalizers, unlike prefixes/postfixes, always run even
+        /// when the patched method (or another mod's own prefix/patch
+        /// somewhere in its call chain) throws - and clearing
+        /// <c>__exception</c> here tells Harmony to treat the call as having
+        /// succeeded, so <see cref="LateUpdatePostfix"/> still gets to run
+        /// afterward. Confirmed necessary via a real bug report: PEAKSleepTalk
+        /// (see <see cref="Compatibility.SleepTalkCompat"/>) had a patch on
+        /// <c>MainCameraMovement.HandleSpecSelection</c> - called from
+        /// <c>Spectate()</c>, itself only ever called once
+        /// <c>fullyPassedOut</c> is true - that caused vanilla's own
+        /// <c>LateUpdate</c> to throw every frame once a player was fully
+        /// passed out/dead, silently starving our own postfix (plain
+        /// postfixes never run when the method they're attached to threw)
+        /// and leaving the spectate camera frozen with no way to ever enter
+        /// ghost free-cam. <see cref="Compatibility.SleepTalkCompat"/> removes
+        /// that specific known-bad patch outright, but this finalizer is the
+        /// general safety net: it means *any* other mod that ever breaks
+        /// vanilla's spectate flow the same way (now or in the future) can't
+        /// take our own ghost free-cam down with it - we just lose that one
+        /// frame's vanilla spectate positioning instead, which self-corrects
+        /// next frame same as the null-spec-target case below already
+        /// handles.
+        /// </summary>
+        private static Exception LateUpdateFinalizer(Exception __exception)
+        {
+            if (__exception != null)
+            {
+                float now = Time.unscaledTime;
+                if (now - _lastThirdPartyExceptionLogTime >= 5f)
+                {
+                    _lastThirdPartyExceptionLogTime = now;
+                    _log?.LogWarning(
+                        "GhostFreeCamPatches: vanilla MainCameraMovement.LateUpdate (or another mod's patch somewhere in its call chain, e.g. HandleSpecSelection/Spectate) threw - "
+                        + $"suppressing so ghost free-cam keeps working: {__exception}");
+                }
+            }
+            return null;
         }
 
         private static void LateUpdatePostfix(MainCameraMovement __instance)
@@ -124,6 +203,12 @@ namespace SenseOfDirection.GhostFreeCam
 
         private static void LateUpdatePostfixImpl(MainCameraMovement __instance)
         {
+            if (!_compatChecked)
+            {
+                _compatChecked = true;
+                Compatibility.SleepTalkCompat.Apply(_harmony, _log);
+            }
+
             GhostFreeCamConfigSync.Tick();
 
             PluginConfig cfg = Plugin.Instance.Cfg;
@@ -143,10 +228,30 @@ namespace SenseOfDirection.GhostFreeCam
             }
 
             Character local = Character.localCharacter;
-            if (local == null || !local.data.fullyPassedOut)
+            if (local == null)
             {
+                _notFullyPassedOutStreak = NotFullyPassedOutStreakToDisengage;
                 Disengage();
                 return;
+            }
+
+            if (!local.data.fullyPassedOut)
+            {
+                _notFullyPassedOutStreak++;
+                if (_notFullyPassedOutStreak >= NotFullyPassedOutStreakToDisengage)
+                {
+                    Disengage();
+                    return;
+                }
+            }
+            else
+            {
+                _notFullyPassedOutStreak = 0;
+            }
+
+            if (cfg.EnableDebugLogging.Value)
+            {
+                LogDiagnostics(local);
             }
 
             if (Input.GetKeyDown(cfg.GhostFreeCamToggleKey.Value))
@@ -287,6 +392,32 @@ namespace SenseOfDirection.GhostFreeCam
             float sprintMultiplier = Input.GetKey(KeyCode.LeftShift) ? cfg.GhostFreeCamSprintMultiplier.Value : 1f;
             float speedUnitsPerSecond = cfg.GhostFreeCamMoveSpeedMetersPerSecond.Value / CharacterStats.unitsToMeters * sprintMultiplier;
             camTransform.position += camTransform.TransformDirection(moveInput.normalized) * speedUnitsPerSecond * Time.unscaledDeltaTime;
+        }
+
+        /// <summary>
+        /// Dev/QA-only, throttled to ~once/second: dumps the exact state this
+        /// class's own gating depends on while the local player is passed
+        /// out/dead, so a bug report that only says "ghost free-cam doesn't
+        /// work with mod X" can be matched against what actually happened
+        /// frame-to-frame (e.g. <c>specCharacter</c> going null and staying
+        /// null, <c>fullyPassedOut</c> flicker being absorbed by the debounce
+        /// above, or the camera pose genuinely not moving despite input).
+        /// </summary>
+        private static void LogDiagnostics(Character local)
+        {
+            float now = Time.unscaledTime;
+            if (now - _lastDiagLogTime < 1f)
+            {
+                return;
+            }
+            _lastDiagLogTime = now;
+
+            Character spec = MainCameraMovement.specCharacter;
+            _log?.LogInfo(
+                $"GhostFreeCam diag: dead={local.data.dead} fullyPassedOut={local.data.fullyPassedOut} "
+                + $"notFullyPassedOutStreak={_notFullyPassedOutStreak} specCharacter={(spec == null ? "null" : (spec == local ? "self" : spec.characterName))} "
+                + $"ghost={(local.Ghost == null ? "null" : "present")} active={_active} engagedLastFrame={_engagedLastFrame} "
+                + $"lastPos={_lastPosition}");
         }
 
         private static float NormalizePitch(float eulerX)
