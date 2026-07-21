@@ -6,10 +6,11 @@ namespace SenseOfDirection.Compatibility
 {
     /// <summary>
     /// PEAKSleepTalk (com.github.lokno.PEAKSleepTalk - last published 2024,
-    /// no longer maintained) patches <c>CharacterVoiceHandler.Update</c>,
-    /// <c>AnimatedMouth.ProcessMicData</c> (its actual "let passed-out
-    /// players talk" feature) and <c>MainCameraMovement.HandleSpecSelection</c>
-    /// (an <c>AllowSpectate</c>-gated tweak to who a passed-out player can
+    /// no longer maintained) patches three vanilla methods:
+    /// <c>CharacterVoiceHandler.Update</c>/<c>AnimatedMouth.ProcessMicData</c>
+    /// (its actual "let passed-out players talk" feature - harmless, and left
+    /// alone here) and <c>MainCameraMovement.HandleSpecSelection</c> (an
+    /// <c>AllowSpectate</c>-gated tweak to who a passed-out player can
     /// spectate). Confirmed via a real bug report + repro (see conversation/
     /// PR history) using diagnostic logging on both sides of
     /// <c>MainCameraMovement.LateUpdate</c>: with PEAKSleepTalk installed, a
@@ -27,15 +28,14 @@ namespace SenseOfDirection.Compatibility
     /// attached to a method changes its compiled form, which was enough to
     /// break it regardless of whether the patch's own logic ever ran.
     ///
-    /// Rather than reverse-engineer the exact JIT/IL interaction (this mod is
-    /// unmaintained upstream and the repro is clear), this surgically removes
-    /// all three patches by Harmony owner ID once PEAKSleepTalk has had a
-    /// chance to apply them - <em>only</em> patches owned by PEAKSleepTalk's
-    /// own Harmony ID are touched, so any other mod's patches on the same
-    /// methods are left alone. This does mean PEAKSleepTalk's actual feature
-    /// (letting passed-out players talk, and its optional AllowSpectate
-    /// tweak) stops doing anything while this mod is also installed - an
-    /// accepted trade-off over a permanently broken ghost cam.
+    /// Only that one patch is removed - <see cref="GhostFreeCamPatches"/>'s
+    /// own <c>LateUpdate</c> finalizer is what actually protects us from any
+    /// exception in this call chain now (belt-and-suspenders for future/other
+    /// mods), so there's no need to touch the mic-related patches at all;
+    /// they never caused the reported issue, and disabling them would break
+    /// PEAKSleepTalk's actual feature for no benefit. Only patches owned by
+    /// PEAKSleepTalk's own Harmony ID are touched, so any other mod's patches
+    /// on the same method are left alone.
     /// </summary>
     internal static class SleepTalkCompat
     {
@@ -45,10 +45,6 @@ namespace SenseOfDirection.Compatibility
         {
             try
             {
-                bool removedAny = false;
-                removedAny |= TryRemovePatches(harmony, AccessTools.Method(typeof(CharacterVoiceHandler), "Update", System.Type.EmptyTypes), log);
-                removedAny |= TryRemovePatches(harmony, AccessTools.Method(typeof(AnimatedMouth), "ProcessMicData"), log);
-
                 // PassedOutSpectatePatch: sits directly on the one vanilla
                 // method (MainCameraMovement.HandleSpecSelection, called from
                 // Spectate(), itself only ever called once fullyPassedOut is
@@ -60,11 +56,15 @@ namespace SenseOfDirection.Compatibility
                 // everyone downstream (including our own postfix on
                 // LateUpdate, which never gets a chance to run if the
                 // original throws - see GhostFreeCamPatches' own diagnostics).
-                removedAny |= TryRemovePatches(harmony, AccessTools.Method(typeof(MainCameraMovement), "HandleSpecSelection"), log);
+                // CharacterVoiceHandler.Update/AnimatedMouth.ProcessMicData
+                // are deliberately left untouched - they're PEAKSleepTalk's
+                // actual "talk while passed out" feature and were never
+                // responsible for the ghost-cam breakage.
+                bool removedAny = TryRemovePatches(harmony, AccessTools.Method(typeof(MainCameraMovement), "HandleSpecSelection"), log);
 
                 if (removedAny)
                 {
-                    log.LogInfo("SleepTalkCompat: removed PEAKSleepTalk's CharacterVoiceHandler.Update/AnimatedMouth.ProcessMicData patches - they leave CharacterData.fullyPassedOut in a state that breaks vanilla spectate/ghost free-cam after death. PEAKSleepTalk's own talk-while-passed-out feature will no longer do anything.");
+                    log.LogInfo("SleepTalkCompat: removed PEAKSleepTalk's MainCameraMovement.HandleSpecSelection patch - it breaks vanilla spectate/ghost free-cam after death. Its talk-while-passed-out feature is unaffected and keeps working.");
                 }
             }
             catch (System.Exception e)

@@ -1,3 +1,7 @@
+## 1.0.3
+
+- Fixed camera getting stuck/frozen on becoming unconscious when [PEAKSleepTalk](https://thunderstore.io/c/peak/p/Lokno/PEAKSleepTalk) is installed (or similar mods) and not being able to spectate other players anymore. This also fixes the ghost free-cam not working when said mod is installed.
+
 ## 1.0.2
 
 - Default ghost free-cam keybind is now `B` (was *V* before but I didn't realize that voice chat was bound to it, mb).

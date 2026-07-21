@@ -587,6 +587,21 @@ playtest:**
   hardcoded per-language table (community-sourced, not vanilla-sourced —
   this hint has no native localization key of its own to read off of).
 
+### `Compatibility/` (third-party mod interop shims)
+
+- `SleepTalkCompat.cs` — detects PEAKSleepTalk (unmaintained) by its Harmony
+  ID and removes just its `MainCameraMovement.HandleSpecSelection` patch,
+  called lazily from `GhostFreeCamPatches`' own `LateUpdate` postfix (after
+  every mod's `Awake` has had a chance to run). That one patch broke vanilla's
+  own spectate flow for everyone once a player was fully passed out/dead,
+  silently starving `GhostFreeCamPatches`' postfix on the same method (plain
+  postfixes never run if the method they're attached to threw). Its actual
+  "talk while passed out" feature (`CharacterVoiceHandler.Update`/
+  `AnimatedMouth.ProcessMicData`) is left untouched — never responsible for
+  the bug, still works fine alongside ghost free-cam. See
+  `GhostFreeCamPatches.LateUpdateFinalizer`'s own doc comment for the general
+  (not PEAKSleepTalk-specific) safety net this pairs with.
+
 ### `Compass/` (Phase 7, done — top-of-screen compass tape)
 
 Ad hoc addition (not in the original `ROADMAP.md` phase list) requested
