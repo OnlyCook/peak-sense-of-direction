@@ -189,6 +189,9 @@ namespace SenseOfDirection.Indicators
         private readonly Dictionary<IndicatorAnchor, Vector2> _overlapBoxPosition = new Dictionary<IndicatorAnchor, Vector2>();
         private readonly Dictionary<IndicatorAnchor, Vector2> _overlapOffset = new Dictionary<IndicatorAnchor, Vector2>();
 
+        /// <summary>Per-anchor delay/speed pacing state for <see cref="ApplyResolvedOffset"/>'s own offset motion - see <see cref="OverlapAnimationPacing"/>.</summary>
+        private readonly Dictionary<IndicatorAnchor, OverlapAnimationPacing.State> _overlapPacing = new Dictionary<IndicatorAnchor, OverlapAnimationPacing.State>();
+
         /// <summary>
         /// The live instance's own full-screen overlay canvas. Called from the
         /// <see cref="Instance"/> getter rather than <c>Awake</c>, so a
@@ -229,6 +232,7 @@ namespace SenseOfDirection.Indicators
             _overlapBoxPosition.Remove(anchor);
             _overlapOffset.Remove(anchor);
             _overlapCompaction.Remove(anchor);
+            _overlapPacing.Remove(anchor);
             _transitions.Remove(anchor);
 
             if (anchor.ReleaseWidget != null)
@@ -578,7 +582,7 @@ namespace SenseOfDirection.Indicators
                     ? 1f
                     : 0f;
                 float currentCompaction = _overlapCompaction.TryGetValue(anchor, out float existingCompaction) ? existingCompaction : 0f;
-                float smoothedCompaction = Mathf.MoveTowards(currentCompaction, targetCompaction, Time.deltaTime * OverlapCompactionSpeedPerSecond);
+                float smoothedCompaction = Mathf.MoveTowards(currentCompaction, targetCompaction, Time.deltaTime * OverlapCompactionSpeedPerSecond * OverlapAnimationPacing.Multiplier);
                 _overlapCompaction[anchor] = smoothedCompaction;
                 anchor.SetLabelCompaction(smoothedCompaction);
             }
@@ -598,7 +602,12 @@ namespace SenseOfDirection.Indicators
             target.y = Mathf.Clamp(boxBase.y + target.y, -limitY, limitY) - boxBase.y;
 
             Vector2 currentOffset = _overlapOffset.TryGetValue(anchor, out Vector2 existing) ? existing : Vector2.zero;
-            Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, target, Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
+            if (!_overlapPacing.TryGetValue(anchor, out OverlapAnimationPacing.State pacing))
+            {
+                pacing = new OverlapAnimationPacing.State();
+                _overlapPacing[anchor] = pacing;
+            }
+            Vector2 smoothedOffset = OverlapAnimationPacing.Advance(currentOffset, target, OverlapOffsetSpeedPixelsPerSecond, pacing);
             _overlapOffset[anchor] = smoothedOffset;
 
             // LabelWidget (when the anchor has one) is a local (0,0)-homed child of

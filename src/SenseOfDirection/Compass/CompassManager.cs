@@ -129,6 +129,9 @@ namespace SenseOfDirection.Compass
         private readonly Dictionary<IndicatorAnchor, Vector2> _markerSize = new Dictionary<IndicatorAnchor, Vector2>();
         private readonly Dictionary<IndicatorAnchor, Vector2> _markerOverlapOffset = new Dictionary<IndicatorAnchor, Vector2>();
 
+        /// <summary>Per-anchor delay/speed pacing state for <see cref="ResolveMarkerOverlaps"/>'s own offset motion - see <see cref="Indicators.OverlapAnimationPacing"/>.</summary>
+        private readonly Dictionary<IndicatorAnchor, Indicators.OverlapAnimationPacing.State> _markerOverlapPacing = new Dictionary<IndicatorAnchor, Indicators.OverlapAnimationPacing.State>();
+
         /// <summary>Per-marker 0..1 label compaction (see <see cref="CompassMarkerWidget.SetLabelCompaction"/>), smoothed towards 1 while the marker is staggered onto a row below the tape and back to 0 when it returns to it.</summary>
         private readonly Dictionary<IndicatorAnchor, float> _markerLabelCompaction = new Dictionary<IndicatorAnchor, float>();
 
@@ -594,6 +597,7 @@ namespace SenseOfDirection.Compass
                     _markerBaseX.Remove(stale);
                     _markerSize.Remove(stale);
                     _markerOverlapOffset.Remove(stale);
+                    _markerOverlapPacing.Remove(stale);
                     _markerLabelCompaction.Remove(stale);
                     _markerPopElapsed.Remove(stale);
                 }
@@ -690,7 +694,12 @@ namespace SenseOfDirection.Compass
             {
                 IndicatorAnchor anchor = _overlapCandidates[i];
                 Vector2 currentOffset = _markerOverlapOffset.TryGetValue(anchor, out Vector2 existing) ? existing : Vector2.zero;
-                Vector2 smoothedOffset = Vector2.MoveTowards(currentOffset, targetOffsets[i], Time.deltaTime * OverlapOffsetSpeedPixelsPerSecond);
+                if (!_markerOverlapPacing.TryGetValue(anchor, out Indicators.OverlapAnimationPacing.State pacing))
+                {
+                    pacing = new Indicators.OverlapAnimationPacing.State();
+                    _markerOverlapPacing[anchor] = pacing;
+                }
+                Vector2 smoothedOffset = Indicators.OverlapAnimationPacing.Advance(currentOffset, targetOffsets[i], OverlapOffsetSpeedPixelsPerSecond, pacing);
                 _markerOverlapOffset[anchor] = smoothedOffset;
 
                 CompassMarkerWidget widget = _markers[anchor];
@@ -706,7 +715,7 @@ namespace SenseOfDirection.Compass
                 // the same rate so both finish together.
                 float targetCompaction = targetOffsets[i].y <= -MarkerRowStaggerPixels * 0.5f ? 1f : 0f;
                 float currentCompaction = _markerLabelCompaction.TryGetValue(anchor, out float existingCompaction) ? existingCompaction : 0f;
-                float smoothedCompaction = Mathf.MoveTowards(currentCompaction, targetCompaction, Time.deltaTime * LabelCompactionSpeedPerSecond);
+                float smoothedCompaction = Mathf.MoveTowards(currentCompaction, targetCompaction, Time.deltaTime * LabelCompactionSpeedPerSecond * Indicators.OverlapAnimationPacing.Multiplier);
                 _markerLabelCompaction[anchor] = smoothedCompaction;
                 widget.SetLabelCompaction(smoothedCompaction);
             }

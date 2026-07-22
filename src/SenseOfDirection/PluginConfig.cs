@@ -32,6 +32,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<IndicatorPlacement> ItemPingPlacement;
         public readonly ConfigEntry<IndicatorPlacement> PirateCompassLuggagePlacement;
         public readonly ConfigEntry<bool> EnableLabelOverlapAvoidance;
+        public readonly ConfigEntry<float> AntiOverlapAnimationSpeedMultiplier;
         public readonly ConfigEntry<KeyCode> PreviewMenuKey;
 
         public readonly ConfigEntry<float> OnScreenNameFontScale;
@@ -188,6 +189,17 @@ namespace SenseOfDirection
                 "markers) apart so they stay readable when several land on top of each " +
                 "other, instead of stacking illegibly. Off restores every label/marker " +
                 "to its exact tracked position with no nudging at all.");
+
+            AntiOverlapAnimationSpeedMultiplier = config.Bind(
+                "General", "anti-overlap-animation-speed-multiplier", 1f,
+                new ConfigDescription(
+                    "How fast overlapping labels/markers slide apart and back together " +
+                    "(enable-label-overlap-avoidance above). 1 keeps the shipped speed; " +
+                    "lower both slows the motion and adds a short delay before a label " +
+                    "starts reacting to a newly created/resolved overlap, for anyone who " +
+                    "finds this mod's labels moving around distracting. Still fully " +
+                    "smooth either way, just slower to start and to travel.",
+                    new AcceptableValueRange<float>(0.2f, 1f)));
 
             PreviewMenuKey = config.Bind(
                 "General", "preview-menu-key", KeyCode.F8,

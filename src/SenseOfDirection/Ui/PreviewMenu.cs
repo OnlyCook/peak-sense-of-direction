@@ -555,7 +555,7 @@ namespace SenseOfDirection.Ui
                 Name = strings.TabGeneral,
                 Entries = new List<ConfigEntryBase>
                 {
-                    cfg.EnableLabelOverlapAvoidance,
+                    cfg.EnableLabelOverlapAvoidance, cfg.AntiOverlapAnimationSpeedMultiplier,
                     cfg.OnScreenNameFontScale, cfg.OnScreenDistanceFontScale,
                     cfg.OffScreenNameFontScale, cfg.OffScreenDistanceFontScale,
                     cfg.CompassNameFontScale, cfg.CompassDistanceFontScale,
