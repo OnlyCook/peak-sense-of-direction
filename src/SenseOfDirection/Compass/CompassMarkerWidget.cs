@@ -498,8 +498,12 @@ namespace SenseOfDirection.Compass
             // color (matching the icon and the off-screen widget's own
             // labels - Pings.PingWidget/ItemPings.ItemPingWidget), same as
             // the ripple; player/campfire markers keep the fixed white/native
-            // look everywhere else on the compass already uses.
-            bool tintText = _kind == CompassMarkerKind.Ping || _kind == CompassMarkerKind.ItemPing;
+            // look everywhere else on the compass already uses - except
+            // players, opt-in via color-player-labels, for anyone who wants
+            // their compass name/distance labels differentiable by color too
+            // instead of relying on the (already colored) icon alone.
+            bool tintText = _kind == CompassMarkerKind.Ping || _kind == CompassMarkerKind.ItemPing
+                || (_kind == CompassMarkerKind.Player && Plugin.Instance.Cfg.CompassColorPlayerLabels.Value);
             _nameText.color = tintText ? color : Color.white;
             _distanceText.color = tintText ? color : new Color(1f, 1f, 1f, 0.9f);
             if (tintText)

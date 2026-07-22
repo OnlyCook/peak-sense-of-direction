@@ -112,6 +112,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<SenseOfDirection.Compass.CompassLineColor> CompassLineColor;
         public readonly ConfigEntry<float> CompassLineThicknessMultiplier;
         public readonly ConfigEntry<bool> CompassClampIconsToEdge;
+        public readonly ConfigEntry<bool> CompassColorPlayerLabels;
 
         public readonly ConfigEntry<bool> EnablePirateCompassLuggageIndicator;
         public readonly ConfigEntry<bool> ShowPirateCompassLuggageName;
@@ -695,6 +696,12 @@ namespace SenseOfDirection
                 "FOV window) are instead clamped to the nearest left/right edge of " +
                 "the tape and shown dimmed, like a mini radar, instead of not " +
                 "appearing at all.");
+
+            CompassColorPlayerLabels = config.Bind(
+                "Compass", "color-player-labels", false,
+                "Tint a player's name/distance labels on the compass in their own " +
+                "character color instead of plain white, matching how ping/item " +
+                "ping labels are already colored.");
 
             // ---- Pirate's Compass: the in-game Pirate's Compass item already
             // makes requires-holding-item show the compass tape while it's held
