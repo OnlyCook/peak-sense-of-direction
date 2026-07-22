@@ -335,11 +335,7 @@ namespace SenseOfDirection
             PlayerLabelBadgeSizePixels = config.Bind(
                 "Player-Labels", "badge-size-pixels", 26f,
                 new ConfigDescription(
-                    "Size of the host crown / unconscious / dead badges. Growing a " +
-                    "badge pushes it further from the name/distance text rather than " +
-                    "over it, and the label's own overlap-avoidance footprint grows " +
-                    "with it, so neighbouring labels still keep clear of the bigger " +
-                    "badge instead of it clipping into them.",
+                    "Size of the host crown / unconscious / dead badges below the player label.",
                     new AcceptableValueRange<float>(16f, 44f)));
 
             UseCharacterColor = config.Bind(
