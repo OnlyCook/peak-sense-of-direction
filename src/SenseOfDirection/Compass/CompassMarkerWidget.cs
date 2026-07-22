@@ -267,7 +267,20 @@ namespace SenseOfDirection.Compass
             // touch the shared default asset every other TMP element on
             // this default font uses. Outline color is re-applied (darkened
             // per anchor color) every Refresh() call below.
-            elevationArrow.fontMaterial.SetFloat("_OutlineWidth", 0.3f);
+            //
+            // Setting _OutlineWidth alone did nothing visually: TMP's SDF
+            // shader gates its whole outline pass behind the OUTLINE_ON
+            // keyword, which the material editor normally flips when you
+            // tick "Outline" in the Inspector - a fresh default-font material
+            // built at runtime never gets that, so the arrow rendered as a
+            // plain white glyph no matter what the outline properties were
+            // set to. NativeAssets.OutlineMaterial (used by the name/distance
+            // text below) already has this baked in since it's copied from a
+            // native game object authored with outline enabled; this material
+            // is built from scratch, so the keyword has to be turned on here.
+            Material arrowMaterial = elevationArrow.fontMaterial;
+            arrowMaterial.EnableKeyword("OUTLINE_ON");
+            arrowMaterial.SetFloat("_OutlineWidth", 0.3f);
             elevationArrow.gameObject.SetActive(false);
 
             // Home position (0,0) relative to root - CompassManager's own
@@ -556,7 +569,13 @@ namespace SenseOfDirection.Compass
                 float arrowSize = iconSizePixels * 0.85f;
                 var arrowRect = (RectTransform)_elevationArrow.transform;
                 arrowRect.sizeDelta = new Vector2(arrowSize, arrowSize);
-                arrowRect.anchoredPosition = new Vector2(iconSizePixels * 0.5f + 3f, 0f);
+                // The ↑/↓ glyph itself sits low within its own em box (most of
+                // its visual weight is above the baseline's midline), so
+                // TMP's vertical-centered alignment still reads as sitting a
+                // little below the icon's true centre - nudge it up to
+                // compensate, scaled with the arrow so it still lines up at
+                // any icon size.
+                arrowRect.anchoredPosition = new Vector2(iconSizePixels * 0.5f + 3f, arrowSize * 0.1f);
                 _elevationArrow.fontSize = arrowSize;
                 _elevationArrow.text = elevation == CompassElevation.Above ? "↑" : "↓";
                 _elevationArrow.fontMaterial.SetColor(OutlineColorProperty, outlineColor);
