@@ -601,16 +601,19 @@ namespace SenseOfDirection.Compass
                 Vector3 viewpoint = IsDetached ? camPos : CharacterPositions.LocalViewpoint();
                 float distanceMeters = Vector3.Distance(viewpoint, worldPos) * CharacterStats.unitsToMeters;
 
-                float elevationDelta = worldPos.y - camPos.y;
-                float elevationThresholdWorldUnits = cfg.CompassElevationThresholdMeters.Value / CharacterStats.unitsToMeters;
                 CompassElevation elevation = CompassElevation.None;
-                if (elevationDelta > elevationThresholdWorldUnits)
+                if (!anchor.CompassSuppressElevation)
                 {
-                    elevation = CompassElevation.Above;
-                }
-                else if (elevationDelta < -elevationThresholdWorldUnits)
-                {
-                    elevation = CompassElevation.Below;
+                    float elevationDelta = worldPos.y - camPos.y;
+                    float elevationThresholdWorldUnits = cfg.CompassElevationThresholdMeters.Value / CharacterStats.unitsToMeters;
+                    if (elevationDelta > elevationThresholdWorldUnits)
+                    {
+                        elevation = CompassElevation.Above;
+                    }
+                    else if (elevationDelta < -elevationThresholdWorldUnits)
+                    {
+                        elevation = CompassElevation.Below;
+                    }
                 }
 
                 widget.Refresh(

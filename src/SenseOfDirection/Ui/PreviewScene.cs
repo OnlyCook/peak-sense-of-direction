@@ -1111,6 +1111,10 @@ namespace SenseOfDirection.Ui
             anchor.IsActive = () => Plugin.Instance.Cfg.EnableCampfireIndicator.Value;
             anchor.IsCompassVisible = () => Plugin.Instance.Cfg.EnableCampfireIndicator.Value;
             anchor.GetCompassLabel = () => Plugin.Instance.Cfg.HideCampfireName.Value ? null : CampfireLocalization.Name;
+            // See IndicatorAnchor.CompassSuppressElevation's own doc comment:
+            // this demo point's reconstructed height is a projection-math side
+            // effect, not a real elevation worth demonstrating.
+            anchor.CompassSuppressElevation = true;
 
             _indicators.RegisterAnchor(anchor);
         }
@@ -1145,6 +1149,10 @@ namespace SenseOfDirection.Ui
             anchor.CompassKind = CompassMarkerKind.Ping;
             anchor.GetPlacement = () => Plugin.Instance.Cfg.PingPlacement.Value;
             anchor.GetCompassColor = () => CompassColor(color);
+            // See IndicatorAnchor.CompassSuppressElevation's own doc comment:
+            // this demo point's reconstructed height is a projection-math side
+            // effect, not a real elevation worth demonstrating.
+            anchor.CompassSuppressElevation = true;
 
             _indicators.RegisterAnchor(anchor);
         }

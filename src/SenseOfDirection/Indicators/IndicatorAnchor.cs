@@ -182,6 +182,21 @@ namespace SenseOfDirection.Indicators
         public CompassMarkerKind CompassKind = CompassMarkerKind.None;
 
         /// <summary>
+        /// When true, this anchor's compass marker never shows the up/down
+        /// elevation arrow, regardless of any real height difference to the
+        /// camera. Used by the config preview menu's fixed campfire/ping demo
+        /// anchors (<c>Ui.PreviewScene</c>): their world points are
+        /// reconstructed from a 2D screenshot coordinate by ray-casting a
+        /// fixed distance from the camera, which - for anything not dead
+        /// centre on screen - lands slightly above/below the camera's own
+        /// height as a side effect of the projection math, not because the
+        /// thing being demoed is actually meant to read as elevated. False
+        /// (default) for every real, live anchor, which should always show a
+        /// genuine height difference.
+        /// </summary>
+        public bool CompassSuppressElevation;
+
+        /// <summary>
         /// When true, <see cref="Compass.CompassManager.UpdateMarkers"/> snaps
         /// this anchor's marker straight to alpha 0 the instant it stops being
         /// structurally shown (<see cref="IsActive"/>/<see cref="IsCompassVisible"/>
