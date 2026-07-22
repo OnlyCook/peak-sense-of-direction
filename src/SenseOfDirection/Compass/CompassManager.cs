@@ -328,6 +328,76 @@ namespace SenseOfDirection.Compass
         /// <summary>Whether the local player is currently holding an in-game compass item of any <c>CompassPointer.CompassType</c>.</summary>
         private static bool IsHoldingCompassItem() => GetHeldCompassPointer() != null;
 
+        /// <summary>Whether the given <c>ItemSlot</c> (unequipped inventory slots only ever hold a prefab reference/data, never a live instance - see <see cref="IsDisplayModeSatisfied"/>) holds a compass item of any kind.</summary>
+        private static bool SlotHoldsCompassItem(ItemSlot slot) =>
+            slot != null && slot.prefab != null && slot.prefab.GetComponentInChildren<CompassPointer>() != null;
+
+        /// <summary>
+        /// Whether <see cref="PluginConfig.CompassDisplayMode"/>'s currently
+        /// configured condition is met for the local player right now - see
+        /// <see cref="Compass.CompassDisplayMode"/>'s own doc comment for what
+        /// each level actually requires.
+        ///
+        /// Only <see cref="CompassDisplayMode.RequireHolding"/> can use
+        /// <see cref="IsHoldingCompassItem"/> (a real, instantiated <c>Item</c>):
+        /// an inventory slot that isn't currently equipped has no live
+        /// GameObject at all, just an <c>ItemSlot.prefab</c> reference to the
+        /// original prefab asset - which still carries every component the
+        /// spawned instance would have (including <c>CompassPointer</c>), so
+        /// checking the prefab directly is exactly as accurate without needing
+        /// one to actually be spawned.
+        /// </summary>
+        private static bool IsDisplayModeSatisfied(PluginConfig cfg)
+        {
+            CompassDisplayMode mode = cfg.CompassDisplayMode.Value;
+            if (mode == CompassDisplayMode.AlwaysOn)
+            {
+                return true;
+            }
+            if (mode == CompassDisplayMode.RequireHolding)
+            {
+                return IsHoldingCompassItem();
+            }
+
+            Player player = Character.localCharacter?.player;
+            if (player == null)
+            {
+                return false;
+            }
+
+            foreach (ItemSlot slot in player.itemSlots)
+            {
+                if (SlotHoldsCompassItem(slot))
+                {
+                    return true;
+                }
+            }
+            if (SlotHoldsCompassItem(player.tempFullSlot))
+            {
+                return true;
+            }
+
+            // MainInventory stops here; Carried also checks a worn backpack's
+            // own internal storage (a separate BackpackData data entry on the
+            // backpack slot's own ItemInstanceData, not part of itemSlots at
+            // all - see BackpackData.itemSlots in the decompile).
+            if (mode == CompassDisplayMode.Carried
+                && player.backpackSlot.hasBackpack
+                && player.backpackSlot.data != null
+                && player.backpackSlot.data.TryGetDataEntry(DataEntryKey.BackpackData, out BackpackData backpackData))
+            {
+                foreach (ItemSlot slot in backpackData.itemSlots)
+                {
+                    if (SlotHoldsCompassItem(slot))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         private void Update()
         {
             NativeAssets.TryFindAll();
@@ -340,10 +410,9 @@ namespace SenseOfDirection.Compass
             // someone who came here to look at the compass. enable-compass still
             // gates it - turning the mechanic off *should* empty the preview.
             bool gatedOnPlayer = !IsDetached;
-            bool requiresHeldItem = gatedOnPlayer && cfg.CompassRequiresHoldingItem.Value;
             if (!cfg.EnableCompass.Value || camera == null
                 || (gatedOnPlayer && Character.localCharacter == null)
-                || (requiresHeldItem && !IsHoldingCompassItem()))
+                || (gatedOnPlayer && !IsDisplayModeSatisfied(cfg)))
             {
                 _root.gameObject.SetActive(false);
                 return;

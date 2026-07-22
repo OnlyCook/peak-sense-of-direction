@@ -101,6 +101,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> ItemPingRayAssistRadiusMeters;
 
         public readonly ConfigEntry<bool> EnableCompass;
+        public readonly ConfigEntry<SenseOfDirection.Compass.CompassDisplayMode> CompassDisplayMode;
         public readonly ConfigEntry<float> CompassWidthPixels;
         public readonly ConfigEntry<float> CompassMarkerGapPixels;
         public readonly ConfigEntry<float> CompassVerticalOffsetPixels;
@@ -111,7 +112,6 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> CompassShowDegreeNumbers;
         public readonly ConfigEntry<bool> CompassShowNames;
         public readonly ConfigEntry<bool> CompassShowDistances;
-        public readonly ConfigEntry<bool> CompassRequiresHoldingItem;
         public readonly ConfigEntry<SenseOfDirection.Compass.CompassLineColor> CompassLineColor;
         public readonly ConfigEntry<float> CompassLineThicknessMultiplier;
         public readonly ConfigEntry<bool> CompassClampIconsToEdge;
@@ -639,6 +639,14 @@ namespace SenseOfDirection
                 "Master switch for the top-of-screen compass tape. Off hides it " +
                 "entirely regardless of any individual mechanic's placement setting.");
 
+            CompassDisplayMode = config.Bind(
+                "Compass", "display-mode", SenseOfDirection.Compass.CompassDisplayMode.AlwaysOn,
+                "When the compass tape is shown, from least to most restrictive: " +
+                "ALWAYS ON shows it regardless of inventory. CARRIED needs a compass " +
+                "item somewhere in your inventory or stashed in a worn backpack. " +
+                "MAIN INVENTORY only counts ones in your inventory slots. HOLDING " +
+                "ITEM needs a compass item actively equipped in your hand right now.");
+
             CompassWidthPixels = config.Bind(
                 "Compass", "width-pixels", 640f,
                 new ConfigDescription(
@@ -708,12 +716,6 @@ namespace SenseOfDirection
                 "Compass", "show-distances", true,
                 "Show a distance sub-label under each compass marker.");
 
-            CompassRequiresHoldingItem = config.Bind(
-                "Compass", "requires-holding-item", false,
-                "Only show the compass tape while the local player is actually " +
-                "holding an in-game Compass item, instead of it always being " +
-                "visible.");
-
             CompassLineColor = config.Bind(
                 "Compass", "line-color", SenseOfDirection.Compass.CompassLineColor.White,
                 "Base color of the compass tape's heading ticks/labels and baseline " +
@@ -741,10 +743,11 @@ namespace SenseOfDirection
                 "ping labels are already colored.");
 
             // ---- Pirate's Compass: the in-game Pirate's Compass item already
-            // makes requires-holding-item show the compass tape while it's held
-            // (any CompassPointer-bearing item does), but the tape itself has no
-            // way to represent what that specific compass actually points at -
-            // the nearest unopened luggage. This adds a real indicator for that.
+            // makes display-mode's Holding Item level show the compass tape
+            // while it's held (any CompassPointer-bearing item does), but the
+            // tape itself has no way to represent what that specific compass
+            // actually points at - the nearest unopened luggage. This adds a
+            // real indicator for that.
             EnablePirateCompassLuggageIndicator = config.Bind(
                 "Pirate-Compass", "enable-pirate-compass-luggage-indicator", true,
                 "While holding a Pirate's Compass, show an indicator pointing at the " +

@@ -238,3 +238,63 @@ OffOnMode	ON	Japanese	オン
 OffOnMode	ON	Korean	켜짐
 OffOnMode	ON	Polish	WŁ.
 OffOnMode	ON	Turkish	AÇIK
+CompassDisplayMode	AlwaysOn	English	ALWAYS ON
+CompassDisplayMode	AlwaysOn	French	TOUJOURS ACTIVÉ
+CompassDisplayMode	AlwaysOn	Italian	SEMPRE ATTIVO
+CompassDisplayMode	AlwaysOn	German	IMMER AN
+CompassDisplayMode	AlwaysOn	SpanishSpain	SIEMPRE ACTIVADO
+CompassDisplayMode	AlwaysOn	SpanishLatam	SIEMPRE ACTIVADO
+CompassDisplayMode	AlwaysOn	BRPortuguese	SEMPRE ATIVO
+CompassDisplayMode	AlwaysOn	Russian	ВСЕГДА ВКЛ
+CompassDisplayMode	AlwaysOn	Ukrainian	ЗАВЖДИ УВІМК
+CompassDisplayMode	AlwaysOn	SimplifiedChinese	始终开启
+CompassDisplayMode	AlwaysOn	TraditionalChinese	始終開啟
+CompassDisplayMode	AlwaysOn	Japanese	常にオン
+CompassDisplayMode	AlwaysOn	Korean	항상 켜짐
+CompassDisplayMode	AlwaysOn	Polish	ZAWSZE WŁĄCZONE
+CompassDisplayMode	AlwaysOn	Turkish	HER ZAMAN AÇIK
+CompassDisplayMode	Carried	English	CARRIED
+CompassDisplayMode	Carried	French	PORTÉ
+CompassDisplayMode	Carried	Italian	PORTATO
+CompassDisplayMode	Carried	German	GETRAGEN
+CompassDisplayMode	Carried	SpanishSpain	LLEVADO
+CompassDisplayMode	Carried	SpanishLatam	LLEVADO
+CompassDisplayMode	Carried	BRPortuguese	CARREGADO
+CompassDisplayMode	Carried	Russian	ПРИ СЕБЕ
+CompassDisplayMode	Carried	Ukrainian	ПРИ СОБІ
+CompassDisplayMode	Carried	SimplifiedChinese	随身携带
+CompassDisplayMode	Carried	TraditionalChinese	隨身攜帶
+CompassDisplayMode	Carried	Japanese	所持
+CompassDisplayMode	Carried	Korean	소지 중
+CompassDisplayMode	Carried	Polish	NOSZONE
+CompassDisplayMode	Carried	Turkish	TAŞINAN
+CompassDisplayMode	MainInventory	English	MAIN INVENTORY
+CompassDisplayMode	MainInventory	French	INVENTAIRE PRINCIPAL
+CompassDisplayMode	MainInventory	Italian	INVENTARIO PRINCIPALE
+CompassDisplayMode	MainInventory	German	HAUPTINVENTAR
+CompassDisplayMode	MainInventory	SpanishSpain	INVENTARIO PRINCIPAL
+CompassDisplayMode	MainInventory	SpanishLatam	INVENTARIO PRINCIPAL
+CompassDisplayMode	MainInventory	BRPortuguese	INVENTÁRIO PRINCIPAL
+CompassDisplayMode	MainInventory	Russian	ОСНОВНОЙ ИНВЕНТАРЬ
+CompassDisplayMode	MainInventory	Ukrainian	ОСНОВНИЙ ІНВЕНТАР
+CompassDisplayMode	MainInventory	SimplifiedChinese	主要物品栏
+CompassDisplayMode	MainInventory	TraditionalChinese	主要物品欄
+CompassDisplayMode	MainInventory	Japanese	メインインベントリ
+CompassDisplayMode	MainInventory	Korean	메인 인벤토리
+CompassDisplayMode	MainInventory	Polish	GŁÓWNY EKWIPUNEK
+CompassDisplayMode	MainInventory	Turkish	ANA ENVANTER
+CompassDisplayMode	RequireHolding	English	HOLDING ITEM
+CompassDisplayMode	RequireHolding	French	OBJET EN MAIN
+CompassDisplayMode	RequireHolding	Italian	OGGETTO IN MANO
+CompassDisplayMode	RequireHolding	German	GEGENSTAND IN DER HAND
+CompassDisplayMode	RequireHolding	SpanishSpain	OBJETO EN MANO
+CompassDisplayMode	RequireHolding	SpanishLatam	OBJETO EN MANO
+CompassDisplayMode	RequireHolding	BRPortuguese	ITEM NA MÃO
+CompassDisplayMode	RequireHolding	Russian	ПРЕДМЕТ В РУКЕ
+CompassDisplayMode	RequireHolding	Ukrainian	ПРЕДМЕТ У РУЦІ
+CompassDisplayMode	RequireHolding	SimplifiedChinese	手持物品
+CompassDisplayMode	RequireHolding	TraditionalChinese	手持物品
+CompassDisplayMode	RequireHolding	Japanese	アイテムを所持中
+CompassDisplayMode	RequireHolding	Korean	아이템 소지 중
+CompassDisplayMode	RequireHolding	Polish	PRZEDMIOT W DŁONI
+CompassDisplayMode	RequireHolding	Turkish	EŞYA ELDE

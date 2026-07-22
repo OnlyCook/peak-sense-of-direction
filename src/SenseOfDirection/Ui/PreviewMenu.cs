@@ -538,11 +538,11 @@ namespace SenseOfDirection.Ui
                 Name = strings.TabCompass,
                 Entries = new List<ConfigEntryBase>
                 {
-                    cfg.EnableCompass, cfg.CompassWidthPixels, cfg.CompassFovDegrees, cfg.CompassIconSizePixels,
+                    cfg.EnableCompass, cfg.CompassDisplayMode, cfg.CompassWidthPixels, cfg.CompassFovDegrees, cfg.CompassIconSizePixels,
                     cfg.CompassMarkerGapPixels, cfg.CompassVerticalOffsetPixels, cfg.CompassHorizontalOffsetPixels,
                     cfg.CompassElevationThresholdMeters, cfg.CompassShowNames, cfg.CompassShowDistances,
                     cfg.CompassShowDegreeNumbers, cfg.CompassLineColor, cfg.CompassLineThicknessMultiplier,
-                    cfg.CompassClampIconsToEdge, cfg.CompassRequiresHoldingItem,
+                    cfg.CompassClampIconsToEdge,
                     cfg.EnablePirateCompassLuggageIndicator, cfg.PirateCompassLuggagePlacement,
                 },
             });
