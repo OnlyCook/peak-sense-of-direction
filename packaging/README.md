@@ -20,7 +20,7 @@ Fully localized in all 14 languages the game ships with: English, Français, Ita
 - **Ghost free-cam**: dead/unconscious players get a free-flying camera instead of being locked to a teammate's view, so they can scout ahead and still ping hazards/loot for alive players
 - **Label overlap prevention** (on by default): nudges labels apart so they don't stack into an unreadable pile
 - **Luggage area ping**: press **`T`** to show all unopened luggage within 100m temporarily, has a 15s cooldown
-- **Pirate's Compass support**: holding one shows you the nearest unopened luggage visually (you can also set that you must hold any compass item for the compass ui to appear)
+- **Pirate's Compass support**: holding one shows you the nearest unopened luggage visually (you can also set that you must hold/have any compass item for the compass ui to appear)
 
 <img width="808" height="152" alt="compass" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/compass.png?raw=true" />
 
@@ -57,18 +57,18 @@ Config file: `BepInEx/config/OnlyCook.SenseOfDirection.cfg`.
 
 If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/ModConfig/) installed, every setting below is also editable in the game's settings under **Mod Settings → Sense of Direction**, no need to touch the config file by hand. Easiest way to get an overview and tweak things visually, is the **`F8`** quick setup panel described above though (but it doesn't contain everything).
 
-- **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, the quick setup panel's key (**`F8`**).
+- **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, overlap avoidance animation speed, the quick setup panel's key (**`F8`**).
 - **Fonts**: separate size multipliers for on-screen, off-screen, and compass text.
-- **Player-Labels**: master switch, toggle key (default **`G`**), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
+- **Player-Labels**: master switch, toggle key (default **`G`**), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, badge icon size, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
 - **Campfire**: master switch, show distance label, and hide name label.
 - **Pings**: distance scaling and its multiplier, the color ripple, off-screen indicator, distance label, and ghost pinging.
 - **Ping-Audio**: audio boost toggle, range, minimum distance, and volume multiplier.
 - **Ping-Anti-Spam**: how many pings are free before slow-mode kicks in, the slow-mode interval, queue length, and reset timing.
 - **Item-Pings**: master switch, highlight duration, grouping, creature pings, native icons, name mode, distance, and off-screen indicator, plus separate detection radii and hit/ray assist for landing pings on hard-to-hit items.
-- **Compass**: master switch, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color and thickness, and whether it requires holding an in-game compass item.
+- **Compass**: master switch, whether a compass item is required, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color, thickness, keep player label color.
 - **Pirate-Compass**: luggage indicator toggle, name/distance display, off-screen indicator.
 - **Luggage-Ping**: master switch, key (default **`T`**), radius, duration, cooldown (optional).
-- **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **`B`**), move speed and sprint multiplier, crosshair, key hint, and hiding every ghost from your own view.
+- **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **`B`**), move speed and sprint multiplier, crosshair, key hint, secondary ascend/descend keybinds, and hiding every ghost from your own view.
 - **Debug**: verbose logging, plus a couple of QA-only toggles. Please keep logging on when reporting issues.
 
 </details>
