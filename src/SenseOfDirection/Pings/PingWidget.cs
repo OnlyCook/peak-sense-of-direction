@@ -197,6 +197,10 @@ namespace SenseOfDirection.Pings
 
         public void Refresh(float distanceMeters, bool showDistance)
         {
+            // Live config value, so re-applied every frame rather than baked in
+            // at creation - see PluginConfig.IndicatorIconSizeMultiplier.
+            _arrow.sizeDelta = OffScreenArrow.DartSize * Plugin.Instance.Cfg.IndicatorIconSizeMultiplier.Value;
+
             if (NativeAssets.Font != null && _distanceText.font != NativeAssets.Font)
             {
                 // Voids the cached width below - the same string renders at a

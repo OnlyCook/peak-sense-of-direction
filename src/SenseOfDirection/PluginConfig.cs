@@ -33,6 +33,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<IndicatorPlacement> PirateCompassLuggagePlacement;
         public readonly ConfigEntry<bool> EnableLabelOverlapAvoidance;
         public readonly ConfigEntry<float> AntiOverlapAnimationSpeedMultiplier;
+        public readonly ConfigEntry<float> IndicatorIconSizeMultiplier;
         public readonly ConfigEntry<KeyCode> PreviewMenuKey;
 
         public readonly ConfigEntry<float> OnScreenNameFontScale;
@@ -51,6 +52,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> PlayerLabelDistanceFontSize;
         public readonly ConfigEntry<bool> ShowPlayerLabelDistance;
         public readonly ConfigEntry<bool> ShowStatusBadges;
+        public readonly ConfigEntry<float> PlayerLabelBadgeSizePixels;
         public readonly ConfigEntry<bool> UseCharacterColor;
         public readonly ConfigEntry<bool> ReplaceVanillaLabels;
         public readonly ConfigEntry<bool> ShowPlayerSkeleton;
@@ -201,6 +203,17 @@ namespace SenseOfDirection
                     "smooth either way, just slower to start and to travel.",
                     new AcceptableValueRange<float>(0.2f, 1f)));
 
+            IndicatorIconSizeMultiplier = config.Bind(
+                "General", "indicator-icon-size-multiplier", 1f,
+                new ConfigDescription(
+                    "Scales the size of every on-/off-screen indicator icon: the ping " +
+                    "hand's off-screen arrow, item pings' on-screen crosshair/off-screen " +
+                    "arrow (native item icons included) and the campfire icon. 1 keeps " +
+                    "the shipped size. Does not affect the compass, the compass has its " +
+                    "own icon-size-pixels, or player label badges, which have their own " +
+                    "badge-size-pixels below.",
+                    new AcceptableValueRange<float>(0.5f, 2f)));
+
             PreviewMenuKey = config.Bind(
                 "General", "preview-menu-key", KeyCode.F8,
                 "Key that opens the in-game settings menu: every visual setting in " +
@@ -316,6 +329,16 @@ namespace SenseOfDirection
             ShowStatusBadges = config.Bind(
                 "Player-Labels", "show-status-badges", true,
                 "Show the host crown / unconscious / dead badges on each label.");
+
+            PlayerLabelBadgeSizePixels = config.Bind(
+                "Player-Labels", "badge-size-pixels", 26f,
+                new ConfigDescription(
+                    "Size of the host crown / unconscious / dead badges. Growing a " +
+                    "badge pushes it further from the name/distance text rather than " +
+                    "over it, and the label's own overlap-avoidance footprint grows " +
+                    "with it, so neighbouring labels still keep clear of the bigger " +
+                    "badge instead of it clipping into them.",
+                    new AcceptableValueRange<float>(16f, 44f)));
 
             UseCharacterColor = config.Bind(
                 "Player-Labels", "use-character-color", true,

@@ -236,7 +236,7 @@ namespace SenseOfDirection.Labels
                 label.Refresh(
                     character.characterName, distanceMeters, isHost, isDead, isUnconscious,
                     nameColor, cfg.PlayerLabelNameFontSize.Value, cfg.PlayerLabelDistanceFontSize.Value, targetAlpha,
-                    cfg.ShowPlayerLabelDistance.Value, cfg.ShowStatusBadges.Value);
+                    cfg.ShowPlayerLabelDistance.Value, cfg.ShowStatusBadges.Value, cfg.PlayerLabelBadgeSizePixels.Value);
             }
         }
 

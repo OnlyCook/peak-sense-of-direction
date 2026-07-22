@@ -495,7 +495,7 @@ namespace SenseOfDirection.Ui
                     cfg.EnablePlayerLabels, cfg.PlayerLabelPlacement, cfg.PlayerLabelDisplayMode,
                     cfg.PlayerLabelToggleKey, cfg.HoldShownDuration,
                     cfg.PlayerLabelMaxDistanceMeters, cfg.PlayerLabelNameFontSize, cfg.PlayerLabelDistanceFontSize,
-                    cfg.ShowPlayerLabelDistance, cfg.ShowStatusBadges, cfg.UseCharacterColor,
+                    cfg.ShowPlayerLabelDistance, cfg.ShowStatusBadges, cfg.PlayerLabelBadgeSizePixels, cfg.UseCharacterColor,
                     cfg.ReplaceVanillaLabels, cfg.ShowPlayerSkeleton,
                 },
             });
@@ -555,7 +555,7 @@ namespace SenseOfDirection.Ui
                 Name = strings.TabGeneral,
                 Entries = new List<ConfigEntryBase>
                 {
-                    cfg.EnableLabelOverlapAvoidance, cfg.AntiOverlapAnimationSpeedMultiplier,
+                    cfg.EnableLabelOverlapAvoidance, cfg.AntiOverlapAnimationSpeedMultiplier, cfg.IndicatorIconSizeMultiplier,
                     cfg.OnScreenNameFontScale, cfg.OnScreenDistanceFontScale,
                     cfg.OffScreenNameFontScale, cfg.OffScreenDistanceFontScale,
                     cfg.CompassNameFontScale, cfg.CompassDistanceFontScale,

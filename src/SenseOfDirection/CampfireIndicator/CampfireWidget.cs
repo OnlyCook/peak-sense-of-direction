@@ -150,6 +150,15 @@ namespace SenseOfDirection.CampfireIndicator
                 }
             }
 
+            // Live config value (PluginConfig.IndicatorIconSizeMultiplier), so
+            // re-applied every frame rather than baked in at creation.
+            float iconSize = 28f * Plugin.Instance.Cfg.IndicatorIconSizeMultiplier.Value;
+            _iconImage.rectTransform.sizeDelta = new Vector2(iconSize, iconSize);
+            foreach (Image outline in _outlineImages)
+            {
+                outline.rectTransform.sizeDelta = new Vector2(iconSize, iconSize);
+            }
+
             if (NativeAssets.Font != null && _distanceText.font != NativeAssets.Font)
             {
                 _distanceText.font = NativeAssets.Font;
@@ -169,16 +178,18 @@ namespace SenseOfDirection.CampfireIndicator
                 _distanceText.text = $"{Mathf.RoundToInt(distanceMeters)}m";
             }
 
-            // Box measured from what's actually drawn (28px icon, plus the
+            // Box measured from what's actually drawn (the icon, plus the
             // distance line hanging below it at -22) rather than a fixed guess,
             // so it neither invents collisions with a neighbour it's clear of nor
-            // misses one it isn't. Icon top is +14, distance line bottom -34,
-            // so the box doesn't sit centred on the tracked point.
-            float top = 14f;
-            float bottom = showDistance ? -34f : -14f;
+            // misses one it isn't. Icon top/bottom scale with iconSize above, so
+            // a bigger icon (indicator-icon-size-multiplier) still gets a
+            // correctly-sized overlap footprint instead of clipping a neighbour.
+            float iconHalf = iconSize * 0.5f;
+            float top = iconHalf;
+            float bottom = showDistance ? -(iconHalf + 20f) : -iconHalf;
             float width = showDistance
-                ? Mathf.Max(28f, _distanceText.GetPreferredValues().x + 12f)
-                : 28f;
+                ? Mathf.Max(iconSize, _distanceText.GetPreferredValues().x + 12f)
+                : iconSize;
 
             Anchor.OverlapSize = new Vector2(width, top - bottom);
             Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);

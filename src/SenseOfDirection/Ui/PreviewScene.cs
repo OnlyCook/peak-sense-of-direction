@@ -1401,7 +1401,8 @@ namespace SenseOfDirection.Ui
                 nameColor, cfg.PlayerLabelNameFontSize.Value, cfg.PlayerLabelDistanceFontSize.Value,
                 targetAlpha,
                 showDistance: cfg.ShowPlayerLabelDistance.Value,
-                showBadges: cfg.ShowStatusBadges.Value);
+                showBadges: cfg.ShowStatusBadges.Value,
+                badgeSizePixels: cfg.PlayerLabelBadgeSizePixels.Value);
         }
 
         /// <summary>

@@ -33,9 +33,12 @@ namespace SenseOfDirection.Labels
         private readonly TMP_Text _nameText;
         private readonly TMP_Text _distanceText;
         private readonly GameObject _hostIcon;
+        private readonly RectTransform _hostIconRect;
         private readonly Image _hostIconImage;
         private readonly GameObject _deadIcon;
+        private readonly RectTransform _deadIconRect;
         private readonly GameObject _unconsciousIcon;
+        private readonly RectTransform _unconsciousIconRect;
 
         /// <summary>Vanilla's own fade rate (`Time.deltaTime * 5f`), matched here (UIPlayerNames.UpdateName).</summary>
         private const float FadeSpeedPerSecond = 5f;
@@ -54,19 +57,20 @@ namespace SenseOfDirection.Labels
         /// <summary>Horizontal breathing room added to the measured text width.</summary>
         private const float OverlapPaddingPixels = 12f;
 
-        /// <summary>Half of the 26px status badge, used to place the overlap box's lower edge around it.</summary>
-        private const float StatusBadgeHalfPixels = 13f;
-
         /// <summary>
-        /// The dead/unconscious status badge's Y position. It hangs below the
-        /// distance sub-line when that's shown, but tucks directly under the
-        /// name when the distance line is hidden - otherwise it floats in the
-        /// empty slot the missing line left behind (ISSUES.md: the badge's
-        /// height/position must be dynamic, not fixed, so the label doesn't
-        /// leave a gap - and neither does its overlap-avoidance hitbox).
+        /// The host crown badge's own inner (bottom) edge Y, and the status
+        /// badge's own inner (top) edge Y with/without the distance line -
+        /// i.e. the edge facing the name/distance text, which stays put as
+        /// <c>badge-size-pixels</c> changes so a bigger badge grows outward,
+        /// away from the text, rather than over it. Each badge's actual
+        /// anchored Y is this inner edge plus/minus half its current size -
+        /// see <see cref="Refresh"/>. Derived from the original fixed 26px
+        /// badge layout (host Y=29, status Y=-35/-20, half=13): 29-13=16,
+        /// -35+13=-22, -20+13=-7.
         /// </summary>
-        private const float StatusBadgeYWithDistance = -35f;
-        private const float StatusBadgeYWithoutDistance = -20f;
+        private const float HostBadgeInnerEdgeY = 16f;
+        private const float StatusBadgeInnerEdgeYWithDistance = -22f;
+        private const float StatusBadgeInnerEdgeYWithoutDistance = -7f;
 
         private PlayerLabel(
             RectTransform root, CanvasGroup canvasGroup,
@@ -80,9 +84,12 @@ namespace SenseOfDirection.Labels
             _nameText = nameText;
             _distanceText = distanceText;
             _hostIcon = hostIcon;
+            _hostIconRect = (RectTransform)hostIcon.transform;
             _hostIconImage = hostIconImage;
             _deadIcon = deadIcon;
+            _deadIconRect = (RectTransform)deadIcon.transform;
             _unconsciousIcon = unconsciousIcon;
+            _unconsciousIconRect = (RectTransform)unconsciousIcon.transform;
 
             // OverlapSize/OverlapCenterOffset are refined every Refresh() call
             // below to what's actually rendered - a fixed 220x90 claimed the
@@ -199,7 +206,7 @@ namespace SenseOfDirection.Labels
         public void Refresh(
             string name, float distanceMeters, bool isHost, bool isDead, bool isUnconscious,
             Color nameColor, float nameFontSize, float distanceFontSize, float targetAlpha,
-            bool showDistance, bool showBadges)
+            bool showDistance, bool showBadges, float badgeSizePixels)
         {
             if (NativeAssets.Font != null && _nameText.font != NativeAssets.Font)
             {
@@ -233,13 +240,26 @@ namespace SenseOfDirection.Labels
             _deadIcon.SetActive(showBadges && isDead);
             _unconsciousIcon.SetActive(showBadges && !isDead && isUnconscious);
 
+            // Live config value, so re-applied every frame rather than baked in
+            // at creation - see PluginConfig.PlayerLabelBadgeSizePixels. Grows
+            // outward from its own inner (text-facing) edge rather than from
+            // its centre, so a bigger badge pushes further from the name/
+            // distance text instead of drawing over it - see the *InnerEdgeY
+            // constants' own doc comment.
+            float badgeHalf = badgeSizePixels * 0.5f;
+            var badgeSize = new Vector2(badgeSizePixels, badgeSizePixels);
+            _hostIconRect.sizeDelta = badgeSize;
+            _deadIconRect.sizeDelta = badgeSize;
+            _unconsciousIconRect.sizeDelta = badgeSize;
+            _hostIconRect.anchoredPosition = new Vector2(0f, HostBadgeInnerEdgeY + badgeHalf);
+
             // Move the status badge up to sit directly under the name when the
             // distance line isn't there to sit under, so it doesn't hang in the
             // gap the hidden line would have filled (both visually and in the
             // overlap-avoidance box below).
-            float statusBadgeY = showDistance ? StatusBadgeYWithDistance : StatusBadgeYWithoutDistance;
-            ((RectTransform)_deadIcon.transform).anchoredPosition = new Vector2(0f, statusBadgeY);
-            ((RectTransform)_unconsciousIcon.transform).anchoredPosition = new Vector2(0f, statusBadgeY);
+            float statusBadgeY = (showDistance ? StatusBadgeInnerEdgeYWithDistance : StatusBadgeInnerEdgeYWithoutDistance) - badgeHalf;
+            _deadIconRect.anchoredPosition = new Vector2(0f, statusBadgeY);
+            _unconsciousIconRect.anchoredPosition = new Vector2(0f, statusBadgeY);
 
             // Unscaled: the preview menu freezes the game while it's open, and a
             // scaled delta is zero there - the labels would snap between shown and
@@ -247,7 +267,7 @@ namespace SenseOfDirection.Labels
             // to show honestly. In play the two are the same thing.
             _canvasGroup.alpha = Mathf.MoveTowards(_canvasGroup.alpha, targetAlpha, Time.unscaledDeltaTime * FadeSpeedPerSecond);
 
-            RefreshOverlapBox(showDistance, showBadges && isHost, showBadges && (isDead || isUnconscious), statusBadgeY);
+            RefreshOverlapBox(showDistance, showBadges && isHost, showBadges && (isDead || isUnconscious), statusBadgeY, badgeHalf);
         }
 
         /// <summary>
@@ -263,7 +283,7 @@ namespace SenseOfDirection.Labels
         /// at -5 - which means the box is <em>not</em> centred on the tracked
         /// point, hence the centre offset.
         /// </summary>
-        private void RefreshOverlapBox(bool showDistance, bool showHostBadge, bool showStatusBadge, float statusBadgeY)
+        private void RefreshOverlapBox(bool showDistance, bool showHostBadge, bool showStatusBadge, float statusBadgeY, float badgeHalf)
         {
             float width = _nameText.GetPreferredValues().x;
             if (showDistance)
@@ -271,11 +291,11 @@ namespace SenseOfDirection.Labels
                 width = Mathf.Max(width, _distanceText.GetPreferredValues().x);
             }
 
-            float top = showHostBadge ? 42f : 25f;
+            float top = showHostBadge ? HostBadgeInnerEdgeY + badgeHalf * 2f : 25f;
             float bottom;
             if (showStatusBadge)
             {
-                bottom = statusBadgeY - StatusBadgeHalfPixels;
+                bottom = statusBadgeY - badgeHalf;
             }
             else if (showDistance)
             {

@@ -371,7 +371,13 @@ namespace SenseOfDirection.ItemPings
             {
                 _crosshairImage.sprite = crosshairSprite;
             }
-            float crosshairSize = nativeIcon != null ? NativeIconSizePixels : CrosshairSizePixels;
+            // Live config value (PluginConfig.IndicatorIconSizeMultiplier), so
+            // re-applied every frame rather than baked in - everything below
+            // that derives from crosshairSize (the distance line's drop, the
+            // overlap box) already reads it live too, so scaling it here is
+            // enough to cascade through the rest of this widget's layout.
+            float iconSizeMultiplier = Plugin.Instance.Cfg.IndicatorIconSizeMultiplier.Value;
+            float crosshairSize = (nativeIcon != null ? NativeIconSizePixels : CrosshairSizePixels) * iconSizeMultiplier;
             _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
             _crosshairImage.color = nativeIcon != null ? Color.white : _color;
 
@@ -402,9 +408,9 @@ namespace SenseOfDirection.ItemPings
             {
                 _arrowImage.sprite = arrowSprite;
             }
-            _arrow.sizeDelta = nativeIcon != null
+            _arrow.sizeDelta = (nativeIcon != null
                 ? new Vector2(NativeIconSizePixels, NativeIconSizePixels)
-                : ItemArrowSize;
+                : ItemArrowSize) * iconSizeMultiplier;
             _arrowImage.color = nativeIcon != null ? Color.white : _color;
             if (Anchor != null)
             {
