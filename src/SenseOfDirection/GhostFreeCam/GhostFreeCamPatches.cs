@@ -28,13 +28,19 @@ namespace SenseOfDirection.GhostFreeCam
     /// tuned against real gameplay feel. Movement was also far slower than
     /// its `force`/`drag` fields suggest it should be. Rather than fight
     /// unowned vanilla tuning/input plumbing, this is now a small bespoke
-    /// flight controller: WASD + Space/Ctrl + Shift-to-sprint movement
-    /// driven directly in real-world meters/second, and mouse look reusing
-    /// PEAK's own already-sampled <c>CharacterInput.lookInput</c> (kept
-    /// live even while dead - <c>Character.CanDoInput()</c> only checks for
-    /// a blocking GUI/wheel, not alive/dead state) scaled by the player's
-    /// actual in-game Mouse/Controller Sensitivity and Invert X/Y settings
-    /// (<see cref="ApplyLook"/>), mirroring vanilla's own
+    /// flight controller: move/jump/crouch/sprint driven directly in real-
+    /// world meters/second off PEAK's own already-sampled
+    /// <c>CharacterInput.movementInput</c>/<c>jumpIsPressed</c>/
+    /// <c>crouchIsPressed</c>/<c>sprintIsPressed</c> (kept live even while
+    /// dead - <c>Character.CanDoInput()</c> only checks for a blocking GUI/
+    /// wheel, not alive/dead state), so it automatically follows whatever
+    /// the player has bound those to in PEAK's own Controls settings rather
+    /// than assuming WASD/Space/Ctrl/Shift (<see cref="ApplyMovement"/>) -
+    /// plus two extra mod-only up/down keys with no vanilla action to read
+    /// (E/Q by default, <c>ascend-key</c>/<c>descend-key</c>). Mouse look
+    /// reuses <c>CharacterInput.lookInput</c> the same way, scaled by the
+    /// player's actual in-game Mouse/Controller Sensitivity and Invert X/Y
+    /// settings (<see cref="ApplyLook"/>), mirroring vanilla's own
     /// <c>CharacterMovement.CameraLook()</c> formula exactly - deliberately
     /// *not* a separate free-cam-only sensitivity setting, since dialing in
     /// one more sensitivity value on top of everyone's already-different
@@ -375,33 +381,51 @@ namespace SenseOfDirection.GhostFreeCam
         }
 
         /// <summary>
+        /// Forward/strafe, jump and sprint all read <c>local.input</c> - the
+        /// same live-while-dead <c>CharacterInput</c> instance <see
+        /// cref="ApplyLook"/> already reads <c>lookInput</c> from (see that
+        /// method's own doc comment) - rather than hardcoded <c>KeyCode</c>s,
+        /// so free-cam automatically follows whatever the player has bound
+        /// Move Forward/Back/Left/Right, Jump, Crouch and Sprint to in
+        /// PEAK's own Controls settings instead of assuming WASD/Space/Ctrl/
+        /// Shift. <c>ascend-key</c>/<c>descend-key</c> are the one exception:
+        /// they're this mod's own extra convenience keys (E/Q by default,
+        /// stacking on top of jump/crouch), with no vanilla action of their
+        /// own to read, so those two stay plain <c>Input.GetKey</c> reads of
+        /// their own <c>ConfigEntry&lt;KeyCode&gt;</c>.
+        ///
         /// While merely unconscious (<c>fullyPassedOut</c> but not yet
-        /// <c>dead</c>), <c>E</c> is vanilla's own key to speed up dying (and
-        /// <c>Q</c> sits right next to it) - free-cam must not read either
-        /// key at all in that state, or a player flying around during that
-        /// window could accidentally hasten their own death just by using
-        /// the up/down flight keys. Space/Ctrl remain available throughout,
+        /// <c>dead</c>), the ascend/descend keys are ignored entirely - E/Q
+        /// default there are vanilla's own keys to speed up dying, and a
+        /// player flying around during that window must not be able to
+        /// accidentally hasten their own death just by using the free-cam's
+        /// extra up/down keys. Jump/crouch remain available throughout,
         /// including once actually dead, so vertical movement still works
         /// for a full ghost.
         /// </summary>
         private static void ApplyMovement(Transform camTransform, PluginConfig cfg, Character local)
         {
+            if (local.input == null)
+            {
+                return;
+            }
+
             bool unconsciousNotDead = local.data.fullyPassedOut && !local.data.dead;
 
-            Vector3 moveInput = Vector3.zero;
-            if (Input.GetKey(KeyCode.W)) moveInput += Vector3.forward;
-            if (Input.GetKey(KeyCode.S)) moveInput += Vector3.back;
-            if (Input.GetKey(KeyCode.A)) moveInput += Vector3.left;
-            if (Input.GetKey(KeyCode.D)) moveInput += Vector3.right;
-            if (Input.GetKey(KeyCode.Space) || (!unconsciousNotDead && Input.GetKey(KeyCode.E))) moveInput += Vector3.up;
-            if (Input.GetKey(KeyCode.LeftControl) || (!unconsciousNotDead && Input.GetKey(KeyCode.Q))) moveInput += Vector3.down;
+            Vector2 movement = local.input.movementInput;
+            Vector3 moveInput = Vector3.forward * movement.y + Vector3.right * movement.x;
+
+            bool ascendKeyHeld = !unconsciousNotDead && cfg.GhostFreeCamAscendKey.Value != KeyCode.None && Input.GetKey(cfg.GhostFreeCamAscendKey.Value);
+            bool descendKeyHeld = !unconsciousNotDead && cfg.GhostFreeCamDescendKey.Value != KeyCode.None && Input.GetKey(cfg.GhostFreeCamDescendKey.Value);
+            if (local.input.jumpIsPressed || ascendKeyHeld) moveInput += Vector3.up;
+            if (local.input.crouchIsPressed || descendKeyHeld) moveInput += Vector3.down;
 
             if (moveInput.sqrMagnitude <= 0f)
             {
                 return;
             }
 
-            float sprintMultiplier = Input.GetKey(KeyCode.LeftShift) ? cfg.GhostFreeCamSprintMultiplier.Value : 1f;
+            float sprintMultiplier = local.input.sprintIsPressed ? cfg.GhostFreeCamSprintMultiplier.Value : 1f;
             float speedUnitsPerSecond = cfg.GhostFreeCamMoveSpeedMetersPerSecond.Value / CharacterStats.unitsToMeters * sprintMultiplier;
             camTransform.position += camTransform.TransformDirection(moveInput.normalized) * speedUnitsPerSecond * Time.unscaledDeltaTime;
         }

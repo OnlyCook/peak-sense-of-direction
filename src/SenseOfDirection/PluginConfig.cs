@@ -136,6 +136,8 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> GhostFreeCamSprintMultiplier;
         public readonly ConfigEntry<bool> GhostFreeCamShowCrosshair;
         public readonly ConfigEntry<bool> GhostFreeCamShowKeyHint;
+        public readonly ConfigEntry<KeyCode> GhostFreeCamAscendKey;
+        public readonly ConfigEntry<KeyCode> GhostFreeCamDescendKey;
         public readonly ConfigEntry<bool> HideAllGhosts;
 
         public readonly ConfigEntry<bool> EnableDebugLogging;
@@ -853,13 +855,16 @@ namespace SenseOfDirection
                     "in dev free-camera controller (reused for the first pass of this " +
                     "feature) turned out to feel unusably slow in practice, so this " +
                     "mod drives its own movement directly in real-world meters/second " +
-                    "instead of relying on that controller's tuning.",
+                    "instead of relying on that controller's tuning. Movement, sprint " +
+                    "and up/down keys all follow your own PEAK control bindings - " +
+                    "rebind those in the game's own Controls settings, not here.",
                     new AcceptableValueRange<float>(1f, 100f)));
 
             GhostFreeCamSprintMultiplier = config.Bind(
                 "Ghost-Free-Cam", "sprint-multiplier", 3f,
                 new ConfigDescription(
-                    "Purely local. Speed multiplier while holding Left Shift.",
+                    "Purely local. Speed multiplier while holding your own sprint key " +
+                    "(whatever you've bound it to in PEAK's own Controls settings).",
                     new AcceptableValueRange<float>(1f, 10f)));
 
             GhostFreeCamShowCrosshair = config.Bind(
@@ -874,6 +879,21 @@ namespace SenseOfDirection
                 "\"you are a ghost\" panel reminding you which key toggles free-cam " +
                 "(and whether it'll engage or disengage), since vanilla's UI never " +
                 "mentions this mod's keybind at all.");
+
+            GhostFreeCamAscendKey = config.Bind(
+                "Ghost-Free-Cam", "ascend-key", KeyCode.E,
+                "Purely local. Extra key that flies the free camera straight up, on " +
+                "top of your own jump key (which also works). Ignored while merely " +
+                "unconscious (not yet dead), same as descend-key below, since E/Q " +
+                "are vanilla's own keys to speed up dying right next to each other. " +
+                "Set to None to disable.");
+
+            GhostFreeCamDescendKey = config.Bind(
+                "Ghost-Free-Cam", "descend-key", KeyCode.Q,
+                "Purely local. Extra key that flies the free camera straight down, " +
+                "on top of your own crouch key (which also works). Ignored while " +
+                "merely unconscious (not yet dead), see ascend-key above. Set to " +
+                "None to disable.");
 
             HideAllGhosts = config.Bind(
                 "Ghost-Free-Cam", "hide-all-ghosts", false,
