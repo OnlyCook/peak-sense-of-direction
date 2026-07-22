@@ -149,7 +149,11 @@ namespace SenseOfDirection.LuggagePing
                     capturedLuggage.gameObject,
                     () => capturedLuggage.transform.position,
                     () => capturedLuggage.GetName()));
-                ItemPingSpawner.SpawnOrMerge(ClusterScratch, color, duration, enableArrow);
+                // Its own spawn pop (on top of the compass' usual alpha fade-in) -
+                // a luggage ping can highlight a whole burst of luggage at once,
+                // so the extra flourish helps each one read as newly-appeared
+                // rather than just fading in identically to every other marker.
+                ItemPingSpawner.SpawnOrMerge(ClusterScratch, color, duration, enableArrow, compassSpawnPop: true);
             }
         }
     }

@@ -132,6 +132,17 @@ namespace SenseOfDirection.Compass
         /// <summary>Per-marker 0..1 label compaction (see <see cref="CompassMarkerWidget.SetLabelCompaction"/>), smoothed towards 1 while the marker is staggered onto a row below the tape and back to 0 when it returns to it.</summary>
         private readonly Dictionary<IndicatorAnchor, float> _markerLabelCompaction = new Dictionary<IndicatorAnchor, float>();
 
+        /// <summary>
+        /// Seconds elapsed since a freshly-created marker with <see cref="IndicatorAnchor.CompassSpawnPop"/>
+        /// set started its spawn pop (see <see cref="ApplyMarkerPop"/>) - entries
+        /// are removed once the pop finishes, so this only ever holds markers
+        /// currently mid-animation.
+        /// </summary>
+        private readonly Dictionary<IndicatorAnchor, float> _markerPopElapsed = new Dictionary<IndicatorAnchor, float>();
+
+        /// <summary>How long the spawn pop (Luggage-Ping's own extra flourish on top of the ordinary alpha fade-in) takes to settle.</summary>
+        private const float MarkerPopDurationSeconds = 0.28f;
+
         /// <summary>Per-second rate the label compaction eases at - matched to how long the row shift itself takes (a full stagger at <see cref="OverlapOffsetSpeedPixelsPerSecond"/>), so the lines close up as the label travels down rather than snapping shut on arrival.</summary>
         private const float LabelCompactionSpeedPerSecond = OverlapOffsetSpeedPixelsPerSecond / MarkerRowStaggerPixels;
 
@@ -438,6 +449,21 @@ namespace SenseOfDirection.Compass
                     widget = CompassMarkerWidget.Rent(_root, anchor.CompassKind);
                     widget.CanvasGroup.alpha = 0f; // fades in below instead of popping in at full alpha
                     _markers[anchor] = widget;
+
+                    if (anchor.CompassSpawnPop)
+                    {
+                        _markerPopElapsed[anchor] = 0f;
+                        widget.Root.localScale = Vector3.zero;
+                    }
+                    else
+                    {
+                        widget.Root.localScale = Vector3.one;
+                    }
+                }
+
+                if (_markerPopElapsed.TryGetValue(anchor, out float popElapsed))
+                {
+                    ApplyMarkerPop(anchor, widget, popElapsed);
                 }
 
                 if (!wantsCompass || !structurallyOk)
@@ -569,7 +595,39 @@ namespace SenseOfDirection.Compass
                     _markerSize.Remove(stale);
                     _markerOverlapOffset.Remove(stale);
                     _markerLabelCompaction.Remove(stale);
+                    _markerPopElapsed.Remove(stale);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Advances one marker's spawn pop and applies it to <see cref="CompassMarkerWidget.Root"/>'s
+        /// scale - Luggage-Ping's own extra flourish (<see cref="IndicatorAnchor.CompassSpawnPop"/>)
+        /// layered on top of the ordinary alpha fade-in every marker already
+        /// gets, since a luggage ping can drop a whole burst of markers onto
+        /// the tape at once and a little overshoot helps them read as "new"
+        /// rather than just materializing. Ease-out-back: eases toward 1 but
+        /// overshoots past it first, same shape as a UI element "popping" into
+        /// place, then settles - not a bounce that keeps oscillating.
+        /// </summary>
+        private void ApplyMarkerPop(IndicatorAnchor anchor, CompassMarkerWidget widget, float elapsed)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / MarkerPopDurationSeconds);
+
+            const float overshoot = 1.70158f;
+            float shifted = t - 1f;
+            float scale = 1f + (overshoot + 1f) * shifted * shifted * shifted + overshoot * shifted * shifted;
+            widget.Root.localScale = Vector3.one * scale;
+
+            if (t >= 1f)
+            {
+                widget.Root.localScale = Vector3.one;
+                _markerPopElapsed.Remove(anchor);
+            }
+            else
+            {
+                _markerPopElapsed[anchor] = elapsed;
             }
         }
 

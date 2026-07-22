@@ -145,7 +145,7 @@ namespace SenseOfDirection.ItemPings
         /// luggage to merge/refresh rather than stack a duplicate highlight, same
         /// as a normal ping would.
         /// </summary>
-        public static void SpawnOrMerge(List<PingableTarget> cluster, Color color, float duration, bool enableArrow)
+        public static void SpawnOrMerge(List<PingableTarget> cluster, Color color, float duration, bool enableArrow, bool compassSpawnPop = false)
         {
             ItemPingHighlight existing = null;
             foreach (PingableTarget target in cluster)
@@ -167,7 +167,7 @@ namespace SenseOfDirection.ItemPings
                 return;
             }
 
-            ItemPingHighlight created = ItemPingHighlight.Spawn(cluster, color, duration, enableArrow);
+            ItemPingHighlight created = ItemPingHighlight.Spawn(cluster, color, duration, enableArrow, compassSpawnPop);
             created.OnFadeStart = () =>
             {
                 foreach (PingableTarget target in created.Targets)

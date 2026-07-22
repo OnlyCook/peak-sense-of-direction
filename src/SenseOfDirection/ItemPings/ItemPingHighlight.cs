@@ -98,7 +98,7 @@ namespace SenseOfDirection.ItemPings
 
         public IReadOnlyList<PingableTarget> Targets => _targets;
 
-        public static ItemPingHighlight Spawn(List<PingableTarget> targets, Color color, float durationSeconds, bool enableArrow)
+        public static ItemPingHighlight Spawn(List<PingableTarget> targets, Color color, float durationSeconds, bool enableArrow, bool compassSpawnPop = false)
         {
             var go = new GameObject("SoD.ItemPingHighlight");
             var highlight = go.AddComponent<ItemPingHighlight>();
@@ -134,6 +134,7 @@ namespace SenseOfDirection.ItemPings
             // exactly the same targets (only-show-item-ping-name-without-icon).
             highlight._widget.Anchor.GetCompassLabel = () => highlight._currentLabel;
             highlight._widget.Anchor.GetCompassIcon = () => highlight._currentIcon;
+            highlight._widget.Anchor.CompassSpawnPop = compassSpawnPop;
 
             // Before the anchor is registered (i.e. before anything can render
             // this highlight), not left to the first Update - see ApplyVisuals.

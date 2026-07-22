@@ -207,6 +207,17 @@ namespace SenseOfDirection.Indicators
         /// </summary>
         public bool CompassInstantHide;
 
+        /// <summary>
+        /// When true, this anchor's compass marker plays a brief scale "pop"
+        /// on top of the ordinary alpha fade-in the instant its widget is
+        /// first created (see <see cref="Compass.CompassManager"/>'s own
+        /// <c>ApplyMarkerPop</c>). Used by <c>LuggagePing.LuggagePingController</c>
+        /// so a burst of luggage highlighted at once reads as newly-appeared
+        /// rather than just fading in identically to every other marker.
+        /// False (default) for everything else.
+        /// </summary>
+        public bool CompassSpawnPop;
+
         /// <summary>Governs whether <see cref="Widget"/>/<see cref="ArrowWidget"/> vs. the compass marker (or both) are shown for this anchor.</summary>
         public Func<IndicatorPlacement> GetPlacement = () => IndicatorPlacement.OffScreenOnly;
 
