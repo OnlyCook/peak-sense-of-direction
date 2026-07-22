@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>SenseOfDirection</AssemblyName>
     <Product>SenseOfDirection</Product>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <!-- BepInEx / Unity assemblies are not annotated; silence the resulting noise -->
