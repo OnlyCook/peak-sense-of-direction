@@ -137,15 +137,25 @@ namespace SenseOfDirection.CampfireIndicator
         /// finishes discovering these still picks them up as soon as they're
         /// found.
         /// </summary>
-        public void Refresh(float distanceMeters, bool showDistance)
+        /// <param name="iconSprite">
+        /// Icon to draw. Null (the usual case) means the game's own HUD campfire
+        /// sprite as soon as <see cref="NativeAssets"/> has found it;
+        /// <see cref="CampfireIndicatorController"/> passes
+        /// <see cref="Common.IconAssets.Peak"/> instead once it has switched from
+        /// the campfire to the summit. Both are finished black-and-white art, so
+        /// either gets the same untinted treatment (white <c>Image.color</c>, i.e.
+        /// the sprite's own colors, plus the black outline copies).
+        /// </param>
+        public void Refresh(float distanceMeters, bool showDistance, Sprite iconSprite = null)
         {
-            if (NativeAssets.CampfireIconSprite != null && _iconImage.sprite != NativeAssets.CampfireIconSprite)
+            Sprite icon = iconSprite != null ? iconSprite : NativeAssets.CampfireIconSprite;
+            if (icon != null && _iconImage.sprite != icon)
             {
-                _iconImage.sprite = NativeAssets.CampfireIconSprite;
+                _iconImage.sprite = icon;
                 _iconImage.color = Color.white;
                 foreach (Image outline in _outlineImages)
                 {
-                    outline.sprite = NativeAssets.CampfireIconSprite;
+                    outline.sprite = icon;
                     outline.color = Color.black;
                 }
             }

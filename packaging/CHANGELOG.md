@@ -1,7 +1,11 @@
 ## 1.0.5
 
-- Added a new **Compass-Items** config section. Its first two settings (both config-only, both **on** by default) let the **host** place an extra regular **Compass** on the ground next to the backpack at every campfire — vanilla only ever gives out one compass per run, which leaves the rest of a co-op group without one. **campfire-compass-only-when-needed** limits that to co-op runs where the host's *Compass/display-mode* isn't `AlwaysOn` (on `AlwaysOn` nobody needs to hold a compass anyway); turn it off to get one at every campfire unconditionally.
-- The same **Compass-Items** section's other 4 settings (config-only, all off by default) let the **host** give opened Luggage an extra chance to also contain a regular **Compass** or a **Pirate's Compass**. Only rolled when a luggage opens with a free item slot left, and the compass is only ever *added* into that free slot — nothing the game (or another mod) put in a luggage is ever replaced, and the game's own loot odds are left completely untouched. Explorer's Luggage is unaffected (both its slots are always full). Host-only: luggage contents are spawned by the host, so only the host's settings apply.
+- The campfire indicator now points at the **Peak** once the last campfire on the map is lit with its own icon instead of trying to indicate the next campfire.
+- Added a new host-only **Compass-Items** config section (only available in the mod's config) which contains 6 new settings:
+    - **enable-compass-at-campfires** (enabled by default): spawns an extra compass next to any world spawned backpack.
+    - **campfire-compass-only-when-needed** (also enabled by default): restricts the previous setting by only spawning the extra compass when in co-op and the host has compass' display-mode not set to *AlwaysOn*.
+    - The other 4 settings (config-only, all off by default) let the **host** give opened Luggage an extra chance to also contain a regular **Compass** or a **Pirate's Compass**. Only rolled when a luggage opens with a free item slot left, and the compass is only ever *added* into that free slot. Nothing the game (or another mod) put in a luggage is ever replaced, and the game's own loot odds are left completely untouched.
+- Fixed the game's own `MapHandler.CurrentCampfire` throwing once the last campfire was lit, which silently broke every ping from that point on.
 
 ## 1.0.4
 

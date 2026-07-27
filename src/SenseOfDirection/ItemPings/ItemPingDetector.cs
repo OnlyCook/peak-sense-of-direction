@@ -437,21 +437,21 @@ namespace SenseOfDirection.ItemPings
                 // has its own always-visible edge indicator (Phase 4,
                 // CampfireIndicatorController) - only the *current* segment's
                 // campfire, matching what that indicator already points at.
-                // MapHandler.ExistsAndInitialized guard is mandatory here,
-                // not optional: MapHandler.CurrentCampfire's getter throws a
-                // NullReferenceException outside an actual run (e.g. at the
-                // Airport) - CampfireIndicatorController already knows to
-                // check this first; this loop didn't, and the resulting
+                // Common.MapTargets.CurrentCampfire (rather than
+                // MapHandler.CurrentCampfire directly) is mandatory here, not
+                // optional: vanilla's getter throws a NullReferenceException
+                // both outside an actual run (e.g. at the Airport) and once the
+                // run advances past the last campfire - and the resulting
                 // exception was being silently swallowed by
                 // ReceivePointRpcPrefix's outer try/catch (falls back to
-                // vanilla on any exception) - meaning *every* ping while at
-                // the Airport (or any other not-yet-initialized state)
-                // silently skipped ALL item-ping detection, not just the
-                // campfire check, mimicking a total detection failure that
-                // had nothing to do with radius/matching logic at all.
-                if (MapHandler.ExistsAndInitialized)
+                // vanilla on any exception), meaning *every* ping in those
+                // states silently skipped ALL item-ping detection (and its
+                // distance labels, ripple and scaling), not just the campfire
+                // check, mimicking a total detection failure that had nothing
+                // to do with radius/matching logic at all. See MapTargets'
+                // own summary for why the getter throws.
                 {
-                    Campfire campfire = MapHandler.CurrentCampfire;
+                    Campfire campfire = MapTargets.CurrentCampfire();
                     // Only an unlit campfire can be deliberately item-pinged
                     // (a lit one has nothing left to "find" - the player's
                     // already there). Without this check, a lit campfire

@@ -89,6 +89,17 @@
     </ItemGroup>
   </Target>
 
+  <!-- Icons that arrive already rasterized (no SVG source to run through
+       RasterizeIconSvgs above) still need embedding under the same logical
+       name Common/IconAssets.cs looks them up by. Not necessarily authored to
+       the SVGs' tintable white-fill/black-outline convention - see IconAssets'
+       own class comment and the per-icon notes under it. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Icons/*.png">
+      <LogicalName>SenseOfDirection.Icons.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <!-- The config preview menu's backdrop (Ui/PreviewScene.cs): a real in-game
        screenshot the mod's own indicators are drawn over. Embedded rather than
        shipped loose so there's no asset to lose, and stored as a JPG rather than

@@ -215,6 +215,17 @@ order):
   advancement. Always instantiated from `Plugin.Awake`; no-ops per-frame when
   `Campfire/enable-campfire-indicator` is off (default off), same pattern as
   `PlayerLabelController`'s own master-switch check.
+  Past the last campfire it retargets onto the summit instead (icon swaps to
+  `Common/IconAssets.cs`'s bundled `peak-icon`, label to `PeakLocalization`;
+  compass side keeps `CompassMarkerKind.Campfire` and swaps only the sprite via
+  the existing `IndicatorAnchor.GetCompassIcon` override, which already draws
+  its sprite untinted). `peak-icon` is the one bundled icon authored
+  black-fill/white-outline rather than the tintable white-fill/black-outline the
+  rest use - it's finished black-and-white art like the campfire's own native
+  HUD sprite, never recolored per-anchor. Same `Campfire/*` settings govern both
+  modes - no new config.
+- `PeakLocalization.cs` — "Peak" per `LocalizedText.CURRENT_LANGUAGE`, same
+  hand-maintained table pattern (and same rationale) as `CampfireLocalization.cs`.
 - `Labels/NativeAssets.cs` extended (not a new file) with
   `CampfireIconSprite` discovery alongside the existing font/host-star
   lookups — same lazy-retry-until-found approach.
@@ -892,6 +903,58 @@ preview menu also doesn't surface).
   the vanilla stamina bar, that holds briefly then fades - feedback for a
   key-press that would otherwise silently do nothing while on cooldown,
   easily mistaken for the key not working at all.
+
+### `Common/MapTargets.cs` (ad hoc addition, done — 1.65.a campfire NRE + Peak tracking)
+
+Null-safe accessors for the run's two "where am I heading" landmarks.
+`MapHandler.ExistsAndInitialized` is **not** a sufficient guard for
+`MapHandler.CurrentCampfire`: that property only reports
+`hasFinishedStartRoutine`, while the getter is
+`GetCampfireRoot(currentSegment).GetComponentInChildren<Campfire>()` - and
+`segments[TheKiln].segmentCampfire` is nothing at all, because the final segment
+has no campfire. So from the moment a run enters The Kiln the getter
+dereferences null and throws, every frame, for the rest of the run.
+`CurrentCampfire()` returns null instead. Note the summit is **not** its own
+segment: `Segment.Peak` exists in the enum, but the only `GoToSegment` caller
+anywhere is `Campfire.Light_Rpc` passing `advanceToSegment`, so with no Kiln
+campfire nothing ever advances the run to it - `currentSegment` never reaches 5
+outside a debug jump. The Peak is a progress point *inside* The Kiln, which is
+also why `MountainProgressHandler.CheckReached` special-cases
+`point.biome == Biome.BiomeType.Peak` past its `BiomeIsPresent` test (the Peak
+is never in `MapHandler.biomes`). `AnyUnlitCampfireRemains()`
+walks `MapHandler.segments` (bounded, `includeInactive: true` - future segments'
+campfire objects exist from scene load but are deactivated) rather than a
+scene query, throttled to 1s. `IsPastLastCampfire()` is the primary trigger,
+though: reaching `Segment.TheKiln` *is* the "last campfire got lit" event
+(`Campfire.Light_Rpc` → `MapHandler.GoToSegment(advanceToSegment)`). Threshold is
+`TheKiln`, not `Peak` - a `>= Peak` check would never fire at all, per the
+paragraph above; that method's own doc lists the five places vanilla is written
+around the same "segment 4 has no campfire" fact. `MapHandler.CurrentSegmentNumber`
+is a plain cast of the private field, so unlike `CurrentCampfire` it can't
+throw. The scan is OR'd with it, never AND'd, because a run started mid-mountain
+(peak-checkpoint-save's jump-to-segment resume) leaves every earlier campfire
+unlit forever. `PeakTransform()` looks for the summit
+flag by name under `PeakHandler`'s hierarchy (no class of its own in the
+decompile - it's scene dressing, which is why a ping aimed at it lands on the
+`Rock_Platform` under it). The live hierarchy is
+`Flag_planted_seagull` → `Flag Pole` → `flag`, where only the innermost is the
+cloth (the outer two sit at the pole's base, on the ground), so an exact-name
+`flag` pass runs ahead of the substring fragments. **Result is cached** - the
+search walks ~7,000 transforms, and running it per frame was a visible stutter
+for the entire final climb; Unity's null-overload invalidates the cache for free
+when the scene unloads. Falls back to
+`MountainProgressHandler.progressPoints.Last().transform` (the transform the
+game's own `IsAtPeak` measures against - right in Z by construction, nothing
+guaranteed about X/Y) and then `MapHandler.respawnThePeak`.
+`LogPeakCandidates()` dumps all three plus `PeakHandler`'s hierarchy under
+`enable-debug-logging`, same role `ItemPingDetector.LogNearbyUnmatched` plays
+for unsupported pingables. Consumed by
+`CampfireIndicator/CampfireIndicatorController.cs` and
+`ItemPings/ItemPingDetector.cs` (whose unguarded call was making
+`Pings/PointPingerPatches.ReceivePointRpcPrefix` fall back to a vanilla ping for
+*every* ping past that point - taking item detection, ripple, scaling and
+distance labels with it, which is what "pings have no distance labels at the
+Kiln" actually was).
 
 ### `Common/SceneResetCoordinator.cs` (ad hoc addition, done — ISSUES.md "labels stuck forever" bug fix)
 

@@ -27,6 +27,7 @@ namespace SenseOfDirection.Common
         private static Sprite _pingRing;
         private static Sprite _itemPingDiamond;
         private static Sprite _pingArrow;
+        private static Sprite _peak;
         private static Sprite _deadBadge;
         private static Sprite _unconsciousBadge;
 
@@ -36,6 +37,20 @@ namespace SenseOfDirection.Common
         public static Sprite PingRing => _pingRing ??= Load("ping-icon");
         public static Sprite ItemPingDiamond => _itemPingDiamond ??= Load("item-ping-icon");
         public static Sprite PingArrow => _pingArrow ??= Load("ping-arrow-icon");
+
+        /// <summary>
+        /// The mountain shown by <see cref="CampfireIndicator.CampfireIndicatorController"/>
+        /// in place of the campfire icon once every campfire on the map is lit and
+        /// the summit itself becomes the thing worth pointing at. Two ways the odd
+        /// one out: it's the only bundled icon with no SVG source (it arrived
+        /// pre-rasterized - see the .csproj's Icons/*.png EmbeddedResource glob),
+        /// and it's authored black-fill/white-outline rather than the tintable
+        /// white-fill/black-outline the class comment above describes. That's
+        /// deliberate - like the campfire icon it stands in for, it's finished
+        /// black-and-white art drawn untinted, never recolored per-anchor, so the
+        /// tinting convention doesn't apply to it.
+        /// </summary>
+        public static Sprite Peak => _peak ??= Load("peak-icon");
         public static Sprite DeadBadge => _deadBadge ??= Load("player-dead-icon-badge");
         public static Sprite UnconsciousBadge => _unconsciousBadge ??= Load("player-unconscious-icon-badge");
 
