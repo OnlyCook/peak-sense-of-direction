@@ -325,18 +325,76 @@ namespace SenseOfDirection.Compass
             return current != null ? current.GetComponentInChildren<CompassPointer>() : null;
         }
 
-        /// <summary>Whether the local player is currently holding an in-game compass item of any <c>CompassPointer.CompassType</c>.</summary>
-        private static bool IsHoldingCompassItem() => GetHeldCompassPointer() != null;
+        /// <summary>
+        /// Whether the local player is currently holding an in-game compass item
+        /// of the requested kind - <paramref name="pirate"/> true matches only
+        /// <c>CompassPointer.CompassType.Pirate</c>, false matches every other
+        /// type (Normal/Warp). The two kinds are gated by separate display-mode
+        /// settings, see <see cref="IsDisplayModeSatisfied(PluginConfig)"/>.
+        /// </summary>
+        private static bool IsHoldingCompassItem(bool pirate)
+        {
+            CompassPointer pointer = GetHeldCompassPointer();
+            return pointer != null && IsPirate(pointer) == pirate;
+        }
 
-        /// <summary>Whether the given <c>ItemSlot</c> (unequipped inventory slots only ever hold a prefab reference/data, never a live instance - see <see cref="IsDisplayModeSatisfied"/>) holds a compass item of any kind.</summary>
-        private static bool SlotHoldsCompassItem(ItemSlot slot) =>
-            slot != null && slot.prefab != null && slot.prefab.GetComponentInChildren<CompassPointer>() != null;
+        /// <summary>Whether the given <c>ItemSlot</c> (unequipped inventory slots only ever hold a prefab reference/data, never a live instance - see <see cref="IsDisplayModeSatisfied(PluginConfig)"/>) holds a compass item of the requested kind.</summary>
+        private static bool SlotHoldsCompassItem(ItemSlot slot, bool pirate)
+        {
+            if (slot == null || slot.prefab == null)
+            {
+                return false;
+            }
+            CompassPointer pointer = slot.prefab.GetComponentInChildren<CompassPointer>();
+            return pointer != null && IsPirate(pointer) == pirate;
+        }
+
+        private static bool IsPirate(CompassPointer pointer) => pointer.compassType == CompassPointer.CompassType.Pirate;
 
         /// <summary>
-        /// Whether <see cref="PluginConfig.CompassDisplayMode"/>'s currently
-        /// configured condition is met for the local player right now - see
-        /// <see cref="Compass.CompassDisplayMode"/>'s own doc comment for what
-        /// each level actually requires.
+        /// Whether the tape should be shown for the local player right now: the
+        /// regular <see cref="PluginConfig.CompassDisplayMode"/> evaluated against
+        /// Normal/Warp compasses, OR <see cref="PluginConfig.PirateCompassDisplayMode"/>
+        /// evaluated against Pirate's Compasses. A Pirate's Compass is still a
+        /// compass (it shows the same tape), just a strictly better one, so the
+        /// two conditions are configured separately and either one satisfying its
+        /// own level is enough - e.g. regular set to Holding Item and pirate set
+        /// to Carried shows the tape whenever a Pirate's Compass is anywhere on
+        /// you, without also needing the regular one in hand.
+        /// <see cref="Compass.PirateCompassDisplayMode.MatchDisplayMode"/> (the
+        /// default) opts back out of the split entirely by reusing the regular
+        /// setting's own level for Pirate's Compasses too.
+        /// </summary>
+        private static bool IsDisplayModeSatisfied(PluginConfig cfg)
+        {
+            CompassDisplayMode regular = cfg.CompassDisplayMode.Value;
+            return IsDisplayModeSatisfied(regular, pirate: false)
+                || IsDisplayModeSatisfied(ResolvePirateMode(cfg.PirateCompassDisplayMode.Value, regular), pirate: true);
+        }
+
+        /// <summary>
+        /// The <see cref="CompassDisplayMode"/> level Pirate's Compasses are
+        /// actually checked against: the pirate setting's own, or the regular
+        /// setting's when it's left on
+        /// <see cref="Compass.PirateCompassDisplayMode.MatchDisplayMode"/>.
+        /// Mapped by an explicit switch rather than a numeric cast between the
+        /// two enums - they deliberately don't share a first member
+        /// (<see cref="CompassDisplayMode.AlwaysOn"/> has no pirate counterpart,
+        /// it would show the tape with no Pirate's Compass involved at all), so
+        /// their underlying values line up for nothing.
+        /// </summary>
+        private static CompassDisplayMode ResolvePirateMode(PirateCompassDisplayMode mode, CompassDisplayMode regular) => mode switch
+        {
+            PirateCompassDisplayMode.Carried => CompassDisplayMode.Carried,
+            PirateCompassDisplayMode.MainInventory => CompassDisplayMode.MainInventory,
+            PirateCompassDisplayMode.RequireHolding => CompassDisplayMode.RequireHolding,
+            _ => regular,
+        };
+
+        /// <summary>
+        /// Whether one display-mode level's condition is met for one kind of
+        /// compass item - see <see cref="Compass.CompassDisplayMode"/>'s own doc
+        /// comment for what each level actually requires.
         ///
         /// Only <see cref="CompassDisplayMode.RequireHolding"/> can use
         /// <see cref="IsHoldingCompassItem"/> (a real, instantiated <c>Item</c>):
@@ -347,16 +405,15 @@ namespace SenseOfDirection.Compass
         /// checking the prefab directly is exactly as accurate without needing
         /// one to actually be spawned.
         /// </summary>
-        private static bool IsDisplayModeSatisfied(PluginConfig cfg)
+        private static bool IsDisplayModeSatisfied(CompassDisplayMode mode, bool pirate)
         {
-            CompassDisplayMode mode = cfg.CompassDisplayMode.Value;
             if (mode == CompassDisplayMode.AlwaysOn)
             {
                 return true;
             }
             if (mode == CompassDisplayMode.RequireHolding)
             {
-                return IsHoldingCompassItem();
+                return IsHoldingCompassItem(pirate);
             }
 
             Player player = Character.localCharacter?.player;
@@ -367,12 +424,12 @@ namespace SenseOfDirection.Compass
 
             foreach (ItemSlot slot in player.itemSlots)
             {
-                if (SlotHoldsCompassItem(slot))
+                if (SlotHoldsCompassItem(slot, pirate))
                 {
                     return true;
                 }
             }
-            if (SlotHoldsCompassItem(player.tempFullSlot))
+            if (SlotHoldsCompassItem(player.tempFullSlot, pirate))
             {
                 return true;
             }
@@ -388,7 +445,7 @@ namespace SenseOfDirection.Compass
             {
                 foreach (ItemSlot slot in backpackData.itemSlots)
                 {
-                    if (SlotHoldsCompassItem(slot))
+                    if (SlotHoldsCompassItem(slot, pirate))
                     {
                         return true;
                     }

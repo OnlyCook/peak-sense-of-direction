@@ -36,6 +36,7 @@ namespace SenseOfDirection.Ui.Localization
             ["ItemPingNameMode"] = typeof(ItemPingNameMode),
             ["CompassLineColor"] = typeof(CompassLineColor),
             ["CompassDisplayMode"] = typeof(CompassDisplayMode),
+            ["PirateCompassDisplayMode"] = typeof(PirateCompassDisplayMode),
             ["OffOnMode"] = typeof(OffOnMode),
         };
 

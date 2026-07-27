@@ -102,6 +102,7 @@ namespace SenseOfDirection
 
         public readonly ConfigEntry<bool> EnableCompass;
         public readonly ConfigEntry<SenseOfDirection.Compass.CompassDisplayMode> CompassDisplayMode;
+        public readonly ConfigEntry<SenseOfDirection.Compass.PirateCompassDisplayMode> PirateCompassDisplayMode;
         public readonly ConfigEntry<float> CompassWidthPixels;
         public readonly ConfigEntry<float> CompassMarkerGapPixels;
         public readonly ConfigEntry<float> CompassVerticalOffsetPixels;
@@ -641,7 +642,23 @@ namespace SenseOfDirection
                 "ALWAYS ON shows it regardless of inventory. CARRIED needs a compass " +
                 "item somewhere in your inventory or stashed in a worn backpack. " +
                 "MAIN INVENTORY only counts ones in your inventory slots. HOLDING " +
-                "ITEM needs a compass item actively equipped in your hand right now.");
+                "ITEM needs a compass item actively equipped in your hand right now. " +
+                "Only regular compasses count here.");
+
+            // A Pirate's Compass is still a compass, so it shows the same tape,
+            // but it's a strictly better one, so which of the two you happen to be
+            // carrying is worth being able to answer separately (e.g. tape only
+            // while a regular compass is in hand, but any time a Pirate's Compass
+            // is merely on you). Evaluated independently of display-mode above and
+            // OR'd with it: whichever compass type satisfies its own condition
+            // shows the tape.
+            PirateCompassDisplayMode = config.Bind(
+                "Compass", "pirate-display-mode", SenseOfDirection.Compass.PirateCompassDisplayMode.MatchDisplayMode,
+                "The same levels as display-mode above, but for Pirate's Compasses " +
+                "only. The tape shows whenever either setting's own condition is met. " +
+                "MATCH DISPLAY MODE keeps Pirate's Compasses on whatever display-mode " +
+                "itself is set to. Unrelated to the Pirate's Compass luggage " +
+                "indicator, which always needs the compass actually held.");
 
             CompassWidthPixels = config.Bind(
                 "Compass", "width-pixels", 640f,
@@ -746,10 +763,11 @@ namespace SenseOfDirection
             // real indicator for that.
             EnablePirateCompassLuggageIndicator = config.Bind(
                 "Pirate-Compass", "enable-pirate-compass-luggage-indicator", true,
-                "While holding a Pirate's Compass, show an indicator pointing at the " +
-                "nearest unopened luggage - the same target its own in-game needle " +
-                "points at, made legible as a real edge-of-screen/compass marker " +
-                "with a distance label instead of only a wobbling 3D needle.");
+                "While holding a Pirate's Compass, show an indicator with a distance " +
+                "label pointing at the nearest unopened Luggage, the same target its " +
+                "own in-game needle points at. NOTE: as the host you can increase the " +
+                "chance to get a Pirate's Compass or even another regular Compass from " +
+                "Luggage in this mod's config.");
 
             ShowPirateCompassLuggageName = config.Bind(
                 "Pirate-Compass", "show-luggage-name", true,

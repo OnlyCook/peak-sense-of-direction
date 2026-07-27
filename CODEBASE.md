@@ -643,10 +643,22 @@ RESEARCH.md's license table) — nothing here is copied from it.
   minimal look instead - no background box, no "current heading" pointer
   (forward is always the tape's own center by construction), just ticks/
   markers floating over the world resting on one continuous baseline line.
-  `requires-holding-item` (off by default) gates the whole tape on
-  `Character.localCharacter.data.currentItem` having a `CompassPointer`
-  child component - PEAK has no dedicated "Compass" item class, it's a
-  data-driven `Item` like any other, identified this way instead.
+  `display-mode` (four levels, see `CompassDisplayMode.cs`; superseded the old
+  plain `requires-holding-item` toggle) gates the whole tape on whether a
+  `CompassPointer`-bearing item is held/carried - PEAK has no dedicated
+  "Compass" item class, it's a data-driven `Item` like any other, identified
+  this way instead. Split per compass type: `display-mode` covers Normal/Warp
+  compasses, `pirate-display-mode` (its own `PirateCompassDisplayMode.cs` enum)
+  covers `CompassType.Pirate` ones, and `IsDisplayModeSatisfied(PluginConfig)`
+  ORs the two - a Pirate's Compass is still a compass (same tape), just a
+  strictly better one, so "which kind am I carrying" is worth answering
+  separately. The pirate enum drops `AlwaysOn` (unconditional, so it would show
+  the tape with no Pirate's Compass involved at all - what the regular
+  setting's own `AlwaysOn` already does) for `MatchDisplayMode`, the default,
+  which reuses whatever level `display-mode` itself is on; `ResolvePirateMode`
+  maps between the two enums by explicit switch, never a numeric cast, since
+  their members deliberately don't line up. Unrelated to `PirateCompass/`'s own
+  luggage indicator below, which is always hard-gated on actually holding one.
 - `CompassIcons.cs` — placeholder shapes generated procedurally once and
   cached; only the elevation-arrow triangle and the tape's horizontal
   fade-line baseline are left here now (the campfire marker reuses

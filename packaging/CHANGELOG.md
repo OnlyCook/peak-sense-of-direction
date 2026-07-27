@@ -1,9 +1,9 @@
 ## 1.0.4
 
-- Ghost free-cam keybinds now aren't hard-coded anymore. Instead the user-defined in-game navigation bindings are used (movement binds, sprint, crouch, jump). Also adds 2 new settings (config-only) where you can rebind the secondary ascend/descend keys (by default 'E' / 'Q' respectively). Thanks to **Cat-As$-Trophy** (fire name) for the suggestion!
+- Ghost free-cam keybinds now aren't hard-coded anymore. Instead the user-defined in-game navigation bindings are used (movement binds, sprint, crouch, jump). Also adds 2 new settings (config-only) where you can rebind the secondary ascend/descend keys (by default 'E' / 'Q' respectively). Thanks to **Cat-As$-Trophy** (fire name) for pointing this out!
 - Added 2 new settings to the Quick Setup panel: **badge-size-pixels** (under Player-Labels): controls the badge icon size below player labels, and **indicator-icon-size-multiplier** (under Misc): controls the on-/off-screen indicator's icon size (pings, item pings, campfire).
 - Added a new **anti-overlap-animation-speed-multiplier** setting (under Misc) to slow down and delay the interpolating of the overlap avoidance mechanic (so that labels don't move around so much, if you want it to be calmer).
-- Expanded *require-holding-item* to be **display-mode** (under Compass) which includes more conditions when the compass tape at the top should be shown: AlwaysOn (default), MainInventory, Carried, or HoldingItem.
+- Extended *require-holding-item* to be **display-mode** (under Compass) which includes more conditions when the compass tape at the top should be shown: AlwaysOn (default), MainInventory, Carried, or HoldingItem.
 - Added a new **color-player-labels** setting (config-only) to show compass player labels (and it's distance label) in the player's color (off by default though, because if player labels are white they are easier to distinguish as being player specific labels when you ask me). 
 - Actually added a proper outline to the vertical height diff arrow in the compass. Also vertically centered it fr this time.
 - Added a subtle pop animation in the compass to newly pinged luggage through the luggage area pinging mechanic.

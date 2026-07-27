@@ -8,11 +8,11 @@ namespace SenseOfDirection.PirateCompass
 {
     /// <summary>
     /// ISSUES.md: the in-game Pirate's Compass (<c>CompassPointer.CompassType.Pirate</c>,
-    /// see <c>Compass.CompassManager.GetHeldCompassPointer</c>) already makes
-    /// <c>Compass/display-mode</c>'s Holding Item level show the compass tape
-    /// while it's held - it's just another <c>CompassPointer</c>-bearing item
-    /// as far as that check goes. But the tape itself is a fixed north-relative
-    /// heading strip;
+    /// see <c>Compass.CompassManager.GetHeldCompassPointer</c>) already shows the
+    /// compass tape on its own terms (<c>Compass/pirate-display-mode</c>, the
+    /// pirate-specific half of the tape's display-mode gate) - it's just another
+    /// <c>CompassPointer</c>-bearing item as far as that check goes. But the tape
+    /// itself is a fixed north-relative heading strip;
     /// it has no way to represent "point at the nearest unopened luggage", which
     /// is the one thing a Pirate's Compass actually does (its own in-game needle
     /// already does this, per the decompile's <c>CompassPointer.UpdateHeadingPirate</c>
