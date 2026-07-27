@@ -1,3 +1,8 @@
+## 1.0.5
+
+- Added a new **Compass-Items** config section. Its first two settings (both config-only, both **on** by default) let the **host** place an extra regular **Compass** on the ground next to the backpack at every campfire — vanilla only ever gives out one compass per run, which leaves the rest of a co-op group without one. **campfire-compass-only-when-needed** limits that to co-op runs where the host's *Compass/display-mode* isn't `AlwaysOn` (on `AlwaysOn` nobody needs to hold a compass anyway); turn it off to get one at every campfire unconditionally.
+- The same **Compass-Items** section's other 4 settings (config-only, all off by default) let the **host** give opened Luggage an extra chance to also contain a regular **Compass** or a **Pirate's Compass**. Only rolled when a luggage opens with a free item slot left, and the compass is only ever *added* into that free slot — nothing the game (or another mod) put in a luggage is ever replaced, and the game's own loot odds are left completely untouched. Explorer's Luggage is unaffected (both its slots are always full). Host-only: luggage contents are spawned by the host, so only the host's settings apply.
+
 ## 1.0.4
 
 - Ghost free-cam keybinds now aren't hard-coded anymore. Instead the user-defined in-game navigation bindings are used (movement binds, sprint, crouch, jump). Also adds 2 new settings (config-only) where you can rebind the secondary ascend/descend keys (by default 'E' / 'Q' respectively). Thanks to **Cat-As$-Trophy** (fire name) for pointing this out!

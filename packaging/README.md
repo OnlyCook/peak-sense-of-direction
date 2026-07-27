@@ -21,6 +21,7 @@ Fully localized in all 14 languages the game ships with: English, Français, Ita
 - **Label overlap prevention** (on by default): nudges labels apart so they don't stack into an unreadable pile
 - **Luggage area ping**: press **`T`** to show all unopened luggage within 100m temporarily, has a 15s cooldown
 - **Pirate's Compass support**: holding one shows you the nearest unopened luggage visually (you can also set that you must hold/have any compass item for the compass ui to appear)
+- **Extra compass loot** (host-only): vanilla only ever gives out one compass per run, so the host can place an extra one on the ground next to the backpack at each campfire (on by default) and/or give opened luggage an added chance to also contain a Compass or a Pirate's Compass (off by default) — luggage compasses are only ever *added* into a slot the game left empty, never replacing anything and never changing the game's own loot odds
 
 <img width="808" height="152" alt="compass" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/compass.png?raw=true" />
 
@@ -67,6 +68,7 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 - **Item-Pings**: master switch, highlight duration, grouping, creature pings, native icons, name mode, distance, and off-screen indicator, plus separate detection radii and hit/ray assist for landing pings on hard-to-hit items.
 - **Compass**: master switch, whether a compass item is required, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color, thickness, keep player label color.
 - **Pirate-Compass**: luggage indicator toggle, name/distance display, off-screen indicator.
+- **Compass-Items**: host-only extra compasses — one placed on the ground next to the backpack at every campfire (on by default, optionally limited to co-op runs that actually need it), plus an extra chance for an opened luggage to also contain a regular Compass or a Pirate's Compass (both off by default).
 - **Luggage-Ping**: master switch, key (default **`T`**), radius, duration, cooldown (optional).
 - **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **`B`**), move speed and sprint multiplier, crosshair, key hint, secondary ascend/descend keybinds, and hiding every ghost from your own view.
 - **Debug**: verbose logging, plus a couple of QA-only toggles. Please keep logging on when reporting issues.

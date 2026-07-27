@@ -48,6 +48,7 @@ namespace SenseOfDirection
             PointPingerPatches.Apply(_harmony, Logger);
             GhostFreeCamPatches.Apply(_harmony, Logger);
             Ui.PauseSuppressPatch.Apply(_harmony, Logger);
+            CompassItems.LuggageCompassSpawner.Apply(_harmony, Logger);
 
             // Always instantiated - internally no-ops per-frame when
             // EnableCampfireIndicator is off, same pattern as
@@ -65,6 +66,10 @@ namespace SenseOfDirection
 
             // Same no-op-when-disabled pattern - internally checks EnableLuggagePing.
             _ = LuggagePingController.Instance;
+
+            // Same no-op-when-disabled pattern - internally checks
+            // EnableCompassAtCampfires (and does nothing off the host).
+            _ = CompassItems.CampfireCompassSpawner.Instance;
 
             // Always instantiated - clears every player label on any scene
             // load (main menu, lobby, a run) so a label whose Character never

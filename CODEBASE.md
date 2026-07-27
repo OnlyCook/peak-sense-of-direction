@@ -755,6 +755,111 @@ RESEARCH.md's license table) — nothing here is copied from it.
   (default `Both`) routes it between the two rendering surfaces like every
   other mechanic's own placement setting.
 
+### `CompassItems/` (ad hoc addition, done — extra compass loot)
+
+Two independent sources of extra compasses, both host-only for the same
+structural reason (item spawning is the master client's job, so only the host's
+config is ever read and no sync is needed, unlike `GhostFreeCam/`'s
+host-controlled settings), sharing `CompassItemAssets.cs`.
+
+- `CompassItemAssets.cs` — the shared half: `GetPrefab(pirate)` finds a compass
+  item by scanning `ItemDatabase.itemLookup` for a `CompassPointer` of the
+  matching `CompassType` (PEAK has no compass item class — same identification
+  `Compass/CompassManager.cs` already uses for held items), resolved once and
+  cached, ties broken by lowest item ID. `FaceUp(item)` lays a spawned compass
+  down dial-up: a Compass isn't vanilla luggage/ground loot, so it carries none
+  of the authored in-luggage placement (`Item.offsetLuggageSpawn` and the
+  offsets `Luggage.OffsetSpawn` applies) other items do and would otherwise land
+  at its spawn point's raw rotation, face-down. The dial's normal is the
+  `CompassPointer` transform's forward axis (that's the axis
+  `CompassPointer.UpdateHeading` sweeps the needle around), so the correction is
+  the minimal `Quaternion.FromToRotation` taking it to world up, plus a
+  playtest-established half turn about world up (the dial's normal by then, so
+  it only spins the compass where it lies).
+- `CampfireCompassSpawner.cs` — backs `enable-compass-at-campfires` (on by
+  default) and `campfire-compass-only-when-needed` (on by default): lays a
+  regular Compass on the ground next to each campfire area's backpack, since
+  vanilla only ever hands out one compass per run (at the start) and a co-op
+  group needs more than that. **Polls, doesn't hook.** The first version
+  patched `Campfire.Light_Rpc` and spawned on lighting - the wrong moment
+  entirely (maintainer feedback): the compass has to be waiting at a campfire
+  when you *arrive*, not appear once you leave. There's no single "a campfire
+  loaded" event either (the first campfire already exists at run start, later
+  ones appear as their biome streams in), so this is a `MonoBehaviour` singleton
+  (same lazy-`Instance`/`DontDestroyOnLoad` pattern as every other controller)
+  sweeping the scene every 2s and topping up any campfire it hasn't handled yet
+  - the same re-resolve-rather-than-hook reasoning
+  `CampfireIndicator/CampfireIndicatorController.cs` already uses, throttled
+  because this sweeps the scene instead of reading a property. A campfire is
+  only marked handled once it actually got its compass, so a biome whose
+  backpack loads a moment after its campfire is picked up by a later sweep -
+  and the Kiln's final campfire falls out of the same rule for free (no
+  backpack there, so no spawn, ever). Placement is the nearest free-standing
+  `Backpack` within 15m (maintainer-measured: every campfire in the game has one
+  well inside that), offset 1 unit along the backpack's own right axis flattened
+  onto the horizontal plane, then dropped onto the ground with a downward
+  raycast so it lies on the terrain rather than at the backpack's pivot height.
+  Backpacks parented under a `Character`/`Player` are skipped, since a worn
+  backpack's `itemState` never leaves `Ground` while equipped and a player
+  standing at the fire would otherwise be picked (the same false positive
+  `peak-checkpoint-save`'s `CampfireAreaHelpers.IsFreeWorldItem` guards
+  against). `only-when-needed` restricts the whole thing to co-op runs whose
+  host doesn't have `Compass/display-mode` on `AlwaysOn` (on `AlwaysOn` nobody
+  needs to hold a compass item for the tape to show); off spawns one at every
+  campfire unconditionally. Physics handoff mirrors `Spawner.InitializePhysics`
+  (`Item.ForceSyncForFrames` reflectively, since it's internal, then the
+  buffered `SetKinematicRPC`) so the compass rests where it's put.
+- `LuggageCompassSpawner.cs` — backs the section's other four settings (both
+  master switches off by default): an optional extra chance for
+  an opened Luggage to *also* contain a regular or a Pirate's Compass.
+  Postfixes `Spawner.SpawnItems` (the one method every luggage's spawn path
+  funnels through - `Luggage` doesn't override it), filtered to `Luggage`
+  instances that aren't a `RespawnChest` (a `Luggage` subclass that calls
+  `base.SpawnItems`, so it would otherwise land here too). Three constraints
+  shape the whole file, all of them maintainer-specified:
+  **host-only/host-authoritative** (vanilla spawns luggage contents on the
+  host alone - `Luggage.OpenLuggageRPC`'s coroutine is gated on
+  `NetCode.Session.IsHost` and `SpawnItems` itself early-returns for a
+  non-master client - so only the host's config is ever read and no sync is
+  needed, unlike `GhostFreeCam/`'s host-controlled settings);
+  **never override, only fill** (a roll only happens when a spawn spot
+  received no item, and a hit spawns an *extra* item into that free spot -
+  nothing vanilla or another mod put in a slot is ever removed, which also
+  excludes Explorer's Luggage for free since both its slots are always
+  filled); and **never disturb the game's own odds** (no patch anywhere near
+  `GetObjectsToSpawn`/`LootData`, and the coin flips use a private
+  `System.Random` so they can't even perturb the shared `UnityEngine.Random`
+  stream vanilla's later rolls draw from). Pirate is rolled first and short-
+  circuits the regular roll, so at most one compass is ever added.
+  Finding the free slot is the non-obvious part (and got a fix after the first
+  playtest found the feature never firing): `LootData.GetRandomItems` fills
+  *every* spot it's asked for, so a "slot came back null" test can never hit.
+  A luggage varies its item count through `Spawner.spawnPointMode`'s weighted
+  spot lists instead (note that field's own
+  `[FormerlySerializedAs("spawnCountMode")]`) - a 2-slot suitcase holding one
+  item rolled the 1-spot list, leaving the second physical slot unused rather
+  than empty anywhere in the data. So the free slot is looked for across the
+  *union* of every list the prefab knows about (`spawnSpots` plus every
+  `weightedSpawnSpots` entry), minus the spots this open actually used, minus
+  anything within 0.2 units of a spot that got an item. Which used spots got
+  an item is derived by matching each spawned `PhotonView` back to its nearest
+  spot rather than by reading vanilla's internal loot list - that stays correct
+  regardless of what filled the slots. A debug-logging-only per-luggage dump
+  (`DumpLuggage`) prints the whole layout, since all of this lives in
+  serialized prefab data that no decompile can show. The spawn itself mirrors `Spawner.SpawnItems`' own per-item steps
+  (`PhotonNetwork.InstantiateItemRoom`, up-target, `centerItemsVisually`,
+  `Luggage.OffsetSpawn`'s body, then the protected `InitializePhysics` invoked
+  reflectively), with one deliberate deviation: an item with no authored
+  in-luggage placement of its own (`Item.offsetLuggageSpawn` off - true of the
+  regular Compass) gets laid out by `CompassItemAssets.FaceUp` instead, since it
+  otherwise reads as back-side-up in the open luggage. It appends the result to
+  the returned list, so the game's own `SpawnedItemTracker` records it and a
+  later re-open-from-history respawns it instead of re-rolling.
+
+Every setting in this section is config-only, so none of them have
+`Localization/config.tsv` rows (same as `Compass/color-player-labels`, which the
+preview menu also doesn't surface).
+
 ### `LuggagePing/` (ad hoc addition, done — Compass UI-inspired suitcase ping)
 
 - `LuggagePingController.cs` — singleton `MonoBehaviour` (same `Instance`/

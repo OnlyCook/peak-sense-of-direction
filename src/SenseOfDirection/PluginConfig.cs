@@ -123,6 +123,13 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> ShowPirateCompassLuggageDistance;
         public readonly ConfigEntry<bool> EnablePirateCompassLuggageOffScreenIndicator;
 
+        public readonly ConfigEntry<bool> EnableCompassAtCampfires;
+        public readonly ConfigEntry<bool> CampfireCompassOnlyWhenNeeded;
+        public readonly ConfigEntry<bool> EnableCompassFromLuggage;
+        public readonly ConfigEntry<float> CompassFromLuggageChancePercent;
+        public readonly ConfigEntry<bool> EnablePirateCompassFromLuggage;
+        public readonly ConfigEntry<float> PirateCompassFromLuggageChancePercent;
+
         public readonly ConfigEntry<bool> EnableLuggagePing;
         public readonly ConfigEntry<KeyCode> LuggagePingKey;
         public readonly ConfigEntry<float> LuggagePingRadiusMeters;
@@ -782,6 +789,74 @@ namespace SenseOfDirection
                 "Show an off-screen arrow pointing toward the nearest unopened luggage " +
                 "while it isn't in view. Off shows the indicator only once it's " +
                 "actually on screen.");
+
+            // ---- Compass Items: extra, purely additive compass loot - one
+            // source at campfires, one inside opened luggage. The only
+            // host-authoritative-by-nature section in this mod - item spawning
+            // is the host's job, so only the host's values here ever apply (a
+            // client's own settings are simply never consulted, unlike
+            // Ghost-Free-Cam's, which had to be synced explicitly).
+            // Nothing here touches the game's own loot table or its odds: the
+            // luggage roll only ever happens for a luggage that opened with a
+            // *free* spawn spot, and a hit only ever adds an item into that free
+            // spot, never replaces what vanilla (or another mod) already put
+            // there.
+            EnableCompassAtCampfires = config.Bind(
+                "Compass-Items", "enable-compass-at-campfires", true,
+                "Host-only: whenever a campfire is lit, place an extra regular " +
+                "Compass on the ground next to that campfire's backpack. Vanilla " +
+                "only ever gives out one compass per run (right at the start), " +
+                "which leaves everyone else in a co-op run without one - this is " +
+                "the top-up. See only-when-needed below, which limits when this " +
+                "actually happens. Only the host's value matters: items are " +
+                "spawned by the host alone.");
+
+            CampfireCompassOnlyWhenNeeded = config.Bind(
+                "Compass-Items", "campfire-compass-only-when-needed", true,
+                "Only place the campfire compass above when it's actually of use: " +
+                "in a co-op run (solo, the run's own starting compass is already " +
+                "yours) whose host doesn't have Compass/display-mode set to " +
+                "AlwaysOn (on AlwaysOn the compass tape shows without anyone " +
+                "having to hold a compass item at all). Turn this off to have one " +
+                "spawn at every campfire unconditionally. Does nothing if " +
+                "enable-compass-at-campfires above is off.");
+
+            EnableCompassFromLuggage = config.Bind(
+                "Compass-Items", "enable-compass-from-luggage", false,
+                "Host-only: gives every opened Luggage that has a free item slot " +
+                "left an extra chance (see chance-percent below) to also contain a " +
+                "regular Compass. This never replaces or removes anything the game " +
+                "itself rolled - it only fills a slot the game left empty - and it " +
+                "never changes the game's own spawn odds. Explorer's Luggage is " +
+                "unaffected, since both of its slots are always filled already. " +
+                "Only the host's value matters: luggage contents are spawned by " +
+                "the host alone.");
+
+            CompassFromLuggageChancePercent = config.Bind(
+                "Compass-Items", "compass-chance-percent", 5f,
+                new ConfigDescription(
+                    "Chance, in percent, that a Luggage with a free item slot also " +
+                    "contains a regular Compass. Only rolled when enable-compass-" +
+                    "from-luggage is on, and only after the Pirate's Compass roll " +
+                    "below missed (if that one is enabled too).",
+                    new AcceptableValueRange<float>(0.1f, 100f)));
+
+            EnablePirateCompassFromLuggage = config.Bind(
+                "Compass-Items", "enable-pirate-compass-from-luggage", false,
+                "Host-only: same as enable-compass-from-luggage above, but for the " +
+                "Pirate's Compass (the one whose needle points at the nearest " +
+                "unopened luggage). Rolled first when both are enabled - a hit here " +
+                "spawns a Pirate's Compass and skips the regular Compass roll " +
+                "entirely, so at most one extra compass is ever added per luggage.");
+
+            PirateCompassFromLuggageChancePercent = config.Bind(
+                "Compass-Items", "pirate-compass-chance-percent", 1f,
+                new ConfigDescription(
+                    "Chance, in percent, that a Luggage with a free item slot also " +
+                    "contains a Pirate's Compass. Kept low by default - it's a much " +
+                    "stronger find than a regular Compass. Only rolled when enable-" +
+                    "pirate-compass-from-luggage is on.",
+                    new AcceptableValueRange<float>(0.1f, 100f)));
 
             // ---- Luggage Ping: inspired by the "Compass UI" mod's own suitcase-
             // ping key, for players coming from that mod. Press the key to
