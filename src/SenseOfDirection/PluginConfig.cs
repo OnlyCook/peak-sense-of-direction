@@ -822,41 +822,51 @@ namespace SenseOfDirection
                 "enable-compass-at-campfires above is off.");
 
             EnableCompassFromLuggage = config.Bind(
-                "Compass-Items", "enable-compass-from-luggage", false,
-                "Host-only: gives every opened Luggage that has a free item slot " +
-                "left an extra chance (see chance-percent below) to also contain a " +
-                "regular Compass. This never replaces or removes anything the game " +
-                "itself rolled - it only fills a slot the game left empty - and it " +
-                "never changes the game's own spawn odds. Explorer's Luggage is " +
-                "unaffected, since both of its slots are always filled already. " +
+                "Compass-Items", "enable-compass-from-empty-luggage", false,
+                "Host-only: gives opened Luggage a chance (see add-compass-chance-" +
+                "percent below) to also contain a regular Compass. This never replaces or " +
+                "removes anything the game itself rolled - it only fills a slot the " +
+                "game left empty - and it never changes the game's own spawn odds. " +
+                "A small Luggage holds 1-2 items and a big one 2-3, so roughly two " +
+                "opens in three leave a slot free; that free slot is what a compass " +
+                "can go into. Explorer's Luggage always fills every slot and Ancient " +
+                "(cursed) Luggage is left alone entirely, so neither is affected. " +
                 "Only the host's value matters: luggage contents are spawned by " +
                 "the host alone.");
 
             CompassFromLuggageChancePercent = config.Bind(
-                "Compass-Items", "compass-chance-percent", 5f,
+                "Compass-Items", "add-compass-chance-percent", 3f,
                 new ConfigDescription(
-                    "Chance, in percent, that a Luggage with a free item slot also " +
-                    "contains a regular Compass. Only rolled when enable-compass-" +
-                    "from-luggage is on, and only after the Pirate's Compass roll " +
-                    "below missed (if that one is enabled too).",
-                    new AcceptableValueRange<float>(0.1f, 100f)));
+                    "Chance, in percent, that opening a Luggage gets you a regular " +
+                    "Compass. This is the real chance per luggage opened, not per " +
+                    "luggage that happened to have a free slot - 3 means 3 luggage " +
+                    "in 100. The cap is the odds of a free slot existing at all " +
+                    "(about 66%, i.e. two opens in three), so setting it that high " +
+                    "means every luggage that can take a compass gets one. Only " +
+                    "rolled when enable-compass-from-empty-luggage is on, and only after " +
+                    "the Pirate's Compass roll below missed (if that one is enabled " +
+                    "too - the two shares don't eat into each other, but together " +
+                    "they can't exceed the cap).",
+                    new AcceptableValueRange<float>(0.1f, 66f)));
 
             EnablePirateCompassFromLuggage = config.Bind(
-                "Compass-Items", "enable-pirate-compass-from-luggage", false,
-                "Host-only: same as enable-compass-from-luggage above, but for the " +
+                "Compass-Items", "enable-pirate-compass-from-empty-luggage", false,
+                "Host-only: same as enable-compass-from-empty-luggage above, but for the " +
                 "Pirate's Compass (the one whose needle points at the nearest " +
                 "unopened luggage). Rolled first when both are enabled - a hit here " +
                 "spawns a Pirate's Compass and skips the regular Compass roll " +
                 "entirely, so at most one extra compass is ever added per luggage.");
 
             PirateCompassFromLuggageChancePercent = config.Bind(
-                "Compass-Items", "pirate-compass-chance-percent", 1f,
+                "Compass-Items", "add-pirate-compass-chance-percent", 0.5f,
                 new ConfigDescription(
-                    "Chance, in percent, that a Luggage with a free item slot also " +
-                    "contains a Pirate's Compass. Kept low by default - it's a much " +
-                    "stronger find than a regular Compass. Only rolled when enable-" +
-                    "pirate-compass-from-luggage is on.",
-                    new AcceptableValueRange<float>(0.1f, 100f)));
+                    "Chance, in percent, that opening a Luggage gets you a Pirate's " +
+                    "Compass. Same scale as add-compass-chance-percent above: the real " +
+                    "chance per luggage opened, capped by the roughly 66% odds of a " +
+                    "free slot existing. Kept low by default - it's a much stronger " +
+                    "find than a regular Compass. Only rolled when enable-pirate-" +
+                    "compass-from-empty-luggage is on.",
+                    new AcceptableValueRange<float>(0.1f, 66f)));
 
             // ---- Luggage Ping: inspired by the "Compass UI" mod's own suitcase-
             // ping key, for players coming from that mod. Press the key to
