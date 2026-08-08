@@ -25,9 +25,17 @@ namespace SenseOfDirection.PirateCompass
     /// so the direction is actually legible instead of only being conveyed by a
     /// wobbling 3D needle on the held item model.
     ///
+    /// How close to hand the compass has to be for this to show is its own
+    /// setting (<c>Pirate-Compass/luggage-indicator-display-mode</c>, see
+    /// <see cref="PirateCompassLuggageDisplayMode"/>) - held in hand by
+    /// default, as it always was before that setting existed, but optionally
+    /// just present in your inventory or backpack. Deliberately not the tape's
+    /// <c>Compass/pirate-display-mode</c>: same question, different readout.
+    ///
     /// The widget/anchor is built once and stays registered for the rest of
-    /// the session; showing/hiding it (holstering the compass, no unopened
-    /// luggage left) is done purely through <see cref="IndicatorAnchor.IsActive"/>,
+    /// the session; showing/hiding it (the compass no longer counting under
+    /// that setting, no unopened luggage left) is done purely through
+    /// <see cref="IndicatorAnchor.IsActive"/>,
     /// never by unregistering and re-registering a fresh anchor - the same
     /// pattern <see cref="CampfireIndicator.CampfireIndicatorController"/>
     /// already uses to keep a hidden-then-reshown indicator's widget alive.
@@ -87,8 +95,8 @@ namespace SenseOfDirection.PirateCompass
                 return;
             }
 
-            bool holdingPirateCompass = Character.localCharacter != null && IsHoldingPirateCompass();
-            Luggage nearest = holdingPirateCompass ? FindNearestUnopenedLuggage() : null;
+            bool hasPirateCompass = Character.localCharacter != null && IsDisplayModeSatisfied(cfg);
+            Luggage nearest = hasPirateCompass ? FindNearestUnopenedLuggage() : null;
             _shouldShow = nearest != null;
             if (nearest != null)
             {
@@ -137,11 +145,25 @@ namespace SenseOfDirection.PirateCompass
             IndicatorManager.Instance.RegisterAnchor(_widget.Anchor);
         }
 
-        private static bool IsHoldingPirateCompass()
+        /// <summary>
+        /// Whether a Pirate's Compass is close enough to hand right now for the
+        /// indicator to show, per <c>Pirate-Compass/luggage-indicator-display-mode</c>.
+        /// Reuses the compass tape's own per-level inventory walk
+        /// (<see cref="CompassManager.IsDisplayModeSatisfied(CompassDisplayMode, bool)"/>,
+        /// pinned to pirate compasses), but the *level* comes from this
+        /// mechanic's own setting - the tape's display modes never gate this
+        /// indicator, see <see cref="PirateCompassLuggageDisplayMode"/>.
+        /// </summary>
+        private static bool IsDisplayModeSatisfied(PluginConfig cfg) =>
+            CompassManager.IsDisplayModeSatisfied(ToCompassMode(cfg.PirateCompassLuggageDisplayMode.Value), pirate: true);
+
+        /// <summary>This mechanic's own display-mode levels are a strict subset of the tape's (no <see cref="CompassDisplayMode.AlwaysOn"/>), so each one maps straight across.</summary>
+        private static CompassDisplayMode ToCompassMode(PirateCompassLuggageDisplayMode mode) => mode switch
         {
-            CompassPointer pointer = CompassManager.GetHeldCompassPointer();
-            return pointer != null && pointer.compassType == CompassPointer.CompassType.Pirate;
-        }
+            PirateCompassLuggageDisplayMode.Carried => CompassDisplayMode.Carried,
+            PirateCompassLuggageDisplayMode.MainInventory => CompassDisplayMode.MainInventory,
+            _ => CompassDisplayMode.RequireHolding,
+        };
 
         /// <summary>
         /// Same "not yet opened" check <see cref="ItemPings.ItemPingDetector"/>

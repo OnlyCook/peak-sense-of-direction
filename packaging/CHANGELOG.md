@@ -1,5 +1,6 @@
 ## 1.0.6
 
+- Added a new **luggage-indicator-display-mode** setting under *Pirate-Compass* (also in the Quick Setup panel) which controls when the Pirate's Compass' luggage indicator shows (needing to actively hold it is the default still).
 - Fixed major issue where the mod tried to find native game assets to reuse (font, icons) in the main menu where they weren't loaded into memory yet causing massive performance issues.
 - Fixed magnifying glass border having thinner corners than edges.
 

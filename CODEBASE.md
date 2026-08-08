@@ -668,8 +668,12 @@ RESEARCH.md's license table) — nothing here is copied from it.
   setting's own `AlwaysOn` already does) for `MatchDisplayMode`, the default,
   which reuses whatever level `display-mode` itself is on; `ResolvePirateMode`
   maps between the two enums by explicit switch, never a numeric cast, since
-  their members deliberately don't line up. Unrelated to `PirateCompass/`'s own
-  luggage indicator below, which is always hard-gated on actually holding one.
+  their members deliberately don't line up. Both settings only ever gate the
+  *tape*: `PirateCompass/`'s own luggage indicator below has a third, separate
+  display-mode setting of its own. `IsDisplayModeSatisfied(CompassDisplayMode,
+  bool pirate)` (the per-level inventory walk) is `internal` rather than
+  private for exactly that reason - the luggage indicator asks the same
+  question with its own level.
 - `CompassIcons.cs` — placeholder shapes generated procedurally once and
   cached; only the elevation-arrow triangle and the tape's horizontal
   fade-line baseline are left here now (the campfire marker reuses
@@ -749,8 +753,8 @@ RESEARCH.md's license table) — nothing here is copied from it.
 - `PirateCompassLuggageIndicatorController.cs` — singleton `MonoBehaviour`
   (same `Instance`/no-op-when-disabled pattern as
   `CampfireIndicator/CampfireIndicatorController.cs`) that, while the local
-  player holds an in-game item with a `CompassPointer` of
-  `CompassType.Pirate` (`Compass.CompassManager.GetHeldCompassPointer`),
+  player has an in-game item with a `CompassPointer` of `CompassType.Pirate`
+  close enough to hand (see `luggage-indicator-display-mode` below),
   finds the nearest not-yet-opened `Luggage` (same `IsOpen` check
   `ItemPings/ItemPingDetector.cs` already relies on, no distance cap - matches
   the decompiled `CompassPointer.UpdateHeadingPirate`'s own unlimited-range
@@ -765,6 +769,19 @@ RESEARCH.md's license table) — nothing here is copied from it.
   default) is the master switch; `General/pirate-compass-luggage-placement`
   (default `Both`) routes it between the two rendering surfaces like every
   other mechanic's own placement setting.
+- `PirateCompassLuggageDisplayMode.cs` — *when* the indicator shows
+  (`Pirate-Compass/luggage-indicator-display-mode`, default `RequireHolding`,
+  which is how the mechanic behaved before this setting existed). The tape's
+  three-level `Carried`/`MainInventory`/`RequireHolding` ladder minus
+  `AlwaysOn` (a permanent nearest-luggage arrow with no Pirate's Compass
+  involved would both void the item and undercut `LuggagePing/`'s
+  radius+cooldown price for the same information). Deliberately its own
+  setting rather than reusing `Compass/pirate-display-mode`: same question,
+  different readout, and the luggage arrow is much the stronger of the two.
+  Evaluation itself is not duplicated - the controller maps this enum onto
+  `CompassDisplayMode` by explicit switch (the members deliberately don't line
+  up, same as `ResolvePirateMode`) and defers to
+  `CompassManager.IsDisplayModeSatisfied(mode, pirate: true)`.
 
 ### `CompassItems/` (ad hoc addition, done — extra compass loot)
 

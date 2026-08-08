@@ -543,7 +543,12 @@ namespace SenseOfDirection.Ui
                     cfg.CompassElevationThresholdMeters, cfg.CompassShowNames, cfg.CompassShowDistances,
                     cfg.CompassShowDegreeNumbers, cfg.CompassLineColor, cfg.CompassLineThicknessMultiplier,
                     cfg.CompassClampIconsToEdge,
-                    cfg.EnablePirateCompassLuggageIndicator, cfg.PirateCompassDisplayMode, cfg.PirateCompassLuggagePlacement,
+                    // Pirate's Compass tail: the tape-gating setting first (it
+                    // belongs with the compass settings above it), then the
+                    // luggage indicator's own three, so the two mechanics don't
+                    // read as one interleaved block.
+                    cfg.PirateCompassDisplayMode,
+                    cfg.EnablePirateCompassLuggageIndicator, cfg.PirateCompassLuggageDisplayMode, cfg.PirateCompassLuggagePlacement,
                 },
             });
 
