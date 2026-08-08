@@ -1,3 +1,8 @@
+## 1.0.6
+
+- Fixed major issue where the mod tried to find native game assets to reuse (font, icons) in the main menu where they weren't loaded into memory yet causing massive performance issues.
+- Fixed magnifying glass border having thinner corners than edges.
+
 ## 1.0.5
 
 - The campfire indicator now points at the **Peak** once the last campfire on the map is lit with its own icon instead of trying to indicate the next campfire.

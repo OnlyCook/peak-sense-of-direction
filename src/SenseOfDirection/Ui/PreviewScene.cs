@@ -70,6 +70,31 @@ namespace SenseOfDirection.Ui
         private const float LoupeCornerRadius = 14f;
         private const float LoupeBorderThickness = 5f;
 
+        /// <summary>
+        /// How far the *content* stops short of the lens window's own boundary. The ring
+        /// is drawn flush to that boundary and covers <see cref="LoupeBorderThickness"/>
+        /// inward from it, so trimming the content by less than that changes nothing
+        /// anyone can see - the trimmed band was underneath the border either way.
+        ///
+        /// It exists because the mask and the ring agree on the same rounded rect but
+        /// don't render it the same way: the ring's outer edge is antialiased (alpha
+        /// ramps out over the last pixel), while Unity's <see cref="Mask"/> alpha-*clips*
+        /// rather than blends, so every partially-covered mask pixel passes at full
+        /// strength. Line the two boundaries up exactly and there's a ~1px band where the
+        /// content is still solid but the ring has already faded to nothing - the content
+        /// shows through over the top of its own border. On the straight runs this can't
+        /// happen (there the shape ends flush with the texture edge at alpha 1, so no
+        /// ramp exists); it's confined to the corner arcs, which is why only they read
+        /// thin and chewed-up.
+        ///
+        /// Pulling the content in is the fix rather than pushing the ring out: the ring
+        /// has to stay inside the lens rect, because <see cref="UpdateLoupe"/> lets that
+        /// rect hug the frame's own edge and the frame clips what leaves it. A ring that
+        /// overhung would have its corners shaved off exactly when the lens is pushed
+        /// into a corner.
+        /// </summary>
+        private const float LoupeMaskInset = 3f;
+
         /// <summary>Short enough that the lens feels attached to the cursor rather than chasing it, long enough that crossing the frame's edge isn't a hard pop.</summary>
         private const float LoupeFadeDuration = 0.12f;
 
@@ -640,7 +665,7 @@ namespace SenseOfDirection.Ui
             CentreAnchor(maskRect, LoupeSize);
 
             var maskImage = maskGo.GetComponent<Image>();
-            maskImage.sprite = PanelChrome.MaskSprite(64, LoupeCornerRadius);
+            maskImage.sprite = LoupeMaskSprite();
             maskImage.type = Image.Type.Sliced;
             maskImage.raycastTarget = false;
             maskGo.GetComponent<Mask>().showMaskGraphic = false;
@@ -661,6 +686,10 @@ namespace SenseOfDirection.Ui
             var ringGo = new GameObject("Ring", typeof(RectTransform), typeof(Image));
             var ringRect = (RectTransform)ringGo.transform;
             ringRect.SetParent(_loupeRoot, false);
+
+            // Exactly the lens's own size, never larger: the lens is allowed to sit
+            // flush against the frame's edge, and anything of it that pokes out past
+            // that edge is clipped away. See LoupeMaskInset.
             CentreAnchor(ringRect, LoupeSize);
 
             var ringImage = ringGo.GetComponent<Image>();
@@ -668,6 +697,73 @@ namespace SenseOfDirection.Ui
             ringImage.type = Image.Type.Sliced;
             ringImage.raycastTarget = false;
         }
+
+        /// <summary>
+        /// The shape the lens's content is clipped to: the lens window pulled in by
+        /// <see cref="LoupeMaskInset"/>, so the content ends well underneath the ring
+        /// rather than right at its fading outer edge.
+        ///
+        /// Not <see cref="PanelChrome.MaskSprite"/>, which is the general-purpose one and
+        /// antialiases its edge. Antialiasing is the wrong thing for a stencil: a
+        /// <see cref="Mask"/> keeps any pixel above alpha 0.001, so a soft edge doesn't
+        /// soften the clip, it just moves it outward by however wide the ramp is - and
+        /// bilinear sampling widens that ramp further wherever the lens sits at a
+        /// fractional cursor position. Hard alpha and point sampling instead, which puts
+        /// the clip boundary exactly where the inset says and nowhere else. The stair-
+        /// stepping that buys is invisible: it's several pixels deep under the border.
+        /// </summary>
+        private static Sprite LoupeMaskSprite()
+        {
+            if (_loupeMaskSprite != null)
+            {
+                return _loupeMaskSprite;
+            }
+
+            const int Size = 64;
+            const float Radius = LoupeCornerRadius - LoupeMaskInset;
+
+            var texture = new Texture2D(Size, Size, TextureFormat.ARGB32, false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Point,
+            };
+
+            var pixels = new Color[Size * Size];
+
+            for (int y = 0; y < Size; y++)
+            {
+                for (int x = 0; x < Size; x++)
+                {
+                    float fx = x + 0.5f, fy = y + 0.5f;
+
+                    // The inset shape: the lens's rounded rect shrunk on every side,
+                    // which for a rounded rect also shrinks the corner radius by the
+                    // same amount - so it stays concentric with the ring drawn over it.
+                    float cx = Mathf.Clamp(fx, LoupeCornerRadius, Size - LoupeCornerRadius);
+                    float cy = Mathf.Clamp(fy, LoupeCornerRadius, Size - LoupeCornerRadius);
+                    float dist = Mathf.Sqrt((fx - cx) * (fx - cx) + (fy - cy) * (fy - cy));
+
+                    // Hard in/out, no ramp - the whole point of this sprite.
+                    pixels[y * Size + x] = new Color(1f, 1f, 1f, dist <= Radius ? 1f : 0f);
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+
+            // The lens's radius, not the inset one: the arc is drawn about the same
+            // centres the full-size shape uses, so it still spans that whole block even
+            // though it's tighter. Slicing at the smaller radius would stretch part of
+            // the curve sideways.
+            var slice = new Vector4(LoupeCornerRadius, LoupeCornerRadius, LoupeCornerRadius, LoupeCornerRadius);
+
+            _loupeMaskSprite = Sprite.Create(
+                texture, new Rect(0, 0, Size, Size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, slice);
+
+            return _loupeMaskSprite;
+        }
+
+        private static Sprite _loupeMaskSprite;
 
         /// <summary>
         /// The lens's outline, as one hollow rounded-rect sprite.
