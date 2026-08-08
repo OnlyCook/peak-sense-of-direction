@@ -404,8 +404,13 @@ namespace SenseOfDirection.Compass
         /// spawned instance would have (including <c>CompassPointer</c>), so
         /// checking the prefab directly is exactly as accurate without needing
         /// one to actually be spawned.
+        ///
+        /// Internal rather than private because the Pirate's Compass luggage
+        /// indicator gates itself on the very same question (with its own
+        /// setting, and always <paramref name="pirate"/>: true) - see
+        /// <see cref="PirateCompass.PirateCompassLuggageIndicatorController"/>.
         /// </summary>
-        private static bool IsDisplayModeSatisfied(CompassDisplayMode mode, bool pirate)
+        internal static bool IsDisplayModeSatisfied(CompassDisplayMode mode, bool pirate)
         {
             if (mode == CompassDisplayMode.AlwaysOn)
             {
