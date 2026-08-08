@@ -7,10 +7,27 @@ namespace SenseOfDirection.Labels
     /// <summary>
     /// Lazily discovers a few of PEAK's own UI assets at runtime, since Unity
     /// asset references (font/material/sprite) aren't visible in the game's
-    /// decompiled IL - see RESEARCH.md Q2/Q7. Retried on demand (cheap, no
-    /// caching invalidation needed) until each is found, since the native UI
-    /// may not have created any instances yet when Sense of Direction first
-    /// looks (e.g. still on the main menu).
+    /// decompiled IL - see RESEARCH.md Q2/Q7. Retried until each is found,
+    /// since the native UI may not have created any instances yet when Sense
+    /// of Direction first looks (e.g. still on the main menu).
+    ///
+    /// A retry is NOT cheap, which an earlier version of this comment claimed
+    /// and <see cref="TryFindAll"/>'s callers took at face value: three of them
+    /// (<see cref="PlayerLabelController"/>,
+    /// <see cref="CampfireIndicator.CampfireIndicatorController"/> and
+    /// <see cref="Compass.CompassManager"/>) call it unconditionally at the top
+    /// of their own <c>Update</c>, before any enable/level check, so every
+    /// unresolved lookup ran three times a frame forever. Each one is a full
+    /// <c>Resources.FindObjectsOfTypeAll</c> sweep over every loaded object
+    /// *and asset* - and <see cref="TryFindFont"/> additionally touches
+    /// <c>materialForRendering</c> on every text it walks. Measured on the main
+    /// menu that came to ~5.2ms per <c>TryFindAll</c>, ~15.6ms per frame,
+    /// ~890ms of every wall-clock second: the mod on its own was eating an
+    /// entire 60fps frame budget while the game sat on its title screen.
+    ///
+    /// Two things keep that from happening, both in <see cref="TryFindAll"/>:
+    /// the scans only run inside a level at all, and even there they're
+    /// throttled rather than per-frame. See its own comments.
     /// </summary>
     public static class NativeAssets
     {
@@ -50,9 +67,83 @@ namespace SenseOfDirection.Labels
 
         private static bool _foundDefaultTextColor;
 
+        /// <summary>
+        /// Everything <see cref="TryFindAll"/> gates on is resolved, so it has
+        /// nothing to do but say so - the state the mod spends an entire run
+        /// in, and the reason a resolved <see cref="TryFindAll"/> is free.
+        ///
+        /// Re-derived rather than latched: a latch would also stop the scans
+        /// from ever running again, and the whole point of the original
+        /// "retry until found" design is that a reference going null again
+        /// (an asset unloaded on a scene change) re-resolves itself.
+        /// </summary>
+        private static bool AllFound =>
+            Font != null && OutlineMaterial != null && HostStarSprite != null
+            && _foundDefaultTextColor && CampfireIconSprite != null;
+
+        /// <summary>
+        /// How long an unresolved lookup waits before being retried. Shared
+        /// across every caller (it's wall-clock, not per-caller), so the three
+        /// per-frame ones cost one scan between them instead of three each.
+        ///
+        /// Short enough that nothing ends up visibly unstyled: every in-world
+        /// widget (player label, campfire, ping, item ping, compass tick and
+        /// marker) re-reads <see cref="Font"/>/<see cref="OutlineMaterial"/> on
+        /// each refresh rather than baking them in at construction, so one
+        /// built inside the retry window restyles itself the moment the scan
+        /// catches up.
+        /// </summary>
+        private const float RetryIntervalSeconds = 0.25f;
+
+        private static float _lastScanTime = float.NegativeInfinity;
+
         /// <summary>Call periodically (e.g. once per frame) until this returns true.</summary>
         public static bool TryFindAll()
         {
+            if (AllFound)
+            {
+                return true;
+            }
+
+            // One throttle for the whole method, checked before any scan and
+            // shared across callers. Inside a level the assets do eventually
+            // resolve, but "eventually" can be several seconds (the HUD builds
+            // asynchronously), and until then every attempt is another
+            // scene-wide sweep. Four attempts a second is plenty to catch the
+            // HUD coming up without paying for it every frame.
+            if (Throttled())
+            {
+                return false;
+            }
+
+            // The two cheap ones first, and above the in-level gate below: both
+            // resolve on their very first call (KeyboardSprites via a direct
+            // Resources.Load, FallbackFont via a name match against TMP's own
+            // always-loaded stock font), including on the main menu, so they
+            // never become a repeating cost. Deliberately not folded into the
+            // return value - neither is required by any existing caller, so
+            // there's no real "not ready yet" case to gate on.
+            if (KeyboardSprites == null)
+            {
+                KeyboardSprites = InputSpriteData.Instance != null ? InputSpriteData.Instance.keyboardSprites : null;
+            }
+            if (FallbackFont == null)
+            {
+                TryFindFallbackFont();
+            }
+
+            // Everything below is borrowed off PEAK's in-game HUD - the
+            // outlined text style, a PlayerName label, the stamina bar's
+            // campfire icon. None of it exists before there's a local
+            // character, which was measured, not assumed: on the main menu all
+            // three scans ran ~170 times a second for a whole session and never
+            // once resolved. So outside a level they're pure waste, and an
+            // expensive kind - see this class' own summary.
+            if (Character.localCharacter == null)
+            {
+                return false;
+            }
+
             if (Font == null || OutlineMaterial == null)
             {
                 TryFindFont();
@@ -65,22 +156,24 @@ namespace SenseOfDirection.Labels
             {
                 TryFindCampfireIcon();
             }
-            // Best-effort, not folded into the return value below - neither
-            // is required by any existing caller of TryFindAll, and both
-            // resolve trivially (KeyboardSprites via a direct Resources.Load,
-            // FallbackFont via a name match against TMP's own always-loaded
-            // stock font) so there's no real "not ready yet" case to gate on.
-            if (KeyboardSprites == null)
-            {
-                KeyboardSprites = InputSpriteData.Instance != null ? InputSpriteData.Instance.keyboardSprites : null;
-            }
-            if (FallbackFont == null)
-            {
-                TryFindFallbackFont();
-            }
 
-            return Font != null && OutlineMaterial != null && HostStarSprite != null
-                   && _foundDefaultTextColor && CampfireIconSprite != null;
+            return AllFound;
+        }
+
+        /// <summary>
+        /// Whether the last scan was recent enough that this call should skip
+        /// doing another. Stamps the clock on the way through, so the first
+        /// caller in a window does the work and everyone after it is turned
+        /// away until the window is up.
+        /// </summary>
+        private static bool Throttled()
+        {
+            if (Time.unscaledTime - _lastScanTime < RetryIntervalSeconds)
+            {
+                return true;
+            }
+            _lastScanTime = Time.unscaledTime;
+            return false;
         }
 
         private static void TryFindFont()
