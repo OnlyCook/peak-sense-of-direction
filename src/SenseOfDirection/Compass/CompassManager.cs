@@ -443,8 +443,14 @@ namespace SenseOfDirection.Compass
             // own internal storage (a separate BackpackData data entry on the
             // backpack slot's own ItemInstanceData, not part of itemSlots at
             // all - see BackpackData.itemSlots in the decompile).
+            //
+            // 2.0.a replaced `BackpackSlot.hasBackpack` (a plain bool) with the
+            // `backpackType` enum that the new fannypack/jetpack/rocketpack
+            // variants also live in - `IsEmpty()` is that class's own override
+            // for "backpackType == None", so it covers every variant, not just
+            // the original backpack.
             if (mode == CompassDisplayMode.Carried
-                && player.backpackSlot.hasBackpack
+                && !player.backpackSlot.IsEmpty()
                 && player.backpackSlot.data != null
                 && player.backpackSlot.data.TryGetDataEntry(DataEntryKey.BackpackData, out BackpackData backpackData))
             {
