@@ -1,7 +1,7 @@
 ## 1.1.0
 
 - **PEAK 2.0.a compatibility update**. The recent major update broke lot's of stuff: like the compass not appearing at all or pinging not working (and breaking the vanilla ping with it).
-- Note: some other things still don't work (for example the player character has new colliders which breaks pinging in some cases or the new hazards not being pingable), but I'll fix this later after taking a quick nap.
+- Note: some other new things still don't work though (for example the player character has new colliders which break pinging in some cases or the new hazards not being pingable), but I'll fix this later after taking a short nap.
 
 ## 1.0.6
 
