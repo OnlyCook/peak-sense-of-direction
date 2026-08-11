@@ -606,8 +606,18 @@ namespace SenseOfDirection.Pings
             spawnedPing.hitNormal = hitNormal;
             spawnedPing.Init(character);
             spawnedPing.pointPinger = __instance;
-            spawnedPing.renderer.material = UnityEngine.Object.Instantiate(character.refs.mainRenderer.sharedMaterial);
-            spawnedPing.material.SetFloat("_Opacity", visibility);
+            // 2.0.a changed how vanilla's own ReceivePoint_Rpc finishes this
+            // off: the ping's material now has to be told it's a ping
+            // (`_PointPing` = 1) or the shader draws nothing at all, and the
+            // set happens on `renderer.material` - the instance just assigned
+            // above - rather than on `PointPing.material`, which is only
+            // cached once in that component's own Awake and so still points at
+            // the *prefab's* original material by the time we get here (which
+            // is why the old `_Opacity` line silently did nothing).
+            Material pingMaterial = UnityEngine.Object.Instantiate(character.refs.mainRenderer.sharedMaterial);
+            spawnedPing.renderer.material = pingMaterial;
+            pingMaterial.SetFloat("_PointPing", 1f);
+            pingMaterial.SetFloat("_Opacity", visibility);
 
             Color pingColor = character.refs.customization.PlayerColor;
 

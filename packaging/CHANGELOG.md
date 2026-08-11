@@ -1,3 +1,8 @@
+## 1.1.0
+
+- **PEAK 2.0.a compatibility update**. The recent major update broke lot's of stuff: like the compass not appearing at all or pinging not working (and breaking the vanilla ping with it).
+- Note: some other new things still don't work though (for example the player character has new colliders which break pinging in some cases or the new hazards not being pingable), but I'll fix this later after taking a short nap.
+
 ## 1.0.6
 
 - Added a new **luggage-indicator-display-mode** setting under *Pirate-Compass* (also in the Quick Setup panel) which controls when the Pirate's Compass' luggage indicator shows (needing to actively hold it is the default still).
@@ -13,7 +18,6 @@
     - The other 4 settings (config-only, all off by default) let the **host** give opened Luggage an extra chance to also contain a regular **Compass** or a **Pirate's Compass**. Only rolled when a luggage opens with a free item slot left, and the compass is only ever *added* into that free slot. Nothing the game (or another mod) put in a luggage is ever replaced, and the game's own loot odds are left completely untouched.
 - Added a new **pirate-display-mode** option under *Compass* to control compass tape visibility separately for the regular Compass item and Pirate's Compass.
 - Fixed the game's own `MapHandler.CurrentCampfire` throwing once the last campfire was lit, which silently broke every ping from that point on.
-- Fixed a large framerate drop in the main menu caused by this mod. Its lookup of a few of PEAK's own UI assets (font, host star, campfire icon) re-scanned every loaded object three times per frame, and in the main menu those assets don't exist yet, so the scan could only ever fail and repeat. It's now limited to actual runs and throttled - the main menu is back to full framerate.
 
 ## 1.0.4
 
