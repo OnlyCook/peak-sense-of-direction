@@ -234,18 +234,37 @@ namespace SenseOfDirection.Indicators
             _overlapCompaction.Remove(anchor);
             _overlapPacing.Remove(anchor);
             _transitions.Remove(anchor);
+            _anchorFailures.Remove(anchor);
 
-            if (anchor.ReleaseWidget != null)
+            // ReleaseWidget is caller-supplied teardown, so it gets the same
+            // treatment as the caller-supplied getters in UpdateAnchor: a
+            // throw in one anchor's cleanup must not strand the rest of the
+            // unregister (or, when called from LateUpdateImpl's retire path,
+            // abort the whole frame's anchor loop).
+            Common.Safe.Run("IndicatorManager.UnregisterAnchor (widget teardown)", () =>
             {
-                anchor.ReleaseWidget();
-            }
-            else if (anchor.Widget != null)
-            {
-                Destroy(anchor.Widget.gameObject);
-            }
+                if (anchor.ReleaseWidget != null)
+                {
+                    anchor.ReleaseWidget();
+                }
+                else if (anchor.Widget != null)
+                {
+                    Destroy(anchor.Widget.gameObject);
+                }
+            });
         }
 
+        private static readonly Common.Safe.Context _ctxLateUpdateImpl =
+            new Common.Safe.Context("IndicatorManager.LateUpdate", failureLimit: 300);
+
         private void LateUpdate()
+        {
+            if (_ctxLateUpdateImpl.Disabled) return;
+            try { LateUpdateImpl(); _ctxLateUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxLateUpdateImpl.Failed(e); }
+        }
+
+        private void LateUpdateImpl()
         {
             // Sit just behind the game's own HUD canvas rather than a fixed
             // sky-high sorting order, so this overlay never draws over the
@@ -276,57 +295,124 @@ namespace SenseOfDirection.Indicators
                     continue;
                 }
 
-                // CompassOnly mode hides this off-screen widget/arrow entirely -
-                // the anchor still stays registered (Compass.CompassManager reads
-                // the same anchor list for its own top-of-screen marker), it just
-                // doesn't get positioned or shown here.
-                bool showOffScreenWidget = anchor.GetPlacement() != IndicatorPlacement.CompassOnly;
-                bool active = camera != null && anchor.IsActive() && showOffScreenWidget;
-                anchor.Widget.gameObject.SetActive(active);
-                if (!active)
+                // Every anchor is driven behind its own guard. An anchor's
+                // getters (IsActive/GetWorldPosition/GetPlacement) are
+                // caller-supplied closures over live game objects - a
+                // Character, an Item, a spawn point - any of which can be
+                // destroyed or half-torn-down at an awkward moment. Without
+                // this, one such anchor throwing would abort the whole loop
+                // and freeze *every* indicator, compass marker and ping label
+                // on screen, which is exactly the kind of total-HUD-failure
+                // that reads as "the mod broke the game" rather than as one
+                // missing label.
+                if (!TryUpdateAnchor(anchor, camera, canvasSize))
                 {
-                    // Dropped so a later reappearance snaps straight to its
-                    // fresh target instead of sliding in from a stale
-                    // position last seen possibly a while ago.
-                    _transitions.Remove(anchor);
+                    // Persistently broken: retire it rather than throwing
+                    // once per frame forever. Its owning system is free to
+                    // register a fresh one later.
+                    if (BumpAnchorFailure(anchor) >= AnchorFailuresToRetire)
+                    {
+                        Plugin.Instance?.Log?.LogWarning(
+                            $"IndicatorManager: retiring an anchor that failed {AnchorFailuresToRetire}x in a row.");
+                        UnregisterAnchor(anchor);
+                    }
                     continue;
                 }
-
-                var state = ScreenSpaceTracker.Compute(camera, canvasSize, anchor.GetWorldPosition(), anchor.EdgeMarginPixels);
-                Vector2 position = ResolveTransitionedPosition(anchor, state);
-                anchor.Widget.anchoredPosition = position;
-
-                if (anchor.OverlapSize.x > 0f && anchor.OverlapSize.y > 0f)
+                if (_anchorFailures.Count > 0)
                 {
-                    _overlapCandidates.Add(anchor);
-                    _overlapBasePosition[anchor] = position;
-                    _overlapBoxPosition[anchor] = position + anchor.OverlapCenterOffset;
-                }
-
-                if (anchor.ArrowWidget != null)
-                {
-                    anchor.ArrowWidget.gameObject.SetActive(state.IsOffScreen);
-                    if (state.IsOffScreen)
-                    {
-                        // Sprite convention: arrow art points "up" (+Y) at rotation 0.
-                        // Confirmed in-game with the actual directional arrow art
-                        // (the old placeholder was a symmetric rectangle, so this
-                        // couldn't be verified visually until the real sprite
-                        // shipped): the +90 offset renders backwards, -90 is
-                        // correct - do not "simplify" this back to +90.
-                        anchor.ArrowWidget.localEulerAngles = anchor.RotateArrowWidget
-                            ? new Vector3(0f, 0f, state.ArrowAngleDegrees - 90f)
-                            : Vector3.zero;
-                    }
-                }
-
-                if (anchor.OnScreenOnlyWidget != null)
-                {
-                    anchor.OnScreenOnlyWidget.gameObject.SetActive(!state.IsOffScreen);
+                    _anchorFailures.Remove(anchor);
                 }
             }
 
             ResolveLabelOverlaps(canvasSize);
+        }
+
+        /// <summary>Consecutive per-anchor failures before <see cref="LateUpdateImpl"/> gives up on one.</summary>
+        private const int AnchorFailuresToRetire = 60;
+
+        private readonly Dictionary<IndicatorAnchor, int> _anchorFailures = new Dictionary<IndicatorAnchor, int>();
+
+        private int BumpAnchorFailure(IndicatorAnchor anchor)
+        {
+            _anchorFailures.TryGetValue(anchor, out int count);
+            count++;
+            _anchorFailures[anchor] = count;
+            return count;
+        }
+
+        private static readonly Common.Safe.Context _ctxAnchor =
+            new Common.Safe.Context("IndicatorManager anchor update");
+
+        /// <summary>
+        /// Hand-rolled try/catch rather than a <c>Safe.Run</c> lambda: this
+        /// runs once per anchor per frame, and a capturing lambda would
+        /// allocate a closure every one of those calls.
+        /// </summary>
+        private bool TryUpdateAnchor(IndicatorAnchor anchor, Camera camera, Vector2 canvasSize)
+        {
+            try
+            {
+                UpdateAnchor(anchor, camera, canvasSize);
+                _ctxAnchor.Succeeded();
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                _ctxAnchor.Failed(e);
+                return false;
+            }
+        }
+
+        private void UpdateAnchor(IndicatorAnchor anchor, Camera camera, Vector2 canvasSize)
+        {
+            // CompassOnly mode hides this off-screen widget/arrow entirely -
+            // the anchor still stays registered (Compass.CompassManager reads
+            // the same anchor list for its own top-of-screen marker), it just
+            // doesn't get positioned or shown here.
+            bool showOffScreenWidget = anchor.GetPlacement() != IndicatorPlacement.CompassOnly;
+            bool active = camera != null && anchor.IsActive() && showOffScreenWidget;
+            anchor.Widget.gameObject.SetActive(active);
+            if (!active)
+            {
+                // Dropped so a later reappearance snaps straight to its
+                // fresh target instead of sliding in from a stale
+                // position last seen possibly a while ago.
+                _transitions.Remove(anchor);
+                return;
+            }
+
+            var state = ScreenSpaceTracker.Compute(camera, canvasSize, anchor.GetWorldPosition(), anchor.EdgeMarginPixels);
+            Vector2 position = ResolveTransitionedPosition(anchor, state);
+            anchor.Widget.anchoredPosition = position;
+
+            if (anchor.OverlapSize.x > 0f && anchor.OverlapSize.y > 0f)
+            {
+                _overlapCandidates.Add(anchor);
+                _overlapBasePosition[anchor] = position;
+                _overlapBoxPosition[anchor] = position + anchor.OverlapCenterOffset;
+            }
+
+            if (anchor.ArrowWidget != null)
+            {
+                anchor.ArrowWidget.gameObject.SetActive(state.IsOffScreen);
+                if (state.IsOffScreen)
+                {
+                    // Sprite convention: arrow art points "up" (+Y) at rotation 0.
+                    // Confirmed in-game with the actual directional arrow art
+                    // (the old placeholder was a symmetric rectangle, so this
+                    // couldn't be verified visually until the real sprite
+                    // shipped): the +90 offset renders backwards, -90 is
+                    // correct - do not "simplify" this back to +90.
+                    anchor.ArrowWidget.localEulerAngles = anchor.RotateArrowWidget
+                        ? new Vector3(0f, 0f, state.ArrowAngleDegrees - 90f)
+                        : Vector3.zero;
+                }
+            }
+
+            if (anchor.OnScreenOnlyWidget != null)
+            {
+                anchor.OnScreenOnlyWidget.gameObject.SetActive(!state.IsOffScreen);
+            }
         }
 
         /// <summary>

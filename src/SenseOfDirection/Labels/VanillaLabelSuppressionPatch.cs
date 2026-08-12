@@ -31,13 +31,55 @@ namespace SenseOfDirection.Labels
             }
         }
 
+        /// <summary>
+        /// A *replacing* prefix (returns false), so it is doubly worth
+        /// guarding: an exception here doesn't just skip our suppression, it
+        /// propagates out of vanilla's own name-label update and can take the
+        /// surrounding HUD refresh down with it, every frame. On any failure
+        /// we fall back to <see langword="true"/> - i.e. let vanilla draw its
+        /// own label. A duplicated name on screen is a far better outcome than
+        /// a broken HUD, and it's self-correcting the moment the underlying
+        /// problem clears.
+        /// </summary>
+        private static readonly Common.Safe.Context Guard =
+            new Common.Safe.Context("VanillaLabelSuppressionPatch.Prefix (hiding a vanilla name label)", failureLimit: 300);
+
         private static bool Prefix(UIPlayerNames __instance, int index)
+        {
+            // Allocation-free guard: this runs once per player per frame.
+            if (Guard.Disabled)
+            {
+                return true;
+            }
+            try
+            {
+                bool result = PrefixImpl(__instance, index);
+                Guard.Succeeded();
+                return result;
+            }
+            catch (Exception e)
+            {
+                Guard.Failed(e);
+                return true;
+            }
+        }
+
+        private static bool PrefixImpl(UIPlayerNames __instance, int index)
         {
             if (!Plugin.Instance.Cfg.ReplaceVanillaLabels.Value)
             {
                 return true;
             }
-            if (index >= 0 && index < __instance.playerNameText.Length)
+            // playerNameText is read straight off a vanilla component, so it
+            // can legitimately be null before the HUD has finished setting
+            // itself up (and would NRE on .Length below). Nothing to suppress
+            // yet in that case - hand the call back to vanilla.
+            if (__instance == null || __instance.playerNameText == null)
+            {
+                return true;
+            }
+            if (index >= 0 && index < __instance.playerNameText.Length
+                && __instance.playerNameText[index] != null)
             {
                 __instance.playerNameText[index].gameObject.SetActive(false);
             }

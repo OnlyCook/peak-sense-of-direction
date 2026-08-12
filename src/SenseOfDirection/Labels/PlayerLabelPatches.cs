@@ -33,14 +33,49 @@ namespace SenseOfDirection.Labels
             }
         }
 
+        /// <summary>
+        /// The single most important guard in the mod, and the reason
+        /// <see cref="Common.Safe"/> exists at all.
+        ///
+        /// This postfix does real work - it builds a label's whole UI
+        /// hierarchy, which pulls in the overlay canvas, the native font/icon
+        /// assets and the config - and it does it from inside vanilla's
+        /// <c>Character.Awake</c>. A Harmony postfix that throws does not fail
+        /// quietly: the exception propagates out of <c>Character.Awake</c>
+        /// itself, aborting whatever vanilla had left to do in that call chain
+        /// and leaving a half-constructed Character in the scene. That is a
+        /// cosmetic feature holding a core gameplay object hostage, and it is
+        /// the shape of failure most likely to be reported as "the mod broke
+        /// my game" (a Character that never finished waking up can be missing
+        /// anything set up after our hook - voice handling included) rather
+        /// than as "a label is missing".
+        ///
+        /// Auto-disables after 10 consecutive failures: if label creation is
+        /// broken outright (a game update moved something we read), it will
+        /// fail for every character forever, and continuing to throw once per
+        /// spawn helps nobody.
+        /// </summary>
         private static void AwakePostfix(Character __instance)
         {
-            PlayerLabelController.Instance.RegisterCharacter(__instance);
+            Common.Safe.Run(
+                "PlayerLabelPatches.AwakePostfix (registering a player label)",
+                () => PlayerLabelController.Instance.RegisterCharacter(__instance),
+                failureLimit: 10);
         }
 
+        /// <summary>
+        /// Guarded for the same reason as <see cref="AwakePostfix"/>, but
+        /// deliberately never auto-disabled: this is the cleanup half, and
+        /// skipping it permanently would leak a label per character forever.
+        /// A transient failure here costs one stale label, which
+        /// <see cref="Common.SceneResetCoordinator"/> clears on the next scene
+        /// load anyway.
+        /// </summary>
         private static void OnDestroyPostfix(Character __instance)
         {
-            PlayerLabelController.Instance.UnregisterCharacter(__instance);
+            Common.Safe.Run(
+                "PlayerLabelPatches.OnDestroyPostfix (unregistering a player label)",
+                () => PlayerLabelController.Instance.UnregisterCharacter(__instance));
         }
     }
 }

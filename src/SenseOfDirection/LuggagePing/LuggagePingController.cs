@@ -62,7 +62,17 @@ namespace SenseOfDirection.LuggagePing
         /// <summary><see cref="Time.time"/> of the last successful ping, or negative infinity before the first one - so the very first press of a session is never itself blocked by the cooldown.</summary>
         private float _lastPingTime = float.NegativeInfinity;
 
+        private static readonly Common.Safe.Context _ctxUpdateImpl =
+            new Common.Safe.Context("LuggagePingController.Update", failureLimit: 300);
+
         private void Update()
+        {
+            if (_ctxUpdateImpl.Disabled) return;
+            try { UpdateImpl(); _ctxUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
+        }
+
+        private void UpdateImpl()
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
             Character local = Character.localCharacter;

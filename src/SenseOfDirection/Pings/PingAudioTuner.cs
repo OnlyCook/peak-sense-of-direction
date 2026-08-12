@@ -88,7 +88,17 @@ namespace SenseOfDirection.Pings
         private readonly HashSet<AudioSource> _activeThisFrame = new HashSet<AudioSource>();
         private readonly HashSet<AudioSource> _activeLastFrame = new HashSet<AudioSource>();
 
+        private static readonly Common.Safe.Context _ctxUpdateImpl =
+            new Common.Safe.Context("PingAudioTuner.Update", failureLimit: 300);
+
         private void Update()
+        {
+            if (_ctxUpdateImpl.Disabled) return;
+            try { UpdateImpl(); _ctxUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
+        }
+
+        private void UpdateImpl()
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
             _activeThisFrame.Clear();

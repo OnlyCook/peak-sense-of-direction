@@ -85,7 +85,17 @@ namespace SenseOfDirection.PirateCompass
         private ItemPingWidget _widget;
         private bool _shouldShow;
 
+        private static readonly Common.Safe.Context _ctxUpdateImpl =
+            new Common.Safe.Context("PirateCompassLuggageIndicatorController.Update", failureLimit: 300);
+
         private void Update()
+        {
+            if (_ctxUpdateImpl.Disabled) return;
+            try { UpdateImpl(); _ctxUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
+        }
+
+        private void UpdateImpl()
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
 

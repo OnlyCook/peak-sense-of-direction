@@ -52,9 +52,17 @@ namespace SenseOfDirection.Common
             }
         }
 
+        /// <summary>
+        /// Guarded because this runs inside Unity's own <c>sceneLoaded</c>
+        /// invocation list, which every other subscriber - the game's and
+        /// other mods' alike - shares. A throw here doesn't just skip our own
+        /// label cleanup, it can abort the rest of that list mid-scene-load,
+        /// which is about the worst moment to break something else's
+        /// initialisation.
+        /// </summary>
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            PlayerLabelController.Instance.ResetAll();
+            Safe.Run("SceneResetCoordinator.OnSceneLoaded", () => PlayerLabelController.Instance.ResetAll());
         }
     }
 }

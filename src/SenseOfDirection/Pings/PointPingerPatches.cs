@@ -407,22 +407,65 @@ namespace SenseOfDirection.Pings
         /// free-cam in (that also gates on <c>fullyPassedOut</c>, not
         /// <c>dead</c>).
         /// </summary>
+        /// <summary>
+        /// The override itself is factored out into <see cref="ComputeGhostCanPing"/>
+        /// so it can be run under <see cref="Common.Safe"/>: this is a prefix
+        /// on a property *getter*, which vanilla polls every frame, so an
+        /// unguarded throw here would fire (and, unrate-limited, log) once per
+        /// frame forever. A closure can't capture the <c>ref __result</c>, so
+        /// the inner method returns <see langword="null"/> for "defer to
+        /// vanilla" instead of writing it directly - which is also the
+        /// fallback on failure, i.e. we simply stop overriding and vanilla's
+        /// own <c>canPing</c> stands.
+        /// </summary>
+        private static readonly Common.Safe.Context CanPingGuard =
+            new Common.Safe.Context("PointPingerPatches.CanPingGetterPrefix (ghost ping)", failureLimit: 300);
+
         private static bool CanPingGetterPrefix(PointPinger __instance, ref bool __result)
+        {
+            if (CanPingGuard.Disabled)
+            {
+                return true;
+            }
+
+            bool? overridden;
+            try
+            {
+                overridden = ComputeGhostCanPing(__instance);
+                CanPingGuard.Succeeded();
+            }
+            catch (Exception e)
+            {
+                CanPingGuard.Failed(e);
+                return true;
+            }
+
+            if (!overridden.HasValue)
+            {
+                return true;
+            }
+
+            __result = overridden.Value;
+            return false;
+        }
+
+        /// <summary>Null means "no override, let vanilla compute it".</summary>
+        private static bool? ComputeGhostCanPing(PointPinger __instance)
         {
             if (!Plugin.Instance.Cfg.EnableGhostPing.Value)
             {
-                return true;
+                return null;
             }
-            if (__instance.character == null || !(__instance.character.data.dead || __instance.character.data.fullyPassedOut))
+            if (__instance == null || __instance.character == null
+                || !(__instance.character.data.dead || __instance.character.data.fullyPassedOut))
             {
-                return true;
+                return null;
             }
             if (_inCooldownGetter == null)
             {
-                return true;
+                return null;
             }
-            __result = !_inCooldownGetter(__instance);
-            return false;
+            return !_inCooldownGetter(__instance);
         }
 
         /// <summary>
@@ -437,7 +480,30 @@ namespace SenseOfDirection.Pings
         /// away it is. Recomputed fresh every frame since vanilla's own
         /// `Go()` does the same (called every `PointPing.Update()`).
         /// </summary>
+        private static readonly Common.Safe.Context GoGuard =
+            new Common.Safe.Context("PointPingerPatches.GoPostfix (ping scaling)", failureLimit: 300);
+
         private static void GoPostfix(PointPing __instance)
+        {
+            // Vanilla calls Go() from PointPing.Update, so this is a per-frame
+            // path for as long as any ping is alive - hence the hand-rolled,
+            // allocation-free guard.
+            if (GoGuard.Disabled)
+            {
+                return;
+            }
+            try
+            {
+                GoPostfixImpl(__instance);
+                GoGuard.Succeeded();
+            }
+            catch (Exception e)
+            {
+                GoGuard.Failed(e);
+            }
+        }
+
+        private static void GoPostfixImpl(PointPing __instance)
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
             if (!cfg.EnablePingScaling.Value)
@@ -469,6 +535,14 @@ namespace SenseOfDirection.Pings
         /// how quickly the sound actually falls off once playing.
         /// </summary>
         private static void PingAwakePostfix(PointPing __instance)
+        {
+            Common.Safe.Run(
+                "PointPingerPatches.PingAwakePostfix (ping audio tuning)",
+                () => PingAwakePostfixImpl(__instance),
+                failureLimit: 20);
+        }
+
+        private static void PingAwakePostfixImpl(PointPing __instance)
         {
             if (__instance.pingSound == null || __instance.pingSound.settings == null)
             {

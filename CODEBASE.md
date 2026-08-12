@@ -699,17 +699,57 @@ playtest:**
 ### `Compatibility/` (third-party mod interop shims)
 
 - `SleepTalkCompat.cs` — detects PEAKSleepTalk (unmaintained) by its Harmony
-  ID and removes just its `MainCameraMovement.HandleSpecSelection` patch,
-  called lazily from `GhostFreeCamPatches`' own `LateUpdate` postfix (after
-  every mod's `Awake` has had a chance to run). That one patch broke vanilla's
-  own spectate flow for everyone once a player was fully passed out/dead,
+  ID and removes its `MainCameraMovement.HandleSpecSelection` and
+  `AnimatedMouth.ProcessMicData` patches. The first broke vanilla's own
+  spectate flow for everyone once a player was fully passed out/dead,
   silently starving `GhostFreeCamPatches`' postfix on the same method (plain
-  postfixes never run if the method they're attached to threw). Its actual
-  "talk while passed out" feature (`CharacterVoiceHandler.Update`/
-  `AnimatedMouth.ProcessMicData`) is left untouched — never responsible for
-  the bug, still works fine alongside ghost free-cam. See
-  `GhostFreeCamPatches.LateUpdateFinalizer`'s own doc comment for the general
-  (not PEAKSleepTalk-specific) safety net this pairs with.
+  postfixes never run if the method they're attached to threw); the second
+  broke voice-chat mouth animation for every talking player. Its actual
+  "talk while passed out" audio (`CharacterVoiceHandler.Update`) is left
+  untouched — never responsible for either bug, still works fine alongside
+  ghost free-cam. See `GhostFreeCamPatches.LateUpdateFinalizer`'s own doc
+  comment for the general (not PEAKSleepTalk-specific) safety net this pairs
+  with.
+
+  Driven by its own `Watchdog` MonoBehaviour, stood up from `Plugin.Awake`
+  via `Initialize`, which re-runs the sweep every 10s. It used to be a
+  one-shot fired from `GhostFreeCamPatches`' `LateUpdate` postfix; that made
+  the fix conditional on that patch having applied (backwards — a failed
+  patch is when compat matters most) and meant a mod re-applying its patches
+  later in the session silently undid it. The symptom only shows up after a
+  death mid-run, long after a one-shot check has passed.
+
+### `Common/Safe.cs` (crash hardening — mod never propagates a failure into the game)
+
+The mod-wide guard every entry point the game calls into us routes through:
+Harmony patch bodies, `Update`/`LateUpdate`, Photon event callbacks, scene-load
+callbacks, and each step of `Plugin.Awake`. Nothing in this mod is worth
+propagating into the game — it's client-sided and purely cosmetic — so a
+failure degrades to "one feature stops drawing" instead of a broken
+`Character`, a dead HUD, a stalled network callback, or a half-initialised
+mod.
+
+The case that motivated it: a Harmony postfix that throws does *not* fail
+quietly — the exception propagates out of the patched vanilla method. An
+unguarded throw in the `Character.Awake` postfix (which builds a label's whole
+UI hierarchy) therefore aborts vanilla's own `Awake` chain and leaves a
+half-constructed `Character` behind.
+
+Two forms, both with per-context rate-limited logging (first failure logs in
+full, then at most one per 5s) and an optional consecutive-failure
+auto-disable:
+
+- `Safe.Run(context, body, failureLimit)` — delegate-based, for **cold**
+  paths (startup, scene load, opening the menu, a character spawning).
+- `Safe.Context` held in a `static readonly` field + the caller's own
+  try/catch — **allocation-free**, for anything per-frame. A capturing lambda
+  allocates a closure per call, which in an `Update` (or a per-anchor loop
+  inside one) is needless GC churn in the render path.
+
+`Indicators/IndicatorManager` additionally guards *per anchor* rather than per
+frame, and retires an anchor that fails 60x consecutively — anchor getters are
+caller-supplied closures over live game objects, and one bad one would
+otherwise freeze every indicator, compass marker and ping label at once.
 
 ### `Compass/` (Phase 7, done — top-of-screen compass tape)
 

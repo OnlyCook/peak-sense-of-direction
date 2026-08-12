@@ -7,6 +7,7 @@
 - Added Traditional Chinese translations.
 - Every missing creature, hazard and trap translation the mod names itself when pinging is now localized into all 15 languages (instead of being hard-coded in English).
 - Fixed a recurring stutter the mod caused every 5 seconds while rescanning the entire biome for new pingable entries. This is optimized greatly now.
+- The mod is also more stable/robust in co-op now and not as prone to conflicts with other (especially broken) mods.
 
 ## 1.1.0
 

@@ -70,12 +70,49 @@ namespace SenseOfDirection.GhostFreeCam
 
         private class EventCallback : IOnEventCallback
         {
+            /// <summary>
+            /// Registered globally via <c>PhotonNetwork.AddCallbackTarget</c>,
+            /// which means this runs for <em>every</em> Photon event the
+            /// client receives, not just ours - so it sits directly in the
+            /// game's own network dispatch path. An exception escaping here
+            /// doesn't just lose one ghost pose: it aborts the dispatch of
+            /// that event, and anything else Photon was going to hand to
+            /// callbacks after us never gets delivered. That is a plausible
+            /// route from "a cosmetic mod threw" to "networked features
+            /// (voice included) stop working for this player", so the whole
+            /// body is guarded and the failure mode is simply "this pose
+            /// sample is dropped".
+            /// </summary>
             void IOnEventCallback.OnEvent(EventData photonEvent)
             {
+                // Cheapest possible reject first, outside the guard: this is
+                // called for every event on the wire and the overwhelming
+                // majority are not ours.
                 if (photonEvent.Code != EventCode)
                 {
                     return;
                 }
+
+                if (ReceiveGuard.Disabled)
+                {
+                    return;
+                }
+                try
+                {
+                    HandlePoseEvent(photonEvent);
+                    ReceiveGuard.Succeeded();
+                }
+                catch (System.Exception e)
+                {
+                    ReceiveGuard.Failed(e);
+                }
+            }
+
+            private static readonly Common.Safe.Context ReceiveGuard =
+                new Common.Safe.Context("GhostFreeCamPoseSync.OnEvent (receiving a ghost pose)", failureLimit: 300);
+
+            private static void HandlePoseEvent(EventData photonEvent)
+            {
                 if (!(photonEvent.CustomData is object[] payload) || payload.Length < 2)
                 {
                     return;
@@ -113,12 +150,48 @@ namespace SenseOfDirection.GhostFreeCam
             {
                 return;
             }
-            _eventCallback = new EventCallback();
-            PhotonNetwork.AddCallbackTarget(_eventCallback);
-            _callbackRegistered = true;
+
+            // Only latch _callbackRegistered on success, so a failure here
+            // (Photon not initialised yet, say) is retried next frame rather
+            // than leaving pose sync permanently unregistered.
+            bool ok = Common.Safe.Run(
+                "GhostFreeCamPoseSync.EnsureRegistered",
+                () =>
+                {
+                    _eventCallback = new EventCallback();
+                    PhotonNetwork.AddCallbackTarget(_eventCallback);
+                },
+                failureLimit: 60);
+
+            _callbackRegistered = ok;
         }
 
         internal static void SendPose(Vector3 position, Quaternion rotation)
+        {
+            // Guarded because it writes to the wire: a throw out of RaiseEvent
+            // would propagate up through our LateUpdate hook into vanilla's
+            // MainCameraMovement.LateUpdate. Ghost pose sync is purely
+            // cosmetic (it's what lets others see where a free-cam ghost is),
+            // so dropping a send is always the right trade.
+            if (SendGuard.Disabled)
+            {
+                return;
+            }
+            try
+            {
+                SendPoseImpl(position, rotation);
+                SendGuard.Succeeded();
+            }
+            catch (System.Exception e)
+            {
+                SendGuard.Failed(e);
+            }
+        }
+
+        private static readonly Common.Safe.Context SendGuard =
+            new Common.Safe.Context("GhostFreeCamPoseSync.SendPose", failureLimit: 300);
+
+        private static void SendPoseImpl(Vector3 position, Quaternion rotation)
         {
             if (!PhotonNetwork.InRoom)
             {
