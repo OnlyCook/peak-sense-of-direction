@@ -1,3 +1,7 @@
+## 1.1.1
+
+-
+
 ## 1.1.0
 
 - **PEAK 2.0.a compatibility update**. The recent major update broke lot's of stuff: like the compass not appearing at all or pinging not working (and breaking the vanilla ping with it).
