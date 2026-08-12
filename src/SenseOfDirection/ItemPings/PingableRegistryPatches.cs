@@ -57,6 +57,21 @@ namespace SenseOfDirection.ItemPings
             PatchOne(harmony, log, typeof(SlipperyJellyfish), "Start");
             PatchOne(harmony, log, typeof(Antlion), "Start");
             PatchOne(harmony, log, typeof(ClimbHandle), "Start");
+
+            // Level props/hazards (see PingableProps). Mostly scenery that
+            // exists from scene load and would be caught by the reconciliation
+            // sweep anyway, but GhostBall in particular spawns during play
+            // (GhostBallSpawner), and waiting up to a minute to be able to ping
+            // the thing currently chasing you is not much of a feature.
+            PatchOne(harmony, log, typeof(FakeItem), "Awake");
+            PatchOne(harmony, log, typeof(Peak.GhostBall), "Awake");
+            PatchOne(harmony, log, typeof(ArrowShooter), "Awake");
+            PatchOne(harmony, log, typeof(VenusFlyTrap), "Start");
+            PatchOne(harmony, log, typeof(GhostFire), "Start");
+            PatchOne(harmony, log, typeof(Peak.SpikeTrap), "Start");
+            PatchOne(harmony, log, typeof(Peak.MovingSawBlade), "Start");
+            PatchOne(harmony, log, typeof(SwingingAxe), "Start");
+            PatchOne(harmony, log, typeof(Peak.SpikeRoller), "Start");
         }
 
         private static void PatchOne(Harmony harmony, ManualLogSource log, Type type, string methodName)

@@ -361,6 +361,39 @@ the same anti-spam/ghost-ping gating the ping itself already went through.
   refilling threw away live-registered pingables that were inactive right
   then — a segment-change sweep fires exactly during that window, and a real
   run caught it reporting "0 items" just after the hooks registered 1355.
+- `PingableProps.cs` — the level's fixed props/hazards, which share no base
+  class and had to be identified one component at a time from real pings'
+  `LogNearbyUnmatched` dumps: `FakeItem` (an amulet still on its statue —
+  not an `Item` yet, which is why only the picked-up version was pingable;
+  its own `GetName()` is localized, unlike every other name here),
+  `VenusFlyTrap`, `Peak.GhostBall`, `ArrowShooter`, `Peak.SpikeTrap`,
+  `Peak.MovingSawBlade`, `SwingingAxe` (the spiked mace), `Peak.SpikeRoller`
+  (the spinning log), `GhostFire` (the Belltower pyre, lit or not — its
+  colliders are named `Grave`/`Bell`, so only the ping dump's *ancestor*
+  chain identified it). `FakeItem` and `GhostFire` carry localized names of
+  their own (`realItemPrefab`/`displayNameIndex`); everything else is
+  hardcoded English like the older `NamedHazards` entries. `FakeItem` also
+  lends its `realItemPrefab.UIData` icon, so an amulet on its statue shows
+  the same art the picked-up one does. One resolver + one registry bucket
+  rather than a list and loop per type — they share every rule but the name.
+  `PropAnchor` is the exception: the Belltower's renderer union measures 23m
+  across (tower, grave, bell, dressing), which put its indicator ~18m from
+  where you actually pinged, and a Spike Roller's box center *wanders* as its
+  arms sweep (10.55→11.04 on X between two pings of the same one), so both
+  anchor to their transform — for the roller that transform is literally its
+  axis of rotation — while still *matching* on the prop's full bounds, so the
+  whole body stays pingable. `TrimToBody` (renderers further than
+  `MaxRendererDistanceFromPivot` = 8 units from the pivot are dropped) is
+  opt-in per kind and set **only** for `ArrowShooter`, which parents its
+  spawned warning arrows to itself wherever they land — one untrimmed box
+  measured 54×1.8×17.5m, a slab that answered pings aimed at unrelated things
+  6–14m away. Trimming everything instead cost the vertical Spike Roller most
+  of its ~37m body, leaving only its top few metres pingable. Matched against
+  **bounds**, not a center point (`ItemPingDetector`): these are large,
+  often long and animated, and their transform sits at a pivot that can be
+  metres from anything visible, so a ping anywhere along them counts and the
+  label rides the live visual center. `Bounds.IntersectRay` covers the Ghost
+  Ball, which has no collider for the ping raycast to land on at all.
 - `ItemPingDetector.cs` — pure detection: given a ping point and separate
   item/luggage radii (meters, converted to world units via
   `CharacterStats.unitsToMeters`), finds nearby `Item`s, `Luggage` (off
@@ -552,10 +585,20 @@ ray-assist reach needed.
 
 `Antlion` (a real decompiled class) and `ClimbHandle` (the same component
 for both Pickaxe and (Rusty) Piton, distinguished by its own `isPickaxe`
-flag - hardcoded "Pickaxe"/"Piton" labels rather than its own `GetName()`,
-since that returns the less clean `"PITONPROMPT"` localization key for the
-piton case) are both detected directly, same pattern as Spider/Capybara/
-MushroomZombie.
+flag - the mod's own labels rather than its `GetName()`, since that returns
+the less clean `"PITONPROMPT"` localization key for the piton case) are both
+detected directly, same pattern as Spider/Capybara/MushroomZombie.
+
+**Names for all of the above** come from `Ui/Localization/WorldObjectLocalization.cs`
+(`Localization/world.tsv`, 26 keys × 15 languages, embedded/gzipped by the
+same `Localization/*.tsv` glob as the config/enum/chrome tables). They need
+their own table because - unlike `Item`/`Luggage`/`FakeItem`/`GhostFire`,
+which carry localized names the mod just reads - the game has no name string
+for a jellyfish, a geyser or a saw blade anywhere. Resolved per call, not
+snapshotted at detection time, so a mid-session language change takes effect
+on the next ping. The campfire is deliberately *not* in it: it already has
+`CampfireIndicator/CampfireLocalization.cs`, and one name in two tables can
+drift.
 
 `LogNearbyUnmatched` now also scans `Renderer`s (bounds-distance check), not
 just `Collider`s via `OverlapSphere` - some still-requested pingables (giant

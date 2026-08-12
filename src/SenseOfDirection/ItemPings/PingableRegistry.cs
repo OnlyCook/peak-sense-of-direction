@@ -120,6 +120,59 @@ namespace SenseOfDirection.ItemPings
         private readonly List<CollisionModifier> _urchins = new List<CollisionModifier>();
 
         /// <summary>
+        /// Level props/hazards (traps, the flytrap, amulets still on their
+        /// statue, ...) - see <see cref="PingableProps"/> for why these share
+        /// one bucket instead of getting a list each. The display name is
+        /// resolved at sweep time along with the type test, so a ping never
+        /// re-derives it.
+        /// </summary>
+        private readonly List<PropTarget> _props = new List<PropTarget>();
+
+        /// <summary>One level prop plus everything a ping needs to know about it.</summary>
+        internal readonly struct PropTarget
+        {
+            internal readonly MonoBehaviour Behaviour;
+
+            /// <summary>
+            /// Resolved per call, not snapshotted at registration: most prop
+            /// names come from <see cref="Ui.Localization.WorldObjectLocalization"/>
+            /// and the rest from the game's own tables, so a player switching
+            /// language mid-session gets it on their next ping.
+            /// </summary>
+            internal readonly System.Func<string> DisplayName;
+
+            /// <summary>Match against the wider luggage/creature radius rather than the item radius - see <see cref="PingableProps"/>.</summary>
+            internal readonly bool IsLarge;
+
+            /// <summary>
+            /// This prop's own renderers, resolved once here rather than per
+            /// ping. Props are matched against their bounds, and a level can
+            /// carry hundreds of them (684 in the Gloom Temple), so walking
+            /// every prop's child hierarchy on every ping - allocating an array
+            /// each time - would put real work back on the one path this whole
+            /// registry exists to keep clear. The array is fixed for the life of
+            /// the prop; only the bounds inside it move, and those are read live.
+            /// </summary>
+            internal readonly Renderer[] Renderers;
+
+            /// <summary>Where this prop's indicator sits - see <see cref="PingableProps.PropAnchor"/>.</summary>
+            internal readonly PingableProps.PropAnchor Anchor;
+
+            /// <summary>Whether stray far-from-pivot renderers are excluded when measuring this prop - see <see cref="PingableProps.TryGetBounds"/>.</summary>
+            internal readonly bool TrimToBody;
+
+            internal PropTarget(MonoBehaviour behaviour, System.Func<string> displayName, bool isLarge, Renderer[] renderers, PingableProps.PropAnchor anchor, bool trimToBody)
+            {
+                Behaviour = behaviour;
+                DisplayName = displayName;
+                IsLarge = isLarge;
+                Renderers = renderers;
+                Anchor = anchor;
+                TrimToBody = trimToBody;
+            }
+        }
+
+        /// <summary>
         /// Everything already bucketed, so a re-registration is a no-op - see
         /// <see cref="Bucket"/>, which only puts things in here that actually
         /// landed in a bucket, not every behaviour it's handed. Holds destroyed
@@ -137,6 +190,7 @@ namespace SenseOfDirection.ItemPings
         public IReadOnlyList<MushroomZombie> Zombies => _zombies;
         public IReadOnlyList<Antlion> Antlions => _antlions;
         public IReadOnlyList<ClimbHandle> ClimbHandles => _climbHandles;
+        internal IReadOnlyList<PropTarget> Props => _props;
 
         /// <summary>
         /// Giant urchins, already resolved at sweep time: identified not by
@@ -312,6 +366,7 @@ namespace SenseOfDirection.ItemPings
             _antlions.RemoveAll(x => x == null);
             _climbHandles.RemoveAll(x => x == null);
             _urchins.RemoveAll(x => x == null);
+            _props.RemoveAll(x => x.Behaviour == null);
             _known.RemoveWhere(x => x == null);
             int pruned = knownBefore - _known.Count;
 
@@ -336,7 +391,7 @@ namespace SenseOfDirection.ItemPings
                     $"PingableRegistry: swept in {totalMs:F1}ms (query {queryMs:F1}ms over {behaviours.Length} behaviours, "
                     + $"{queryBytes / 1024L}KB alloc | bucketing {totalMs - queryMs:F1}ms) - {_items.Count} items, "
                     + $"{_mobs.Count} mobs, {_zombies.Count} zombies, {_spiders.Count} spiders, {_capybaras.Count} capybaras, "
-                    + $"{_jellyfish.Count} jellyfish, {_antlions.Count} antlions, {_climbHandles.Count} handles, {_urchins.Count} urchins "
+                    + $"{_jellyfish.Count} jellyfish, {_antlions.Count} antlions, {_climbHandles.Count} handles, {_urchins.Count} urchins, {_props.Count} props "
                     + $"({liveRegistrations} added live by the hooks since the last sweep, {pruned} destroyed pruned).");
             }
         }
@@ -421,6 +476,11 @@ namespace SenseOfDirection.ItemPings
             if (behaviour is CollisionModifier modifier && IsUrchin(modifier))
             {
                 _urchins.Add(modifier);
+                matched = true;
+            }
+            if (PingableProps.TryResolve(behaviour, out System.Func<string> propName, out bool propIsLarge, out PingableProps.PropAnchor propAnchor, out bool propTrim))
+            {
+                _props.Add(new PropTarget(behaviour, propName, propIsLarge, PingableProps.CollectRenderers(behaviour.gameObject), propAnchor, propTrim));
                 matched = true;
             }
 
