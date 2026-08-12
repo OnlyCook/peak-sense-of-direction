@@ -117,7 +117,7 @@ namespace SenseOfDirection.ItemPings
         public static List<PingableTarget> FindNear(
             Vector3 point, float itemRadiusUnits, float crossKindRadiusUnits, float luggageRadiusUnits,
             Vector3 rayOrigin, Vector3 rayDirection, float rayMaxDistanceUnits, float rayHitboxRadiusUnits,
-            bool includeCreatures)
+            bool includeCreatures, Character pingingCharacter, float wornBackpackRadiusUnits)
         {
             var results = new List<PingableTarget>();
             Matched.Clear();
@@ -134,6 +134,7 @@ namespace SenseOfDirection.ItemPings
 
             float itemRadiusSq = itemRadiusUnits * itemRadiusUnits;
             float luggageRadiusSq = luggageRadiusUnits * luggageRadiusUnits;
+            float wornBackpackRadiusSq = wornBackpackRadiusUnits * wornBackpackRadiusUnits;
             float rayHitboxRadiusSq = rayHitboxRadiusUnits * rayHitboxRadiusUnits;
 
             bool Matches(Vector3 center, float radiusSq)
@@ -183,9 +184,32 @@ namespace SenseOfDirection.ItemPings
             // ALL_ACTIVE_ITEMS is guaranteed to have (a just-spawned item is
             // non-kinematic, so it's in there immediately). It's a short list,
             // so reading it live costs nothing.
+            // PingIgnoreFilter: the pinging player's own worn backpack contents
+            // (and anything stuck into a player) are never targets, no matter
+            // which of the sources below found them - see that class for why.
+            //
+            // Another player's worn backpack contents stay pingable, but only
+            // on the direct-hit radius, never on the far more forgiving item
+            // radius or the aim-ray assist: a pack on someone's back is a
+            // *carried* thing that happens to wander into your crosshair, so it
+            // should only ever answer a ping actually aimed at it, not one
+            // aimed past them at the world behind. The ray assist exists for
+            // items whose colliders are disabled until first picked up
+            // (tree coconuts, fresh luggage loot); a worn pack's collider is
+            // live - it's what the ping raycast lands on to begin with - so
+            // dropping the assist here costs nothing.
             void CollectItem(Item item)
             {
-                if (item != null && item.gameObject.activeInHierarchy && Matches(item.Center(), itemRadiusSq))
+                if (item == null || !item.gameObject.activeInHierarchy
+                    || PingIgnoreFilter.IsIgnoredItem(item, pingingCharacter))
+                {
+                    return;
+                }
+
+                bool matched = PingIgnoreFilter.TryGetBackpackWearer(item, out _)
+                    ? (item.Center() - point).sqrMagnitude <= wornBackpackRadiusSq
+                    : Matches(item.Center(), itemRadiusSq);
+                if (matched)
                 {
                     ItemCandidates.Add(item);
                 }

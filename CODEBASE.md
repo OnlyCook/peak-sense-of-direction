@@ -224,8 +224,15 @@ order):
   rest use - it's finished black-and-white art like the campfire's own native
   HUD sprite, never recolored per-anchor. Same `Campfire/*` settings govern both
   modes - no new config.
-- `PeakLocalization.cs` — "Peak" per `LocalizedText.CURRENT_LANGUAGE`, same
-  hand-maintained table pattern (and same rationale) as `CampfireLocalization.cs`.
+  In the Nadir (PEAK 2.0's Void sub-biome) it retargets a third time, onto the
+  exit portal (`Peak.PeakGatePortal`, resolved by `MapTargets.PortalTransform`;
+  icon `IconAssets.Portal`, label `PortalLocalization`). Checked *before* the
+  campfire/summit branches: the Void segment is appended past `Segment.TheKiln`,
+  so every "no campfire left" test reads true down there and the indicator used
+  to point at the summit while the way out is the portal.
+- `PeakLocalization.cs` / `PortalLocalization.cs` — "Peak"/"Portal" per
+  `LocalizedText.CURRENT_LANGUAGE`, same hand-maintained table pattern (and same
+  rationale) as `CampfireLocalization.cs`.
 - `Labels/NativeAssets.cs` extended (not a new file) with
   `CampfireIconSprite` discovery alongside the existing font/host-star
   lookups — same lazy-retry-until-found approach.
@@ -324,6 +331,36 @@ Hooked into `Pings/PointPingerPatches.ReceivePointRpcPrefixImpl` (one call,
 gated on `Item-Pings/enable-item-pings`), so item highlighting piggybacks on
 the same anti-spam/ghost-ping gating the ping itself already went through.
 
+- `PingableRegistry.cs` / `PingableRegistryPatches.cs` — the ready-to-use
+  buckets of every pingable in the level, so a ping never goes looking for
+  one. Kept current by Harmony postfixes on each type's own lifecycle method
+  (`Item`/`Capybara` → `OnEnable`, since that also catches re-activation;
+  `Mob`/`Spider`/`MushroomZombie`/`CollisionModifier` → `Awake`;
+  `SlipperyJellyfish`/`Antlion`/`ClimbHandle` → `Start` — they genuinely
+  differ, confirmed against the decompile; `AccessTools.DeclaredMethod`, and
+  every `Item` subclass that overrides `OnEnable` calls `base`). The full
+  `FindObjectsByType<MonoBehaviour>` sweep is now only reconciliation —
+  scene load, segment change (polled, 1s, a plain `CurrentSegmentNumber`
+  read rather than another patch), and once a minute — so a hook a future
+  game update breaks degrades to "up to a minute late", never "never".
+  **Why, measured over a full playthrough:** the sweep cost 7–14ms in one
+  frame, of which the bucketing loop was 0.2–0.5ms; the rest is one atomic
+  native query that can't be split. Typed queries are *not* cheaper
+  (`FindObjectsByType<Capybara>` = 3.35ms to return zero results — the cost
+  is the traversal, not the filter), so one-type-per-frame would have been
+  ~4x the total CPU for a still-too-large per-frame spike. The query also
+  allocated 120–632KB per sweep (up to ~40,000 behaviours), i.e. a gen0
+  collection landing on some later frame. `Bucket` is shared by sweep and
+  hooks so they can't disagree on what counts as pingable, with a `_known`
+  set guarding against double-registration (`OnEnable` fires on every
+  re-activation) — without it one item could show up as "3x COCONUT" alone;
+  it remembers only what actually landed in a bucket, since the sweep hands
+  it every behaviour in the level (an early version grew it to 43,000
+  entries to track a few hundred pingables). The sweep **merges** rather
+  than clear-and-refills: the query returns only *active* objects, so
+  refilling threw away live-registered pingables that were inactive right
+  then — a segment-change sweep fires exactly during that window, and a real
+  run caught it reporting "0 items" just after the hooks registered 1355.
 - `ItemPingDetector.cs` — pure detection: given a ping point and separate
   item/luggage radii (meters, converted to world units via
   `CharacterStats.unitsToMeters`), finds nearby `Item`s, `Luggage` (off
@@ -367,6 +404,24 @@ the same anti-spam/ghost-ping gating the ping itself already went through.
   urchins, spore bombs - no distinct class found for either in the decompile)
   can be identified by their actual in-scene GameObject name without another
   decompile pass, then added the same way jellyfish/Mob/Spider/Capybara were.
+- `PingIgnoreFilter.cs` — the one list of player-attached props that have to
+  stay out of a ping's way, shared by the ping raycast
+  (`Pings/PointPingerPatches.TryGetPingHitPrefix`, which skips their
+  colliders so the ping passes through to what's behind) and item detection
+  (`ItemPingDetector`'s `CollectItem`, which drops them as targets). Always
+  ignored, whoever they're stuck in: arrows/thorns (`ThornOnMe` - one
+  component for both, its `type` field is the only difference), ticks
+  (`Bugfix`), and items stuck into a player (`StickyItemComponent.
+  stuckToCharacter`, e.g. a cactus ball). Worn backpacks
+  (`BackpackOnBackVisuals` plus the real `Item` each filled slot spawns,
+  `backpackReference.type == Equipped`) are per-player instead: the pinging
+  player's own is excluded outright, anyone else's stays solid and pingable
+  but only within `ItemPingSpawner.WornBackpackRadiusMeters` of the ping
+  point (no item radius, no ray assist) so it answers a ping aimed *at* it
+  and not one aimed past its wearer. Items in a backpack lying on the ground
+  are untouched by all of this. Only relevant at all because the hitbox
+  assist widened vanilla's `TerrainMap`-only ping raycast onto the "Default"
+  layer these props sit on.
 - `ItemPingWidget.cs` — the on-screen widget: name label above an optional
   distance sub-line plus an off-screen arrow, same construction pattern as
   `Pings/PingWidget.cs` (arrow makes sense here, unlike player labels/the
@@ -972,6 +1027,21 @@ for unsupported pingables. Consumed by
 *every* ping past that point - taking item detection, ripple, scaling and
 distance labels with it, which is what "pings have no distance labels at the
 Kiln" actually was).
+
+`IsInNadir()`/`PortalTransform()` (added for PEAK 2.0) cover the Void
+sub-biome, where neither landmark above applies. `IsInNadir` reads
+`MapHandler.inNadir` (`GetCurrentBiome() == BiomeType.Void`) rather than
+`VoidBiome.VoidBiomeActive` - the segment is what the run is *in*, while
+`isActive` is a one-way flag only `Deactivate()` clears - but that getter
+indexes `segments[currentSegment]` and the Void segment is *appended* to that
+array by `SetUpVoidSegment` when the run drops in, so it can throw for a frame
+on entry; the static flag is the fallback for exactly that window.
+`PortalTransform()` finds `Peak.PeakGatePortal` (the interactible whose cast
+runs `Character.EndGame()`, where `wonViaNadir` gets set - the only class of its
+kind in the decompile, so no name matching needed unlike the summit flag),
+searching with `FindObjectsInactive.Include` since the biome root may still be
+mid-activation, preferring an active portal and then the nearest one. Cached the
+same way `PeakTransform()` is.
 
 ### `Common/SceneResetCoordinator.cs` (ad hoc addition, done — ISSUES.md "labels stuck forever" bug fix)
 

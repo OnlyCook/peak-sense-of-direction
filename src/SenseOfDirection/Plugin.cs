@@ -49,6 +49,7 @@ namespace SenseOfDirection
             GhostFreeCamPatches.Apply(_harmony, Logger);
             Ui.PauseSuppressPatch.Apply(_harmony, Logger);
             CompassItems.LuggageCompassSpawner.Apply(_harmony, Logger);
+            PingableRegistryPatches.Apply(_harmony, Logger);
 
             // Always instantiated - internally no-ops per-frame when
             // EnableCampfireIndicator is off, same pattern as
