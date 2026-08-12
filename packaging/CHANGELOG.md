@@ -1,9 +1,11 @@
 ## 1.1.1
 
+- A lot of things that couldn't be pinged before now can be: Scout amulets still in their statue, the Belltower, the Flytrap, the floating Ghost Ball thingy, and every new trap in The Citadel.
 - Added new portal indicator (with its own icon) for the new Nadir *biome*, instead of still trying to point toward the Peak biome's flag.
 - Pings now ignore all items/objects stuck to the player (arrows, throns, ticks, cacti) to still be able to ping even if they are obstructing your vision.
 - Your own worn backpack isn't accidentally pingable anymore. Other players' worn backpacks are more difficult to ping (to not accidentally ping it and all its items).
 - Added Traditional Chinese translations.
+- Every missing creature, hazard and trap the mod names itself when pinging it is now translated into all 15 languages (instead of being hard-coded in English).
 - Fixed a recurring stutter the mod caused every 5 seconds while rescanning the entire biome for new pingable entries. This is optimized greatly now.
 
 ## 1.1.0
