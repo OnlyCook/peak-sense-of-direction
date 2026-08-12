@@ -32,6 +32,7 @@ namespace SenseOfDirection.CampfireIndicator
             None,
             Campfire,
             Peak,
+            Portal,
         }
 
         private static CampfireIndicatorController _instance;
@@ -53,10 +54,14 @@ namespace SenseOfDirection.CampfireIndicator
         private TargetKind _kind;
         private Campfire _trackedCampfire;
         private Transform _trackedPeak;
+        private Transform _trackedPortal;
         private CampfireWidget _widget;
 
         /// <summary>One <see cref="Common.MapTargets.LogPeakCandidates"/> dump per entry into peak territory, not per frame.</summary>
         private bool _peakDumpLogged;
+
+        /// <summary>Same one-shot contract as <see cref="_peakDumpLogged"/>, for the Nadir's portal never resolving.</summary>
+        private bool _portalMissingLogged;
 
         private void Update()
         {
@@ -80,6 +85,23 @@ namespace SenseOfDirection.CampfireIndicator
             // MapTargets.IsPastLastCampfire for the vanilla evidence.
             // The campfire-scan route below is the backstop for a run that runs
             // out of fires without the segment counter following.
+            //
+            // The Nadir is checked ahead of all of it: its own segment sits past
+            // The Kiln (MapHandler.SetUpVoidSegment appends it to the segment
+            // table when the run drops into the biome), so every "no campfire
+            // left -> head for the summit" test below reads true down there, and
+            // the indicator used to point up at a Peak nobody in the Void is
+            // climbing towards. What matters there is the portal back out.
+            if (MapTargets.IsInNadir())
+            {
+                _peakDumpLogged = false;
+                TrackPortal(MapTargets.PortalTransform());
+                RefreshWidget(cfg);
+                return;
+            }
+
+            _portalMissingLogged = false;
+
             Campfire campfire = MapTargets.IsPastLastCampfire() ? null : MapTargets.CurrentCampfire();
             if (campfire != null)
             {
@@ -111,16 +133,39 @@ namespace SenseOfDirection.CampfireIndicator
                 Teardown();
             }
 
-            bool peakMode = _kind == TargetKind.Peak;
-            Transform tracked = peakMode ? _trackedPeak : (_trackedCampfire != null ? _trackedCampfire.transform : null);
+            RefreshWidget(cfg);
+        }
+
+        /// <summary>
+        /// Per-frame upkeep of whatever the widget is currently pointed at: the
+        /// distance line, and the icon override for the two modes that aren't
+        /// showing the game's own campfire sprite (null hands
+        /// <see cref="CampfireWidget.Refresh"/> back to the native campfire
+        /// icon).
+        /// </summary>
+        private void RefreshWidget(PluginConfig cfg)
+        {
+            Transform tracked = _kind switch
+            {
+                TargetKind.Peak => _trackedPeak,
+                TargetKind.Portal => _trackedPortal,
+                TargetKind.Campfire => _trackedCampfire != null ? _trackedCampfire.transform : null,
+                _ => null,
+            };
             if (_widget == null || tracked == null || Character.localCharacter == null)
             {
                 return;
             }
 
-            Vector3 target = tracked.position;
-            float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), target) * CharacterStats.unitsToMeters;
-            _widget.Refresh(distanceMeters, cfg.ShowCampfireDistance.Value, peakMode ? IconAssets.Peak : null);
+            Sprite icon = _kind switch
+            {
+                TargetKind.Peak => IconAssets.Peak,
+                TargetKind.Portal => IconAssets.Portal,
+                _ => null,
+            };
+
+            float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), tracked.position) * CharacterStats.unitsToMeters;
+            _widget.Refresh(distanceMeters, cfg.ShowCampfireDistance.Value, icon);
         }
 
         private void TrackCampfire(Campfire campfire)
@@ -180,6 +225,51 @@ namespace SenseOfDirection.CampfireIndicator
                 () => IconAssets.Peak);
         }
 
+        private void TrackPortal(Transform portal)
+        {
+            if (portal == null)
+            {
+                // MapTargets.PortalTransform throttles its scene search, so this
+                // is the normal answer for the first frames after dropping into
+                // the biome. Teardown rather than leaving the previous target
+                // (the summit) on screen: pointing at the wrong thing is worse
+                // than pointing at nothing for a moment. If it never resolves at
+                // all, say so once - the same reason TrackPeak's own candidate
+                // dump fires on entering the state rather than on success.
+                if (!_portalMissingLogged && Plugin.Instance.Cfg.EnableDebugLogging.Value)
+                {
+                    _portalMissingLogged = true;
+                    Plugin.Instance.Log.LogInfo(
+                        "CampfireIndicatorController: in the Nadir, but no PeakGatePortal resolved yet - showing nothing.");
+                }
+                Teardown();
+                return;
+            }
+
+            _portalMissingLogged = false;
+
+            if (_kind == TargetKind.Portal && portal == _trackedPortal)
+            {
+                return;
+            }
+
+            Teardown();
+            _kind = TargetKind.Portal;
+            _trackedPortal = portal;
+
+            if (Plugin.Instance.Cfg.EnableDebugLogging.Value)
+            {
+                Plugin.Instance.Log.LogInfo(
+                    $"CampfireIndicatorController: in the Nadir, tracking portal '{portal.name}' at {portal.position}");
+            }
+
+            Build(
+                () => portal.position,
+                () => portal != null,
+                () => Plugin.Instance.Cfg.HideCampfireName.Value ? null : PortalLocalization.Name,
+                () => IconAssets.Portal);
+        }
+
         private void Build(
             System.Func<Vector3> getWorldPosition, System.Func<bool> isActive,
             System.Func<string> getLabel, System.Func<Sprite> getCompassIcon)
@@ -205,6 +295,7 @@ namespace SenseOfDirection.CampfireIndicator
             _kind = TargetKind.None;
             _trackedCampfire = null;
             _trackedPeak = null;
+            _trackedPortal = null;
         }
     }
 }

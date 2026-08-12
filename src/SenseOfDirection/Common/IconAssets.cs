@@ -28,6 +28,7 @@ namespace SenseOfDirection.Common
         private static Sprite _itemPingDiamond;
         private static Sprite _pingArrow;
         private static Sprite _peak;
+        private static Sprite _portal;
         private static Sprite _deadBadge;
         private static Sprite _unconsciousBadge;
 
@@ -51,6 +52,17 @@ namespace SenseOfDirection.Common
         /// tinting convention doesn't apply to it.
         /// </summary>
         public static Sprite Peak => _peak ??= Load("peak-icon");
+
+        /// <summary>
+        /// The Nadir exit portal, shown by
+        /// <see cref="CampfireIndicator.CampfireIndicatorController"/> for as long
+        /// as the run is in the Void biome - where the summit isn't what anyone is
+        /// heading for, the way back out is. Drawn untinted like the campfire/peak
+        /// icons it stands in for (finished black-and-white art, never recolored
+        /// per-anchor), so the tintable white-fill/black-outline convention in the
+        /// class comment above doesn't apply to it either.
+        /// </summary>
+        public static Sprite Portal => _portal ??= Load("portal-icon");
         public static Sprite DeadBadge => _deadBadge ??= Load("player-dead-icon-badge");
         public static Sprite UnconsciousBadge => _unconsciousBadge ??= Load("player-unconscious-icon-badge");
 

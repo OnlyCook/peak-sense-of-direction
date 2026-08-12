@@ -224,8 +224,15 @@ order):
   rest use - it's finished black-and-white art like the campfire's own native
   HUD sprite, never recolored per-anchor. Same `Campfire/*` settings govern both
   modes - no new config.
-- `PeakLocalization.cs` — "Peak" per `LocalizedText.CURRENT_LANGUAGE`, same
-  hand-maintained table pattern (and same rationale) as `CampfireLocalization.cs`.
+  In the Nadir (PEAK 2.0's Void sub-biome) it retargets a third time, onto the
+  exit portal (`Peak.PeakGatePortal`, resolved by `MapTargets.PortalTransform`;
+  icon `IconAssets.Portal`, label `PortalLocalization`). Checked *before* the
+  campfire/summit branches: the Void segment is appended past `Segment.TheKiln`,
+  so every "no campfire left" test reads true down there and the indicator used
+  to point at the summit while the way out is the portal.
+- `PeakLocalization.cs` / `PortalLocalization.cs` — "Peak"/"Portal" per
+  `LocalizedText.CURRENT_LANGUAGE`, same hand-maintained table pattern (and same
+  rationale) as `CampfireLocalization.cs`.
 - `Labels/NativeAssets.cs` extended (not a new file) with
   `CampfireIconSprite` discovery alongside the existing font/host-star
   lookups — same lazy-retry-until-found approach.
@@ -990,6 +997,21 @@ for unsupported pingables. Consumed by
 *every* ping past that point - taking item detection, ripple, scaling and
 distance labels with it, which is what "pings have no distance labels at the
 Kiln" actually was).
+
+`IsInNadir()`/`PortalTransform()` (added for PEAK 2.0) cover the Void
+sub-biome, where neither landmark above applies. `IsInNadir` reads
+`MapHandler.inNadir` (`GetCurrentBiome() == BiomeType.Void`) rather than
+`VoidBiome.VoidBiomeActive` - the segment is what the run is *in*, while
+`isActive` is a one-way flag only `Deactivate()` clears - but that getter
+indexes `segments[currentSegment]` and the Void segment is *appended* to that
+array by `SetUpVoidSegment` when the run drops in, so it can throw for a frame
+on entry; the static flag is the fallback for exactly that window.
+`PortalTransform()` finds `Peak.PeakGatePortal` (the interactible whose cast
+runs `Character.EndGame()`, where `wonViaNadir` gets set - the only class of its
+kind in the decompile, so no name matching needed unlike the summit flag),
+searching with `FindObjectsInactive.Include` since the biome root may still be
+mid-activation, preferring an active portal and then the nearest one. Cached the
+same way `PeakTransform()` is.
 
 ### `Common/SceneResetCoordinator.cs` (ad hoc addition, done — ISSUES.md "labels stuck forever" bug fix)
 

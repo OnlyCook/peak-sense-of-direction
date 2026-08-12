@@ -199,6 +199,134 @@ namespace SenseOfDirection.Common
         }
 
         /// <summary>
+        /// Whether the run is currently down in the Nadir (PEAK 2.0's Void
+        /// sub-biome), where none of the above applies: there is no campfire to
+        /// light and the summit is not what anyone is heading for - the way out
+        /// is the portal (see <see cref="PortalTransform"/>).
+        ///
+        /// Read off <c>MapHandler.inNadir</c> (<c>GetCurrentBiome() ==
+        /// BiomeType.Void</c>) rather than <c>VoidBiome.VoidBiomeActive</c>,
+        /// because the two answer subtly different questions: the segment is what
+        /// the run is *in*, while <c>VoidBiome.isActive</c> is a one-way flag its
+        /// own <c>Activate()</c> sets and only <c>Deactivate()</c> clears.
+        /// <c>inNadir</c> can throw, though - it indexes
+        /// <c>segments[currentSegment]</c>, and the Void segment is *appended* to
+        /// that array by <c>MapHandler.SetUpVoidSegment</c> (it isn't there at
+        /// scene load), so the index is briefly out of range while the run is
+        /// entering the biome. The static flag is the fallback for exactly that
+        /// window.
+        /// </summary>
+        internal static bool IsInNadir()
+        {
+            if (!MapHandler.ExistsAndInitialized)
+            {
+                return false;
+            }
+
+            try
+            {
+                return Singleton<MapHandler>.Instance.inNadir;
+            }
+            catch (System.Exception)
+            {
+                // Silent for the same reason as CurrentCampfire above - this is
+                // polled every frame.
+            }
+
+            try
+            {
+                return Peak.VoidBiome.VoidBiomeActive;
+            }
+            catch (System.Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// The Nadir's exit portal - <c>Peak.PeakGatePortal</c>, the interactible
+        /// whose own cast ends the run (<c>Interact_CastFinished</c> ->
+        /// <c>Character.EndGame()</c>, which is where <c>CharacterStats.wonViaNadir</c>
+        /// gets set). It's the one class of its kind in the whole decompile, so no
+        /// name matching or ping-log identification was needed here, unlike the
+        /// summit flag <see cref="FindPeakFlag"/> has to go hunting for.
+        ///
+        /// Cached the same way <see cref="PeakTransform"/> is, and for the same
+        /// reason: a scene-wide component search is not something to run per
+        /// frame. Unity's null-overload handles invalidation for free - a
+        /// destroyed portal (scene unload, leaving the biome) compares equal to
+        /// null and re-resolves.
+        /// </summary>
+        internal static Transform PortalTransform()
+        {
+            if (_cachedPortal != null)
+            {
+                return _cachedPortal;
+            }
+            if (Time.unscaledTime - _portalResolveTime < PortalResolveIntervalSeconds)
+            {
+                return null;
+            }
+            _portalResolveTime = Time.unscaledTime;
+            _cachedPortal = ResolvePortalTransform();
+            return _cachedPortal;
+        }
+
+        private static Transform _cachedPortal;
+        private static float _portalResolveTime = float.NegativeInfinity;
+        private const float PortalResolveIntervalSeconds = 2f;
+
+        private static Transform ResolvePortalTransform()
+        {
+            try
+            {
+                // Inactive objects included: the Void biome's own root is only
+                // activated once the run actually goes there (VoidBiome.Activate),
+                // and this resolve can land in that same frame. Only ever called
+                // while IsInNadir() already says the run is in the biome, so
+                // there's no risk of latching onto some other scene's portal.
+                Peak.PeakGatePortal[] portals = Object.FindObjectsByType<Peak.PeakGatePortal>(
+                    FindObjectsInactive.Include, FindObjectsSortMode.None);
+                if (portals == null || portals.Length == 0)
+                {
+                    return null;
+                }
+
+                // One is the normal case. If a level ever has more, the nearest
+                // one is the one worth pointing at - and an active one always
+                // beats an inactive one regardless of distance.
+                Peak.PeakGatePortal best = null;
+                bool bestActive = false;
+                float bestDistanceSq = float.PositiveInfinity;
+                Vector3 from = Character.localCharacter != null
+                    ? Character.localCharacter.Center
+                    : Vector3.zero;
+
+                foreach (Peak.PeakGatePortal portal in portals)
+                {
+                    if (portal == null)
+                    {
+                        continue;
+                    }
+                    bool active = portal.gameObject.activeInHierarchy;
+                    float distanceSq = (portal.transform.position - from).sqrMagnitude;
+                    if (best == null || (active && !bestActive) || (active == bestActive && distanceSq < bestDistanceSq))
+                    {
+                        best = portal;
+                        bestActive = active;
+                        bestDistanceSq = distanceSq;
+                    }
+                }
+
+                return best != null ? best.transform : null;
+            }
+            catch (System.Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// The summit landmark to point at once <see cref="IsPastLastCampfire"/> /
         /// <see cref="AnyUnlitCampfireRemains"/> say there's no campfire left to
         /// head for. Three candidates, best first:
