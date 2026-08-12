@@ -331,6 +331,36 @@ Hooked into `Pings/PointPingerPatches.ReceivePointRpcPrefixImpl` (one call,
 gated on `Item-Pings/enable-item-pings`), so item highlighting piggybacks on
 the same anti-spam/ghost-ping gating the ping itself already went through.
 
+- `PingableRegistry.cs` / `PingableRegistryPatches.cs` — the ready-to-use
+  buckets of every pingable in the level, so a ping never goes looking for
+  one. Kept current by Harmony postfixes on each type's own lifecycle method
+  (`Item`/`Capybara` → `OnEnable`, since that also catches re-activation;
+  `Mob`/`Spider`/`MushroomZombie`/`CollisionModifier` → `Awake`;
+  `SlipperyJellyfish`/`Antlion`/`ClimbHandle` → `Start` — they genuinely
+  differ, confirmed against the decompile; `AccessTools.DeclaredMethod`, and
+  every `Item` subclass that overrides `OnEnable` calls `base`). The full
+  `FindObjectsByType<MonoBehaviour>` sweep is now only reconciliation —
+  scene load, segment change (polled, 1s, a plain `CurrentSegmentNumber`
+  read rather than another patch), and once a minute — so a hook a future
+  game update breaks degrades to "up to a minute late", never "never".
+  **Why, measured over a full playthrough:** the sweep cost 7–14ms in one
+  frame, of which the bucketing loop was 0.2–0.5ms; the rest is one atomic
+  native query that can't be split. Typed queries are *not* cheaper
+  (`FindObjectsByType<Capybara>` = 3.35ms to return zero results — the cost
+  is the traversal, not the filter), so one-type-per-frame would have been
+  ~4x the total CPU for a still-too-large per-frame spike. The query also
+  allocated 120–632KB per sweep (up to ~40,000 behaviours), i.e. a gen0
+  collection landing on some later frame. `Bucket` is shared by sweep and
+  hooks so they can't disagree on what counts as pingable, with a `_known`
+  set guarding against double-registration (`OnEnable` fires on every
+  re-activation) — without it one item could show up as "3x COCONUT" alone;
+  it remembers only what actually landed in a bucket, since the sweep hands
+  it every behaviour in the level (an early version grew it to 43,000
+  entries to track a few hundred pingables). The sweep **merges** rather
+  than clear-and-refills: the query returns only *active* objects, so
+  refilling threw away live-registered pingables that were inactive right
+  then — a segment-change sweep fires exactly during that window, and a real
+  run caught it reporting "0 items" just after the hooks registered 1355.
 - `ItemPingDetector.cs` — pure detection: given a ping point and separate
   item/luggage radii (meters, converted to world units via
   `CharacterStats.unitsToMeters`), finds nearby `Item`s, `Luggage` (off
