@@ -6,7 +6,7 @@ This mod keeps every teammate on your screen even when they're out of view, make
 
 Client-sided, no other player needs it installed for this to work. 
 
-Fully localized in all 14 languages the game ships with: English, Français, Italiano, Deutsch, Español (España), 日本語, 한국어, Português (Brasil), Русский, 简体中文, Español (Latinoamérica), Українська, Polski, Türkçe.
+Fully localized in all 15 languages the game ships with: English, Français, Italiano, Deutsch, Español (España), 日本語, 한국어, Português (Brasil), Русский, 简体中文, 繁體中文, Español (Latinoamérica), Українська, Polski, Türkçe.
 
 ---
 
