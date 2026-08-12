@@ -114,6 +114,18 @@ namespace SenseOfDirection.ItemPings
         /// </summary>
         private static readonly List<Item> ItemCandidates = new List<Item>();
 
+        /// <summary>
+        /// Pivot-distance cutoff (squared, world units) past which a level prop
+        /// is skipped without measuring its bounds at all. 50m is far beyond any
+        /// configurable detection radius, so this only ever skips props that
+        /// could not have matched - it exists purely so a ping doesn't walk the
+        /// renderer hierarchy of every trap in the level.
+        /// </summary>
+        private const float PropPrefilterRadiusSqUnits = 50f * 50f;
+
+        /// <summary>How close a prop has to be to the ping for the debug line above to report on it (squared, world units).</summary>
+        private const float PropDebugLogRadiusSqUnits = 15f * 15f;
+
         public static List<PingableTarget> FindNear(
             Vector3 point, float itemRadiusUnits, float crossKindRadiusUnits, float luggageRadiusUnits,
             Vector3 rayOrigin, Vector3 rayDirection, float rayMaxDistanceUnits, float rayHitboxRadiusUnits,
@@ -333,6 +345,77 @@ namespace SenseOfDirection.ItemPings
                 }
                 Luggage capturedLuggage = luggage;
                 Add(capturedLuggage.gameObject, () => capturedLuggage.transform.position, () => capturedLuggage.GetName());
+            }
+
+            // Level props/hazards (traps, flytraps, amulets still on a statue -
+            // see PingableProps). Matched against their *bounds* rather than a
+            // single center point, which is what the others here all use: these
+            // are large, often long and often animated (a saw blade riding a
+            // spline, a mace on a swinging arm, a spike roller spinning about
+            // its own axis), so their component's transform routinely sits at a
+            // pivot metres away from anything you'd actually aim at. A
+            // bounds-distance test means aiming anywhere along the thing counts,
+            // and the label rides its live visual center - both exactly what was
+            // asked for ("just ping its center").
+            IReadOnlyList<PingableRegistry.PropTarget> props = registry.Props;
+            for (int i = 0; i < props.Count; i++)
+            {
+                PingableRegistry.PropTarget prop = props[i];
+                if (prop.Behaviour == null || !prop.Behaviour.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                // Cheap reject on the pivot first: computing bounds walks every
+                // renderer under the prop, and a level has plenty of props that
+                // are nowhere near this ping. The cutoff is deliberately far
+                // wider than any real radius, so it can only skip work, never
+                // change a match.
+                GameObject propGo = prop.Behaviour.gameObject;
+                if ((propGo.transform.position - point).sqrMagnitude > PropPrefilterRadiusSqUnits
+                    && !MatchesRay(propGo.transform.position, rayOrigin, rayDirection, rayMaxDistanceUnits, PropPrefilterRadiusSqUnits))
+                {
+                    continue;
+                }
+
+                if (!PingableProps.TryGetBounds(prop.Renderers, propGo, prop.TrimToBody, out Bounds propBounds))
+                {
+                    continue;
+                }
+
+                float propRadiusSq = prop.IsLarge ? luggageRadiusSq : itemRadiusSq;
+                bool propMatched = propBounds.SqrDistance(point) <= propRadiusSq
+                    || MatchesRay(propBounds.center, rayOrigin, rayDirection, rayMaxDistanceUnits, rayHitboxRadiusSq)
+                    || AimedThrough(propBounds, rayOrigin, rayDirection, rayMaxDistanceUnits);
+                // Debug-only: props are matched entirely on numbers (bounds vs
+                // radius vs aim line) with no collider involved, so when one
+                // "should be pingable but isn't" this is the only way to see
+                // which of those numbers said no. Restricted to props near the
+                // ping so it stays a handful of lines, not one per prop in the
+                // level.
+                if (Plugin.Instance.Cfg.EnableDebugLogging.Value
+                    && propBounds.SqrDistance(point) <= PropDebugLogRadiusSqUnits)
+                {
+                    Plugin.Instance.Log.LogInfo(
+                        $"  prop '{prop.DisplayName}' ({propGo.name}): boundsDist={Mathf.Sqrt(propBounds.SqrDistance(point)):F2} "
+                        + $"radius={Mathf.Sqrt(propRadiusSq):F2} center={propBounds.center} size={propBounds.size} "
+                        + $"renderers={(prop.Renderers != null ? prop.Renderers.Length : -1)} pivot={propGo.transform.position} "
+                        + $"anchor={prop.Anchor} matched={propMatched}");
+                }
+
+                if (!propMatched)
+                {
+                    continue;
+                }
+
+                string propName = prop.DisplayName;
+                Renderer[] propRenderers = prop.Renderers;
+                MonoBehaviour propBehaviour = prop.Behaviour;
+                bool propTrim = prop.TrimToBody;
+                Func<Vector3> getPropCenter = prop.Anchor == PingableProps.PropAnchor.Transform
+                    ? (Func<Vector3>)(() => propGo.transform.position)
+                    : () => PingableProps.TryGetBounds(propRenderers, propGo, propTrim, out Bounds live) ? live.center : propGo.transform.position;
+                Add(propGo, getPropCenter, () => propName, () => PingableProps.TryGetIcon(propBehaviour));
             }
 
             IReadOnlyList<SlipperyJellyfish> jellyfish = registry.Jellyfish;
@@ -684,6 +767,26 @@ namespace SenseOfDirection.ItemPings
             return null;
         }
 
+        /// <summary>
+        /// Whether the aim line passes straight through a prop's bounding box
+        /// within reach. The center-distance test alone isn't enough for the
+        /// props: a Ghost Ball has no collider the ping raycast can land on at
+        /// all (so the point ends up on whatever terrain is behind it, arbitrarily
+        /// far away), and for anything long the center can sit well off the line
+        /// you actually aimed down even when you're looking right at the thing.
+        /// An exact ray/box intersection answers "was this aimed at" for both
+        /// cases, at no cost beyond the bounds already computed.
+        /// </summary>
+        private static bool AimedThrough(Bounds bounds, Vector3 rayOrigin, Vector3 rayDirection, float maxDistance)
+        {
+            if (rayDirection == Vector3.zero)
+            {
+                return false;
+            }
+            return bounds.IntersectRay(new Ray(rayOrigin, rayDirection), out float distanceAlongRay)
+                && distanceAlongRay <= maxDistance;
+        }
+
         /// <summary>Closest-point-on-ray distance test; ignores anything behind the ray origin or past <c>maxDistance</c> along it.</summary>
         private static bool MatchesRay(Vector3 center, Vector3 rayOrigin, Vector3 rayDirection, float maxDistance, float hitboxRadiusSq)
         {
@@ -766,6 +869,18 @@ namespace SenseOfDirection.ItemPings
                 {
                     return true;
                 }
+                // Level props are identified by a component that can sit several
+                // levels up (that's why this dump walks the whole ancestor chain
+                // below), so recognizing them needs the same reach - otherwise
+                // every trap this mod already supports keeps showing up in the
+                // "still unsupported" dump.
+                foreach (MonoBehaviour behaviour in go.GetComponentsInParent<MonoBehaviour>(includeInactive: true))
+                {
+                    if (behaviour != null && PingableProps.TryResolve(behaviour, out _, out _, out _, out _))
+                    {
+                        return true;
+                    }
+                }
                 // Giant Urchin - see the dedicated CollisionModifier +
                 // DisableBasedOnRunSettings loop above for why this specific
                 // combination (not just the component type alone, which
@@ -805,15 +920,32 @@ namespace SenseOfDirection.ItemPings
                         componentNames.Add(DescribeComponent(c));
                     }
                 }
-                Transform parent = go.transform.parent;
-                if (parent != null)
+
+                // The whole ancestor chain, not just one level up. One level was
+                // enough for the hazards identified so far (VenusFlyTrap,
+                // ArrowShooter, SpikeTrap all sit directly above their collider),
+                // but several came back with nothing usable - a bare "Coll" under
+                // a parent carrying only DisableBasedOnRunSettings - because the
+                // identifying component was two or more levels further up.
+                // Ancestors are prefixed with their depth so the chain stays
+                // readable, and named even when they carry no components at all,
+                // since the name alone is sometimes the only identification a
+                // prop has (it's how the NamedHazards table was built).
+                int depth = 1;
+                for (Transform ancestor = go.transform.parent; ancestor != null; ancestor = ancestor.parent, depth++)
                 {
-                    foreach (Component c in parent.GetComponents<Component>())
+                    bool anyComponent = false;
+                    foreach (Component c in ancestor.GetComponents<Component>())
                     {
                         if (c != null && !(c is Transform) && !(c is Collider))
                         {
-                            componentNames.Add($"parent:{DescribeComponent(c)}");
+                            componentNames.Add($"^{depth}:{DescribeComponent(c)}");
+                            anyComponent = true;
                         }
+                    }
+                    if (!anyComponent)
+                    {
+                        componentNames.Add($"^{depth}:'{ancestor.name}'");
                     }
                 }
                 if (componentNames.Count > 0)

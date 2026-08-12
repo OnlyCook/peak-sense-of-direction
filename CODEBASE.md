@@ -361,6 +361,39 @@ the same anti-spam/ghost-ping gating the ping itself already went through.
   refilling threw away live-registered pingables that were inactive right
   then — a segment-change sweep fires exactly during that window, and a real
   run caught it reporting "0 items" just after the hooks registered 1355.
+- `PingableProps.cs` — the level's fixed props/hazards, which share no base
+  class and had to be identified one component at a time from real pings'
+  `LogNearbyUnmatched` dumps: `FakeItem` (an amulet still on its statue —
+  not an `Item` yet, which is why only the picked-up version was pingable;
+  its own `GetName()` is localized, unlike every other name here),
+  `VenusFlyTrap`, `Peak.GhostBall`, `ArrowShooter`, `Peak.SpikeTrap`,
+  `Peak.MovingSawBlade`, `SwingingAxe` (the spiked mace), `Peak.SpikeRoller`
+  (the spinning log), `GhostFire` (the Belltower pyre, lit or not — its
+  colliders are named `Grave`/`Bell`, so only the ping dump's *ancestor*
+  chain identified it). `FakeItem` and `GhostFire` carry localized names of
+  their own (`realItemPrefab`/`displayNameIndex`); everything else is
+  hardcoded English like the older `NamedHazards` entries. `FakeItem` also
+  lends its `realItemPrefab.UIData` icon, so an amulet on its statue shows
+  the same art the picked-up one does. One resolver + one registry bucket
+  rather than a list and loop per type — they share every rule but the name.
+  `PropAnchor` is the exception: the Belltower's renderer union measures 23m
+  across (tower, grave, bell, dressing), which put its indicator ~18m from
+  where you actually pinged, and a Spike Roller's box center *wanders* as its
+  arms sweep (10.55→11.04 on X between two pings of the same one), so both
+  anchor to their transform — for the roller that transform is literally its
+  axis of rotation — while still *matching* on the prop's full bounds, so the
+  whole body stays pingable. `TrimToBody` (renderers further than
+  `MaxRendererDistanceFromPivot` = 8 units from the pivot are dropped) is
+  opt-in per kind and set **only** for `ArrowShooter`, which parents its
+  spawned warning arrows to itself wherever they land — one untrimmed box
+  measured 54×1.8×17.5m, a slab that answered pings aimed at unrelated things
+  6–14m away. Trimming everything instead cost the vertical Spike Roller most
+  of its ~37m body, leaving only its top few metres pingable. Matched against
+  **bounds**, not a center point (`ItemPingDetector`): these are large,
+  often long and animated, and their transform sits at a pivot that can be
+  metres from anything visible, so a ping anywhere along them counts and the
+  label rides the live visual center. `Bounds.IntersectRay` covers the Ghost
+  Ball, which has no collider for the ping raycast to land on at all.
 - `ItemPingDetector.cs` — pure detection: given a ping point and separate
   item/luggage radii (meters, converted to world units via
   `CharacterStats.unitsToMeters`), finds nearby `Item`s, `Luggage` (off
