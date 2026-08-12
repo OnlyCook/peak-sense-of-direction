@@ -227,6 +227,21 @@ namespace SenseOfDirection.Pings
                                 continue;
                             }
 
+                            // Character.localCharacter is the pinging player
+                            // here - this prefix only ever runs for the local
+                            // player's own aim - so this skips arrows/thorns/
+                            // ticks stuck in anyone plus the local player's own
+                            // worn backpack. Another player's worn backpack
+                            // stays solid and directly pingable.
+                            if (PingIgnoreFilter.IsCharacterAttachment(col, Character.localCharacter))
+                            {
+                                if (debugLog)
+                                {
+                                    _log?.LogInfo($"  hit[{i}]: skipped as player-attached (arrow/thorn/tick/own worn backpack)");
+                                }
+                                continue;
+                            }
+
                             if (IsLitCampfireCollider(col))
                             {
                                 if (debugLog)

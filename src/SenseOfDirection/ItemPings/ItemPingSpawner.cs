@@ -42,6 +42,20 @@ namespace SenseOfDirection.ItemPings
         /// </summary>
         private const float RayOvershootMeters = 2f;
 
+        /// <summary>
+        /// How close a ping has to land to an item strapped into *another*
+        /// player's worn backpack for it to count as pinged - deliberately far
+        /// tighter than the configurable item radius (2m by default) and not
+        /// user-configurable, since this isn't a "how forgiving should aiming
+        /// be" knob but a "you have to actually be aiming at their pack, not
+        /// past them" rule. Roughly the size of the pack itself plus a small
+        /// buffer, so a direct hit anywhere on it still registers the slot you
+        /// aimed at while a ping sailing past the player picks up nothing.
+        /// See <see cref="PingIgnoreFilter"/> for the wearer's own pack, which
+        /// is excluded outright rather than tightened.
+        /// </summary>
+        private const float WornBackpackRadiusMeters = 0.6f;
+
         /// <summary>Reused between pings (see the grouping comment in <see cref="SpawnFor"/>) - a ping is always fully handled before the next one is, so a single scratch pair is safe.</summary>
         private static readonly List<List<PingableTarget>> _clustersScratch = new List<List<PingableTarget>>();
         private static readonly Dictionary<string, List<PingableTarget>> _clusterByNameScratch = new Dictionary<string, List<PingableTarget>>();
@@ -71,7 +85,8 @@ namespace SenseOfDirection.ItemPings
             List<PingableTarget> found = ItemPingDetector.FindNear(
                 point, itemRadiusUnits, crossKindRadiusUnits, luggageRadiusUnits,
                 rayOrigin, rayDirection, rayMaxDistanceUnits, rayHitboxRadiusUnits,
-                cfg.EnableCreaturePings.Value);
+                cfg.EnableCreaturePings.Value, pingingCharacter,
+                WornBackpackRadiusMeters / CharacterStats.unitsToMeters);
 
             // Whatever the pinging player is currently holding sits right in
             // front of their own aim ray/near their own position, so it's

@@ -166,7 +166,8 @@ namespace SenseOfDirection.Common
         {
             Vector3 point = Character.localCharacter.Head;
             List<PingableTarget> found = ItemPingDetector.FindNear(
-                point, 0f, 0f, 0f, point, Vector3.forward, 0f, 0f, includeCreatures: true);
+                point, 0f, 0f, 0f, point, Vector3.forward, 0f, 0f, includeCreatures: true,
+                Character.localCharacter, wornBackpackRadiusUnits: 0f);
             found.Clear();
         }
     }

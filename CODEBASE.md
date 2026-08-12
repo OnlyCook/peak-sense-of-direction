@@ -367,6 +367,24 @@ the same anti-spam/ghost-ping gating the ping itself already went through.
   urchins, spore bombs - no distinct class found for either in the decompile)
   can be identified by their actual in-scene GameObject name without another
   decompile pass, then added the same way jellyfish/Mob/Spider/Capybara were.
+- `PingIgnoreFilter.cs` — the one list of player-attached props that have to
+  stay out of a ping's way, shared by the ping raycast
+  (`Pings/PointPingerPatches.TryGetPingHitPrefix`, which skips their
+  colliders so the ping passes through to what's behind) and item detection
+  (`ItemPingDetector`'s `CollectItem`, which drops them as targets). Always
+  ignored, whoever they're stuck in: arrows/thorns (`ThornOnMe` - one
+  component for both, its `type` field is the only difference), ticks
+  (`Bugfix`), and items stuck into a player (`StickyItemComponent.
+  stuckToCharacter`, e.g. a cactus ball). Worn backpacks
+  (`BackpackOnBackVisuals` plus the real `Item` each filled slot spawns,
+  `backpackReference.type == Equipped`) are per-player instead: the pinging
+  player's own is excluded outright, anyone else's stays solid and pingable
+  but only within `ItemPingSpawner.WornBackpackRadiusMeters` of the ping
+  point (no item radius, no ray assist) so it answers a ping aimed *at* it
+  and not one aimed past its wearer. Items in a backpack lying on the ground
+  are untouched by all of this. Only relevant at all because the hitbox
+  assist widened vanilla's `TerrainMap`-only ping raycast onto the "Default"
+  layer these props sit on.
 - `ItemPingWidget.cs` — the on-screen widget: name label above an optional
   distance sub-line plus an off-screen arrow, same construction pattern as
   `Pings/PingWidget.cs` (arrow makes sense here, unlike player labels/the
