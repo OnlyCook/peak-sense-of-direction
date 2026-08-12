@@ -103,11 +103,6 @@ namespace SenseOfDirection.GhostFreeCam
 
         private static float _lastDiagLogTime;
 
-        /// <summary>Set once <see cref="Compatibility.SleepTalkCompat"/> has run - deferred to the first LateUpdate postfix call (rather than <see cref="Apply"/> itself) so every other mod's own Awake, including PEAKSleepTalk's <c>harmony.PatchAll()</c>, has already had a chance to run first; BepInEx finishes all plugins' Awake before any MonoBehaviour Update/LateUpdate ever fires.</summary>
-        private static bool _compatChecked;
-
-        private static Harmony _harmony;
-
         /// <summary>Toggle state for <see cref="PluginConfig.EnableGhostFreeCamKeyHintPreview"/>'s dev/QA hint preview - kept separate from <see cref="_active"/> so the preview can't affect real free-cam engage/disengage state.</summary>
         private static bool _debugPreviewActive;
 
@@ -130,7 +125,6 @@ namespace SenseOfDirection.GhostFreeCam
         public static void Apply(Harmony harmony, ManualLogSource log)
         {
             _log = log;
-            _harmony = harmony;
             try
             {
                 var lateUpdate = AccessTools.Method(typeof(MainCameraMovement), "LateUpdate");
@@ -209,11 +203,12 @@ namespace SenseOfDirection.GhostFreeCam
 
         private static void LateUpdatePostfixImpl(MainCameraMovement __instance)
         {
-            if (!_compatChecked)
-            {
-                _compatChecked = true;
-                Compatibility.SleepTalkCompat.Apply(_harmony, _log);
-            }
+            // The PEAKSleepTalk compatibility sweep used to be latched here on
+            // a first-LateUpdate one-shot. It now lives in
+            // SleepTalkCompat.Initialize's own watchdog component (driven from
+            // Plugin.Awake, re-checked periodically), so that it neither
+            // depends on this patch having applied nor gives up after one
+            // pass. See that class for why both mattered.
 
             GhostFreeCamConfigSync.Tick();
 

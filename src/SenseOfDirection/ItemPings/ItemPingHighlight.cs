@@ -193,7 +193,17 @@ namespace SenseOfDirection.ItemPings
             }
         }
 
+        private static readonly Common.Safe.Context _ctxUpdateImpl =
+            new Common.Safe.Context("ItemPingHighlight.Update", failureLimit: 300);
+
         private void Update()
+        {
+            if (_ctxUpdateImpl.Disabled) return;
+            try { UpdateImpl(); _ctxUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
+        }
+
+        private void UpdateImpl()
         {
             if (_endingEarly)
             {

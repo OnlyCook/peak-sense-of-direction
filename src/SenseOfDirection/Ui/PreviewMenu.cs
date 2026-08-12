@@ -270,8 +270,20 @@ namespace SenseOfDirection.Ui
 
             if (cold)
             {
-                EnsureLoadingUi();
-                _loadingRoot.SetActive(true);
+                // Guarded for the same reason BuildBehindLoadingScreen is: a
+                // throw inside a coroutine kills the coroutine silently, and
+                // this one is what's responsible for ever taking the menu back
+                // down again. Failing here means we never got as far as
+                // showing anything, so just abort the open cleanly.
+                if (!Common.Safe.Run("PreviewMenu.EnsureLoadingUi", () =>
+                    {
+                        EnsureLoadingUi();
+                        _loadingRoot.SetActive(true);
+                    }))
+                {
+                    Close();
+                    yield break;
+                }
 
                 // The loading screen has to get one frame to itself, or the heavy
                 // build below runs before it has ever been drawn and it's never
@@ -305,12 +317,22 @@ namespace SenseOfDirection.Ui
                 }
             }
 
-            _canvasGroup.alpha = 1f;
-            _canvasGroup.blocksRaycasts = true;
+            // The reveal - the last thing standing between the player and a
+            // permanent loading screen. If it throws, the menu is left fully
+            // built but transparent behind an overlay that never goes away, so
+            // failing here has to close the menu rather than leave it.
+            if (!Common.Safe.Run("PreviewMenu.Reveal", () =>
+                {
+                    _canvasGroup.alpha = 1f;
+                    _canvasGroup.blocksRaycasts = true;
 
-            if (_loadingRoot != null)
+                    if (_loadingRoot != null)
+                    {
+                        _loadingRoot.SetActive(false);
+                    }
+                }))
             {
-                _loadingRoot.SetActive(false);
+                Close();
             }
         }
 
@@ -428,7 +450,42 @@ namespace SenseOfDirection.Ui
             _loadingRoot.SetActive(false);
         }
 
+        /// <summary>
+        /// Guarded end-to-end. This is the one input path in the mod a user is
+        /// told about by name ("press F8"), so it's also the one most likely
+        /// to be blamed when something goes wrong at the moment it's pressed.
+        /// <see cref="BuildBehindLoadingScreen"/> already covers the heavy
+        /// build; this covers everything around it - the key read itself, the
+        /// open/close state machine, the dim/scroll fades - so a failure
+        /// anywhere in here can't leave the player stuck with a half-open
+        /// menu, a freed cursor and no way back.
+        /// </summary>
+        private static readonly Common.Safe.Context UpdateGuard =
+            new Common.Safe.Context("PreviewMenu.Update", failureLimit: 300);
+
         private void Update()
+        {
+            if (UpdateGuard.Disabled)
+            {
+                return;
+            }
+            try
+            {
+                UpdateImpl();
+                UpdateGuard.Succeeded();
+            }
+            catch (System.Exception e)
+            {
+                UpdateGuard.Failed(e);
+
+                // Whatever went wrong, don't strand the player inside a menu
+                // that is no longer being driven - hand input and the cursor
+                // back to the game.
+                Common.Safe.Run("PreviewMenu.Update (emergency close)", Close);
+            }
+        }
+
+        private void UpdateImpl()
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
 

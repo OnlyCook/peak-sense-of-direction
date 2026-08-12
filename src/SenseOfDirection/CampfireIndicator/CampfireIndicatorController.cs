@@ -63,7 +63,17 @@ namespace SenseOfDirection.CampfireIndicator
         /// <summary>Same one-shot contract as <see cref="_peakDumpLogged"/>, for the Nadir's portal never resolving.</summary>
         private bool _portalMissingLogged;
 
+        private static readonly Common.Safe.Context _ctxUpdateImpl =
+            new Common.Safe.Context("CampfireIndicatorController.Update", failureLimit: 300);
+
         private void Update()
+        {
+            if (_ctxUpdateImpl.Disabled) return;
+            try { UpdateImpl(); _ctxUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
+        }
+
+        private void UpdateImpl()
         {
             NativeAssets.TryFindAll();
 

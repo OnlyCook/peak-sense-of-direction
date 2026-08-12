@@ -466,7 +466,17 @@ namespace SenseOfDirection.Compass
             return false;
         }
 
+        private static readonly Common.Safe.Context _ctxUpdateImpl =
+            new Common.Safe.Context("CompassManager.Update", failureLimit: 300);
+
         private void Update()
+        {
+            if (_ctxUpdateImpl.Disabled) return;
+            try { UpdateImpl(); _ctxUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
+        }
+
+        private void UpdateImpl()
         {
             NativeAssets.TryFindAll();
             PluginConfig cfg = Plugin.Instance.Cfg;

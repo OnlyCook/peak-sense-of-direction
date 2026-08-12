@@ -199,7 +199,17 @@ namespace SenseOfDirection.Labels
             _skeletonEsp?.Clear();
         }
 
+        private static readonly Common.Safe.Context _ctxUpdateImpl =
+            new Common.Safe.Context("PlayerLabelController.Update", failureLimit: 300);
+
         private void Update()
+        {
+            if (_ctxUpdateImpl.Disabled) return;
+            try { UpdateImpl(); _ctxUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
+        }
+
+        private void UpdateImpl()
         {
             NativeAssets.TryFindAll();
 
@@ -245,7 +255,17 @@ namespace SenseOfDirection.Labels
         /// Gated on exactly the same <see cref="_labelsVisible"/> state and
         /// max-distance cap as the labels, so one key press flashes both.
         /// </summary>
+        private static readonly Common.Safe.Context _ctxLateUpdateImpl =
+            new Common.Safe.Context("PlayerLabelController.LateUpdate (skeleton ESP)", failureLimit: 300);
+
         private void LateUpdate()
+        {
+            if (_ctxLateUpdateImpl.Disabled) return;
+            try { LateUpdateImpl(); _ctxLateUpdateImpl.Succeeded(); }
+            catch (System.Exception e) { _ctxLateUpdateImpl.Failed(e); }
+        }
+
+        private void LateUpdateImpl()
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
 

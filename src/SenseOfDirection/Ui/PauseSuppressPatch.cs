@@ -56,7 +56,37 @@ namespace SenseOfDirection.Ui
         /// </summary>
         internal static void SuppressNextOpen() => _suppressOnce = true;
 
+        /// <summary>
+        /// Guarded even though the body can't realistically throw today: it is
+        /// a replacing prefix on the pause handler, so the cost of being wrong
+        /// about that is a player who can no longer open the pause menu - i.e.
+        /// no way out of the game short of killing it. The fallback
+        /// (<see langword="true"/>) always hands the call back to vanilla.
+        /// </summary>
+        private static readonly Common.Safe.Context Guard =
+            new Common.Safe.Context("PauseSuppressPatch.Prefix (one-frame pause suppression)", failureLimit: 300);
+
         private static bool Prefix()
+        {
+            // Allocation-free guard: this runs every frame.
+            if (Guard.Disabled)
+            {
+                return true;
+            }
+            try
+            {
+                bool result = PrefixImpl();
+                Guard.Succeeded();
+                return result;
+            }
+            catch (Exception e)
+            {
+                Guard.Failed(e);
+                return true;
+            }
+        }
+
+        private static bool PrefixImpl()
         {
             if (!_suppressOnce)
             {

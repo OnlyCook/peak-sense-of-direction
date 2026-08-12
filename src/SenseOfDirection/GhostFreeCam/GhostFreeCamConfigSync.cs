@@ -44,7 +44,32 @@ namespace SenseOfDirection.GhostFreeCam
         /// </summary>
         internal static void Tick()
         {
-            if (!PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient)
+            // Guarded locally rather than relying on the LateUpdate postfix's
+            // own catch: that one responds to a failure by disengaging the
+            // free-cam entirely, which is a much bigger hammer than this
+            // deserves. A failed publish just means the room keeps whatever
+            // was last published, and the next Tick retries.
+            if (Guard.Disabled)
+            {
+                return;
+            }
+            try
+            {
+                TickImpl();
+                Guard.Succeeded();
+            }
+            catch (System.Exception e)
+            {
+                Guard.Failed(e);
+            }
+        }
+
+        private static readonly Common.Safe.Context Guard =
+            new Common.Safe.Context("GhostFreeCamConfigSync.Tick", failureLimit: 300);
+
+        private static void TickImpl()
+        {
+            if (!PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient || PhotonNetwork.CurrentRoom == null)
             {
                 _publishedOnce = false;
                 return;
@@ -110,7 +135,9 @@ namespace SenseOfDirection.GhostFreeCam
                 return true;
             }
 
-            Hashtable props = PhotonNetwork.CurrentRoom.CustomProperties;
+            // InRoom can briefly be true with CurrentRoom still null around
+            // join/leave transitions - treat that as "nothing published yet".
+            Hashtable props = PhotonNetwork.CurrentRoom?.CustomProperties;
             if (props == null
                 || !props.TryGetValue(EnabledKey, out object enabledObj)
                 || !(enabledObj is bool enabledVal)
