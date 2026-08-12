@@ -4,7 +4,7 @@
 - Pings now ignore all items/objects stuck to the player (arrows, throns, ticks, cacti) to still be able to ping even if they are obstructing your vision.
 - Your own worn backpack isn't accidentally pingable anymore. Other players' worn backpacks are more difficult to ping (to not accidentally ping it and all its items).
 - Added Traditional Chinese translations.
-- Fixed a recurring stutter the mod caused every 5 seconds: it re-scanned the *entire* level to keep track of everything that can be pinged. It now picks up items, creatures and hazards the moment the game spawns them, and only does a full scan on load, when the biome changes, and once a minute to be safe.
+- Fixed a recurring stutter the mod caused every 5 seconds while rescanning the entire biome for new pingable entries. This is optimized greatly now.
 
 ## 1.1.0
 
