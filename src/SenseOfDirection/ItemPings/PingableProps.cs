@@ -1,3 +1,5 @@
+using System;
+using SenseOfDirection.Ui.Localization;
 using UnityEngine;
 
 namespace SenseOfDirection.ItemPings
@@ -50,7 +52,7 @@ namespace SenseOfDirection.ItemPings
         /// during a <see cref="PingableRegistry"/> sweep, so it stays a plain
         /// type switch with no allocations or component lookups.
         /// </summary>
-        internal static bool TryResolve(MonoBehaviour behaviour, out string displayName, out bool isLarge, out PropAnchor anchor, out bool trimToBody)
+        internal static bool TryResolve(MonoBehaviour behaviour, out Func<string> displayName, out bool isLarge, out PropAnchor anchor, out bool trimToBody)
         {
             anchor = PropAnchor.BoundsCenter;
             trimToBody = false;
@@ -65,7 +67,7 @@ namespace SenseOfDirection.ItemPings
                 // name, so these get proper per-language labels for free -
                 // unlike every other entry here.
                 case FakeItem fakeItem:
-                    displayName = SafeFakeItemName(fakeItem);
+                    displayName = () => SafeFakeItemName(fakeItem);
                     isLarge = false;
                     return true;
 
@@ -78,13 +80,14 @@ namespace SenseOfDirection.ItemPings
                 // you're already at): a pyre is a gloom safe zone either way, so
                 // pointing one out stays useful after it's lit.
                 case GhostFire ghostFire:
-                    displayName = SafeLocalizedName(ghostFire.displayNameIndex, "Pyre");
+                    displayName = () => SafeLocalizedName(ghostFire.displayNameIndex,
+                        WorldObjectLocalization.Get(WorldObjectLocalization.Keys.Pyre));
                     isLarge = true;
                     anchor = PropAnchor.Transform;
                     return true;
 
                 case VenusFlyTrap _:
-                    displayName = "Flytrap";
+                    displayName = () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.Flytrap);
                     isLarge = true;
                     return true;
 
@@ -92,12 +95,12 @@ namespace SenseOfDirection.ItemPings
                 // freezing/blinding cloud. Named after its own class, since it
                 // has no in-game name string anywhere in the decompile.
                 case Peak.GhostBall _:
-                    displayName = "Ghost Ball";
+                    displayName = () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.GhostBall);
                     isLarge = true;
                     return true;
 
                 case ArrowShooter _:
-                    displayName = "Arrow Trap";
+                    displayName = () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.ArrowTrap);
                     isLarge = true;
                     // The one kind that needs trimming: it parents its spawned
                     // warning arrows to itself wherever they land, so its
@@ -110,19 +113,19 @@ namespace SenseOfDirection.ItemPings
                     return true;
 
                 case Peak.SpikeTrap _:
-                    displayName = "Spike Trap";
+                    displayName = () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.SpikeTrap);
                     isLarge = true;
                     return true;
 
                 case Peak.MovingSawBlade _:
-                    displayName = "Saw Blade";
+                    displayName = () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.SawBlade);
                     isLarge = true;
                     return true;
 
                 // Vanilla calls this one SwingingAxe; the label follows what it
                 // actually looks like in-game (a spiked mace on a chain).
                 case SwingingAxe _:
-                    displayName = "Swinging Mace";
+                    displayName = () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.SwingingMace);
                     isLarge = true;
                     return true;
 
@@ -132,7 +135,7 @@ namespace SenseOfDirection.ItemPings
                 // point on it (least of all its pivot) is a poor thing to
                 // measure against.
                 case Peak.SpikeRoller _:
-                    displayName = "Spike Roller";
+                    displayName = () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.SpikeRoller);
                     isLarge = true;
                     // Anchored to its pivot, which *is* its axis of rotation:
                     // measured live, a roller's bounding box center wanders

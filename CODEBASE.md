@@ -585,10 +585,20 @@ ray-assist reach needed.
 
 `Antlion` (a real decompiled class) and `ClimbHandle` (the same component
 for both Pickaxe and (Rusty) Piton, distinguished by its own `isPickaxe`
-flag - hardcoded "Pickaxe"/"Piton" labels rather than its own `GetName()`,
-since that returns the less clean `"PITONPROMPT"` localization key for the
-piton case) are both detected directly, same pattern as Spider/Capybara/
-MushroomZombie.
+flag - the mod's own labels rather than its `GetName()`, since that returns
+the less clean `"PITONPROMPT"` localization key for the piton case) are both
+detected directly, same pattern as Spider/Capybara/MushroomZombie.
+
+**Names for all of the above** come from `Ui/Localization/WorldObjectLocalization.cs`
+(`Localization/world.tsv`, 26 keys × 15 languages, embedded/gzipped by the
+same `Localization/*.tsv` glob as the config/enum/chrome tables). They need
+their own table because - unlike `Item`/`Luggage`/`FakeItem`/`GhostFire`,
+which carry localized names the mod just reads - the game has no name string
+for a jellyfish, a geyser or a saw blade anywhere. Resolved per call, not
+snapshotted at detection time, so a mid-session language change takes effect
+on the next ping. The campfire is deliberately *not* in it: it already has
+`CampfireIndicator/CampfireLocalization.cs`, and one name in two tables can
+drift.
 
 `LogNearbyUnmatched` now also scans `Renderer`s (bounds-distance check), not
 just `Collider`s via `OverlapSphere` - some still-requested pingables (giant

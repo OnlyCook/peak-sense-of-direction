@@ -132,7 +132,14 @@ namespace SenseOfDirection.ItemPings
         internal readonly struct PropTarget
         {
             internal readonly MonoBehaviour Behaviour;
-            internal readonly string DisplayName;
+
+            /// <summary>
+            /// Resolved per call, not snapshotted at registration: most prop
+            /// names come from <see cref="Ui.Localization.WorldObjectLocalization"/>
+            /// and the rest from the game's own tables, so a player switching
+            /// language mid-session gets it on their next ping.
+            /// </summary>
+            internal readonly System.Func<string> DisplayName;
 
             /// <summary>Match against the wider luggage/creature radius rather than the item radius - see <see cref="PingableProps"/>.</summary>
             internal readonly bool IsLarge;
@@ -154,7 +161,7 @@ namespace SenseOfDirection.ItemPings
             /// <summary>Whether stray far-from-pivot renderers are excluded when measuring this prop - see <see cref="PingableProps.TryGetBounds"/>.</summary>
             internal readonly bool TrimToBody;
 
-            internal PropTarget(MonoBehaviour behaviour, string displayName, bool isLarge, Renderer[] renderers, PingableProps.PropAnchor anchor, bool trimToBody)
+            internal PropTarget(MonoBehaviour behaviour, System.Func<string> displayName, bool isLarge, Renderer[] renderers, PingableProps.PropAnchor anchor, bool trimToBody)
             {
                 Behaviour = behaviour;
                 DisplayName = displayName;
@@ -471,7 +478,7 @@ namespace SenseOfDirection.ItemPings
                 _urchins.Add(modifier);
                 matched = true;
             }
-            if (PingableProps.TryResolve(behaviour, out string propName, out bool propIsLarge, out PingableProps.PropAnchor propAnchor, out bool propTrim))
+            if (PingableProps.TryResolve(behaviour, out System.Func<string> propName, out bool propIsLarge, out PingableProps.PropAnchor propAnchor, out bool propTrim))
             {
                 _props.Add(new PropTarget(behaviour, propName, propIsLarge, PingableProps.CollectRenderers(behaviour.gameObject), propAnchor, propTrim));
                 matched = true;

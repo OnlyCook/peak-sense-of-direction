@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using SenseOfDirection.Common;
 using SenseOfDirection.Labels;
+using SenseOfDirection.Ui.Localization;
 using UnityEngine;
 
 namespace SenseOfDirection.ItemPings
@@ -397,7 +398,7 @@ namespace SenseOfDirection.ItemPings
                     && propBounds.SqrDistance(point) <= PropDebugLogRadiusSqUnits)
                 {
                     Plugin.Instance.Log.LogInfo(
-                        $"  prop '{prop.DisplayName}' ({propGo.name}): boundsDist={Mathf.Sqrt(propBounds.SqrDistance(point)):F2} "
+                        $"  prop '{prop.DisplayName()}' ({propGo.name}): boundsDist={Mathf.Sqrt(propBounds.SqrDistance(point)):F2} "
                         + $"radius={Mathf.Sqrt(propRadiusSq):F2} center={propBounds.center} size={propBounds.size} "
                         + $"renderers={(prop.Renderers != null ? prop.Renderers.Length : -1)} pivot={propGo.transform.position} "
                         + $"anchor={prop.Anchor} matched={propMatched}");
@@ -408,14 +409,14 @@ namespace SenseOfDirection.ItemPings
                     continue;
                 }
 
-                string propName = prop.DisplayName;
+                Func<string> propName = prop.DisplayName;
                 Renderer[] propRenderers = prop.Renderers;
                 MonoBehaviour propBehaviour = prop.Behaviour;
                 bool propTrim = prop.TrimToBody;
                 Func<Vector3> getPropCenter = prop.Anchor == PingableProps.PropAnchor.Transform
                     ? (Func<Vector3>)(() => propGo.transform.position)
                     : () => PingableProps.TryGetBounds(propRenderers, propGo, propTrim, out Bounds live) ? live.center : propGo.transform.position;
-                Add(propGo, getPropCenter, () => propName, () => PingableProps.TryGetIcon(propBehaviour));
+                Add(propGo, getPropCenter, propName, () => PingableProps.TryGetIcon(propBehaviour));
             }
 
             IReadOnlyList<SlipperyJellyfish> jellyfish = registry.Jellyfish;
@@ -427,7 +428,7 @@ namespace SenseOfDirection.ItemPings
                 {
                     continue;
                 }
-                Add(capturedJellyfish.gameObject, () => capturedJellyfish.transform.position, () => "Jellyfish");
+                Add(capturedJellyfish.gameObject, () => capturedJellyfish.transform.position, () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.Jellyfish));
             }
 
             if (includeCreatures)
@@ -470,7 +471,7 @@ namespace SenseOfDirection.ItemPings
                     {
                         continue;
                     }
-                    Add(capturedSpider.gameObject, () => capturedSpider.transform.position, () => "Spider");
+                    Add(capturedSpider.gameObject, () => capturedSpider.transform.position, () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.Spider));
                 }
 
                 // Capybara deliberately kept on the tighter, plain item
@@ -491,7 +492,7 @@ namespace SenseOfDirection.ItemPings
                     {
                         continue;
                     }
-                    Add(capturedCapybara.gameObject, () => capturedCapybara.transform.position, () => "Capybara");
+                    Add(capturedCapybara.gameObject, () => capturedCapybara.transform.position, () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.Capybara));
                 }
 
                 // Confirmed via a dedicated diagnostic pass (not
@@ -525,7 +526,7 @@ namespace SenseOfDirection.ItemPings
                         continue;
                     }
                     GameObject capturedZombieGo = zombie.gameObject;
-                    Add(capturedZombieGo, () => GetLiveCenter(capturedZombieGo), () => "Zombie");
+                    Add(capturedZombieGo, () => GetLiveCenter(capturedZombieGo), () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.Zombie));
                 }
 
                 IReadOnlyList<Antlion> antlions = registry.Antlions;
@@ -537,7 +538,7 @@ namespace SenseOfDirection.ItemPings
                     {
                         continue;
                     }
-                    Add(capturedAntlion.gameObject, () => capturedAntlion.transform.position, () => "Antlion");
+                    Add(capturedAntlion.gameObject, () => capturedAntlion.transform.position, () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.Antlion));
                 }
 
                 // Requested for completeness even though the campfire already
@@ -581,7 +582,7 @@ namespace SenseOfDirection.ItemPings
                     }
                     if (campfireMatched)
                     {
-                        Add(campfire.gameObject, () => campfire.transform.position, () => "Campfire",
+                        Add(campfire.gameObject, () => campfire.transform.position, () => CampfireIndicator.CampfireLocalization.Name,
                             () => NativeAssets.CampfireIconSprite);
                     }
                 }
@@ -601,8 +602,10 @@ namespace SenseOfDirection.ItemPings
                     {
                         continue;
                     }
-                    string name = capturedHandle.isPickaxe ? "Pickaxe" : "Piton";
-                    Add(capturedHandle.gameObject, () => capturedHandle.Center(), () => name);
+                    string handleKey = capturedHandle.isPickaxe
+                        ? WorldObjectLocalization.Keys.Pickaxe
+                        : WorldObjectLocalization.Keys.Piton;
+                    Add(capturedHandle.gameObject, () => capturedHandle.Center(), () => WorldObjectLocalization.Get(handleKey));
                 }
 
                 // Giant Urchin: no distinctive name anywhere in its own
@@ -640,7 +643,7 @@ namespace SenseOfDirection.ItemPings
                     {
                         continue;
                     }
-                    Add(capturedModifier.gameObject, () => capturedModifier.transform.position, () => "Giant Urchin");
+                    Add(capturedModifier.gameObject, () => capturedModifier.transform.position, () => WorldObjectLocalization.Get(WorldObjectLocalization.Keys.GiantUrchin));
                 }
 
                 // Spore bombs / explosive spore bombs have no dedicated
@@ -671,12 +674,12 @@ namespace SenseOfDirection.ItemPings
                 for (int i = 0; i < hazardCount; i++)
                 {
                     GameObject capturedGo = hazards[i].gameObject;
-                    string hazardName = NamedHazardDisplayName(capturedGo.name);
-                    if (hazardName == null)
+                    string hazardKey = NamedHazardKey(capturedGo.name);
+                    if (hazardKey == null)
                     {
                         continue;
                     }
-                    Add(capturedGo, () => capturedGo.transform.position, () => hazardName);
+                    Add(capturedGo, () => capturedGo.transform.position, () => WorldObjectLocalization.Get(hazardKey));
                 }
             }
 
@@ -694,18 +697,18 @@ namespace SenseOfDirection.ItemPings
         /// playthroughs - matched by substring, not exact equality, so other
         /// biomes' differently-prefixed prefab variants (if any) still match.
         /// </summary>
-        private static readonly (string NameContains, string DisplayName)[] NamedHazards =
+        private static readonly (string NameContains, string LocalizationKey)[] NamedHazards =
         {
-            ("SporeMushroomExplo", "Explosive Spore Bomb"),
-            ("SporeMushroom", "Poison Spore Bomb"),
-            ("SporeFungus", "Spore Bomb"),
-            ("ShakyIcicle", "Icicle"),
-            ("Snow Mount", "Snow Pile"),
-            ("tumbleweed", "Tumbleweed"),
-            ("PoisonIvy", "Poison Ivy"),
-            ("Monstera", "Monstera"),
-            ("Geyser", "Geyser"),
-            ("FlashPlant", "Flash Bulb"),
+            ("SporeMushroomExplo", WorldObjectLocalization.Keys.ExplosiveSporeBomb),
+            ("SporeMushroom", WorldObjectLocalization.Keys.PoisonSporeBomb),
+            ("SporeFungus", WorldObjectLocalization.Keys.SporeBomb),
+            ("ShakyIcicle", WorldObjectLocalization.Keys.Icicle),
+            ("Snow Mount", WorldObjectLocalization.Keys.SnowPile),
+            ("tumbleweed", WorldObjectLocalization.Keys.Tumbleweed),
+            ("PoisonIvy", WorldObjectLocalization.Keys.PoisonIvy),
+            ("Monstera", WorldObjectLocalization.Keys.Monstera),
+            ("Geyser", WorldObjectLocalization.Keys.Geyser),
+            ("FlashPlant", WorldObjectLocalization.Keys.FlashBulb),
             // Deliberately no "Cactus base" entry (removed) - that's the big
             // decorative StickyCactus structure's own ground collider, not
             // the small pickup-able cactus the maintainer actually meant
@@ -755,13 +758,13 @@ namespace SenseOfDirection.ItemPings
             return go.transform.position;
         }
 
-        private static string NamedHazardDisplayName(string gameObjectName)
+        private static string NamedHazardKey(string gameObjectName)
         {
-            foreach ((string nameContains, string displayName) in NamedHazards)
+            foreach ((string nameContains, string localizationKey) in NamedHazards)
             {
                 if (gameObjectName.Contains(nameContains))
                 {
-                    return displayName;
+                    return localizationKey;
                 }
             }
             return null;
@@ -865,7 +868,7 @@ namespace SenseOfDirection.ItemPings
                     || go.GetComponentInParent<MushroomZombie>() != null || go.GetComponentInParent<Antlion>() != null
                     || go.GetComponentInParent<ClimbHandle>() != null || go.GetComponentInParent<Campfire>() != null
                     || go.GetComponentInParent<Character>() != null
-                    || NamedHazardDisplayName(go.name) != null)
+                    || NamedHazardKey(go.name) != null)
                 {
                     return true;
                 }

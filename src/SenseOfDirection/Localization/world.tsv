@@ -1,0 +1,390 @@
+pyre	English	Pyre
+pyre	French	Bûcher
+pyre	Italian	Pira
+pyre	German	Scheiterhaufen
+pyre	SpanishSpain	Pira
+pyre	SpanishLatam	Pira
+pyre	BRPortuguese	Pira
+pyre	Russian	Погребальный костёр
+pyre	Ukrainian	Похоронне багаття
+pyre	SimplifiedChinese	火葬堆
+pyre	TraditionalChinese	火葬堆
+pyre	Japanese	薪の山
+pyre	Korean	장작더미
+pyre	Polish	Stos
+pyre	Turkish	Odun Yığını
+jellyfish	English	Jellyfish
+jellyfish	French	Méduse
+jellyfish	Italian	Medusa
+jellyfish	German	Qualle
+jellyfish	SpanishSpain	Medusa
+jellyfish	SpanishLatam	Medusa
+jellyfish	BRPortuguese	Água-viva
+jellyfish	Russian	Медуза
+jellyfish	Ukrainian	Медуза
+jellyfish	SimplifiedChinese	水母
+jellyfish	TraditionalChinese	水母
+jellyfish	Japanese	クラゲ
+jellyfish	Korean	해파리
+jellyfish	Polish	Meduza
+jellyfish	Turkish	Denizanası
+spider	English	Spider
+spider	French	Araignée
+spider	Italian	Ragno
+spider	German	Spinne
+spider	SpanishSpain	Araña
+spider	SpanishLatam	Araña
+spider	BRPortuguese	Aranha
+spider	Russian	Паук
+spider	Ukrainian	Павук
+spider	SimplifiedChinese	蜘蛛
+spider	TraditionalChinese	蜘蛛
+spider	Japanese	クモ
+spider	Korean	거미
+spider	Polish	Pająk
+spider	Turkish	Örümcek
+capybara	English	Capybara
+capybara	French	Capybara
+capybara	Italian	Capibara
+capybara	German	Capybara
+capybara	SpanishSpain	Capibara
+capybara	SpanishLatam	Carpincho
+capybara	BRPortuguese	Capivara
+capybara	Russian	Капибара
+capybara	Ukrainian	Капібара
+capybara	SimplifiedChinese	水豚
+capybara	TraditionalChinese	水豚
+capybara	Japanese	カピバラ
+capybara	Korean	카피바라
+capybara	Polish	Kapibara
+capybara	Turkish	Kapibara
+zombie	English	Zombie
+zombie	French	Zombie
+zombie	Italian	Zombie
+zombie	German	Zombie
+zombie	SpanishSpain	Zombi
+zombie	SpanishLatam	Zombi
+zombie	BRPortuguese	Zumbi
+zombie	Russian	Зомби
+zombie	Ukrainian	Зомбі
+zombie	SimplifiedChinese	僵尸
+zombie	TraditionalChinese	殭屍
+zombie	Japanese	ゾンビ
+zombie	Korean	좀비
+zombie	Polish	Zombie
+zombie	Turkish	Zombi
+antlion	English	Antlion
+antlion	French	Fourmilion
+antlion	Italian	Formicaleone
+antlion	German	Ameisenlöwe
+antlion	SpanishSpain	Hormiga león
+antlion	SpanishLatam	Hormiga león
+antlion	BRPortuguese	Formiga-leão
+antlion	Russian	Муравьиный лев
+antlion	Ukrainian	Мурашиний лев
+antlion	SimplifiedChinese	蚁狮
+antlion	TraditionalChinese	蟻獅
+antlion	Japanese	アリジゴク
+antlion	Korean	개미귀신
+antlion	Polish	Mrówkolew
+antlion	Turkish	Karınca Aslanı
+pickaxe	English	Pickaxe
+pickaxe	French	Pioche
+pickaxe	Italian	Piccone
+pickaxe	German	Spitzhacke
+pickaxe	SpanishSpain	Pico
+pickaxe	SpanishLatam	Pico
+pickaxe	BRPortuguese	Picareta
+pickaxe	Russian	Кирка
+pickaxe	Ukrainian	Кирка
+pickaxe	SimplifiedChinese	镐
+pickaxe	TraditionalChinese	鎬
+pickaxe	Japanese	ツルハシ
+pickaxe	Korean	곡괭이
+pickaxe	Polish	Kilof
+pickaxe	Turkish	Kazma
+piton	English	Piton
+piton	French	Piton
+piton	Italian	Chiodo da roccia
+piton	German	Felshaken
+piton	SpanishSpain	Clavija
+piton	SpanishLatam	Clavija
+piton	BRPortuguese	Grampo
+piton	Russian	Крюк
+piton	Ukrainian	Гак
+piton	SimplifiedChinese	岩钉
+piton	TraditionalChinese	岩釘
+piton	Japanese	ハーケン
+piton	Korean	하켄
+piton	Polish	Hak skalny
+piton	Turkish	Kaya Çivisi
+giant-urchin	English	Giant Urchin
+giant-urchin	French	Oursin géant
+giant-urchin	Italian	Riccio gigante
+giant-urchin	German	Riesenseeigel
+giant-urchin	SpanishSpain	Erizo gigante
+giant-urchin	SpanishLatam	Erizo gigante
+giant-urchin	BRPortuguese	Ouriço gigante
+giant-urchin	Russian	Гигантский морской ёж
+giant-urchin	Ukrainian	Гігантський морський їжак
+giant-urchin	SimplifiedChinese	巨型海胆
+giant-urchin	TraditionalChinese	巨型海膽
+giant-urchin	Japanese	巨大ウニ
+giant-urchin	Korean	거대 성게
+giant-urchin	Polish	Gigantyczny jeżowiec
+giant-urchin	Turkish	Dev Deniz Kestanesi
+spore-bomb	English	Spore Bomb
+spore-bomb	French	Bombe à spores
+spore-bomb	Italian	Bomba di spore
+spore-bomb	German	Sporenbombe
+spore-bomb	SpanishSpain	Bomba de esporas
+spore-bomb	SpanishLatam	Bomba de esporas
+spore-bomb	BRPortuguese	Bomba de esporos
+spore-bomb	Russian	Споровая бомба
+spore-bomb	Ukrainian	Спорова бомба
+spore-bomb	SimplifiedChinese	孢子炸弹
+spore-bomb	TraditionalChinese	孢子炸彈
+spore-bomb	Japanese	胞子爆弾
+spore-bomb	Korean	포자 폭탄
+spore-bomb	Polish	Bomba zarodnikowa
+spore-bomb	Turkish	Spor Bombası
+poison-spore-bomb	English	Poison Spore Bomb
+poison-spore-bomb	French	Bombe à spores toxiques
+poison-spore-bomb	Italian	Bomba di spore velenose
+poison-spore-bomb	German	Giftsporenbombe
+poison-spore-bomb	SpanishSpain	Bomba de esporas venenosas
+poison-spore-bomb	SpanishLatam	Bomba de esporas venenosas
+poison-spore-bomb	BRPortuguese	Bomba de esporos venenosos
+poison-spore-bomb	Russian	Ядовитая споровая бомба
+poison-spore-bomb	Ukrainian	Отруйна спорова бомба
+poison-spore-bomb	SimplifiedChinese	毒孢子炸弹
+poison-spore-bomb	TraditionalChinese	毒孢子炸彈
+poison-spore-bomb	Japanese	毒胞子爆弾
+poison-spore-bomb	Korean	독포자 폭탄
+poison-spore-bomb	Polish	Trująca bomba zarodnikowa
+poison-spore-bomb	Turkish	Zehirli Spor Bombası
+explosive-spore-bomb	English	Explosive Spore Bomb
+explosive-spore-bomb	French	Bombe à spores explosive
+explosive-spore-bomb	Italian	Bomba di spore esplosiva
+explosive-spore-bomb	German	Explosive Sporenbombe
+explosive-spore-bomb	SpanishSpain	Bomba de esporas explosiva
+explosive-spore-bomb	SpanishLatam	Bomba de esporas explosiva
+explosive-spore-bomb	BRPortuguese	Bomba de esporos explosiva
+explosive-spore-bomb	Russian	Взрывная споровая бомба
+explosive-spore-bomb	Ukrainian	Вибухова спорова бомба
+explosive-spore-bomb	SimplifiedChinese	爆炸孢子炸弹
+explosive-spore-bomb	TraditionalChinese	爆炸孢子炸彈
+explosive-spore-bomb	Japanese	爆発胞子爆弾
+explosive-spore-bomb	Korean	폭발 포자 폭탄
+explosive-spore-bomb	Polish	Wybuchowa bomba zarodnikowa
+explosive-spore-bomb	Turkish	Patlayıcı Spor Bombası
+icicle	English	Icicle
+icicle	French	Stalactite de glace
+icicle	Italian	Ghiacciolo
+icicle	German	Eiszapfen
+icicle	SpanishSpain	Carámbano
+icicle	SpanishLatam	Carámbano
+icicle	BRPortuguese	Estalactite de gelo
+icicle	Russian	Сосулька
+icicle	Ukrainian	Бурулька
+icicle	SimplifiedChinese	冰锥
+icicle	TraditionalChinese	冰錐
+icicle	Japanese	つらら
+icicle	Korean	고드름
+icicle	Polish	Sopel
+icicle	Turkish	Buz Saçağı
+snow-pile	English	Snow Pile
+snow-pile	French	Tas de neige
+snow-pile	Italian	Cumulo di neve
+snow-pile	German	Schneehaufen
+snow-pile	SpanishSpain	Montón de nieve
+snow-pile	SpanishLatam	Montón de nieve
+snow-pile	BRPortuguese	Monte de neve
+snow-pile	Russian	Сугроб
+snow-pile	Ukrainian	Кучугура
+snow-pile	SimplifiedChinese	雪堆
+snow-pile	TraditionalChinese	雪堆
+snow-pile	Japanese	雪の山
+snow-pile	Korean	눈더미
+snow-pile	Polish	Zaspa śnieżna
+snow-pile	Turkish	Kar Yığını
+tumbleweed	English	Tumbleweed
+tumbleweed	French	Virevoltant
+tumbleweed	Italian	Rotolacampo
+tumbleweed	German	Steppenläufer
+tumbleweed	SpanishSpain	Planta rodadora
+tumbleweed	SpanishLatam	Planta rodadora
+tumbleweed	BRPortuguese	Erva-rolante
+tumbleweed	Russian	Перекати-поле
+tumbleweed	Ukrainian	Перекотиполе
+tumbleweed	SimplifiedChinese	风滚草
+tumbleweed	TraditionalChinese	風滾草
+tumbleweed	Japanese	タンブルウィード
+tumbleweed	Korean	회전초
+tumbleweed	Polish	Biegacz stepowy
+tumbleweed	Turkish	Yuvarlanan Çalı
+poison-ivy	English	Poison Ivy
+poison-ivy	French	Sumac vénéneux
+poison-ivy	Italian	Edera velenosa
+poison-ivy	German	Giftefeu
+poison-ivy	SpanishSpain	Hiedra venenosa
+poison-ivy	SpanishLatam	Hiedra venenosa
+poison-ivy	BRPortuguese	Hera venenosa
+poison-ivy	Russian	Ядовитый плющ
+poison-ivy	Ukrainian	Отруйний плющ
+poison-ivy	SimplifiedChinese	毒藤
+poison-ivy	TraditionalChinese	毒藤
+poison-ivy	Japanese	ツタウルシ
+poison-ivy	Korean	덩굴옻나무
+poison-ivy	Polish	Bluszcz trujący
+poison-ivy	Turkish	Zehirli Sarmaşık
+monstera	English	Monstera
+monstera	French	Monstera
+monstera	Italian	Monstera
+monstera	German	Monstera
+monstera	SpanishSpain	Monstera
+monstera	SpanishLatam	Monstera
+monstera	BRPortuguese	Monstera
+monstera	Russian	Монстера
+monstera	Ukrainian	Монстера
+monstera	SimplifiedChinese	龟背竹
+monstera	TraditionalChinese	龜背芋
+monstera	Japanese	モンステラ
+monstera	Korean	몬스테라
+monstera	Polish	Monstera
+monstera	Turkish	Monstera
+geyser	English	Geyser
+geyser	French	Geyser
+geyser	Italian	Geyser
+geyser	German	Geysir
+geyser	SpanishSpain	Géiser
+geyser	SpanishLatam	Géiser
+geyser	BRPortuguese	Gêiser
+geyser	Russian	Гейзер
+geyser	Ukrainian	Гейзер
+geyser	SimplifiedChinese	间歇泉
+geyser	TraditionalChinese	間歇泉
+geyser	Japanese	間欠泉
+geyser	Korean	간헐천
+geyser	Polish	Gejzer
+geyser	Turkish	Gayzer
+flash-bulb	English	Flash Bulb
+flash-bulb	French	Plante éclair
+flash-bulb	Italian	Pianta lampo
+flash-bulb	German	Blitzpflanze
+flash-bulb	SpanishSpain	Planta destello
+flash-bulb	SpanishLatam	Planta destello
+flash-bulb	BRPortuguese	Planta de flash
+flash-bulb	Russian	Растение-вспышка
+flash-bulb	Ukrainian	Рослина-спалах
+flash-bulb	SimplifiedChinese	闪光植物
+flash-bulb	TraditionalChinese	閃光植物
+flash-bulb	Japanese	閃光植物
+flash-bulb	Korean	섬광 식물
+flash-bulb	Polish	Roślina błyskowa
+flash-bulb	Turkish	Şimşek Bitkisi
+flytrap	English	Flytrap
+flytrap	French	Attrape-mouche
+flytrap	Italian	Acchiappamosche
+flytrap	German	Fliegenfalle
+flytrap	SpanishSpain	Atrapamoscas
+flytrap	SpanishLatam	Atrapamoscas
+flytrap	BRPortuguese	Papa-moscas
+flytrap	Russian	Мухоловка
+flytrap	Ukrainian	Мухоловка
+flytrap	SimplifiedChinese	捕蝇草
+flytrap	TraditionalChinese	捕蠅草
+flytrap	Japanese	ハエトリソウ
+flytrap	Korean	파리지옥
+flytrap	Polish	Muchołówka
+flytrap	Turkish	Sinekkapan
+ghost-ball	English	Ghost Ball
+ghost-ball	French	Boule fantôme
+ghost-ball	Italian	Sfera spettrale
+ghost-ball	German	Geisterkugel
+ghost-ball	SpanishSpain	Bola fantasma
+ghost-ball	SpanishLatam	Bola fantasma
+ghost-ball	BRPortuguese	Bola fantasma
+ghost-ball	Russian	Призрачный шар
+ghost-ball	Ukrainian	Примарна куля
+ghost-ball	SimplifiedChinese	幽灵球
+ghost-ball	TraditionalChinese	幽靈球
+ghost-ball	Japanese	ゴーストボール
+ghost-ball	Korean	유령 구슬
+ghost-ball	Polish	Duchowa kula
+ghost-ball	Turkish	Hayalet Top
+arrow-trap	English	Arrow Trap
+arrow-trap	French	Piège à flèches
+arrow-trap	Italian	Trappola a frecce
+arrow-trap	German	Pfeilfalle
+arrow-trap	SpanishSpain	Trampa de flechas
+arrow-trap	SpanishLatam	Trampa de flechas
+arrow-trap	BRPortuguese	Armadilha de flechas
+arrow-trap	Russian	Стреловая ловушка
+arrow-trap	Ukrainian	Пастка зі стрілами
+arrow-trap	SimplifiedChinese	弓箭陷阱
+arrow-trap	TraditionalChinese	弓箭陷阱
+arrow-trap	Japanese	矢の罠
+arrow-trap	Korean	화살 함정
+arrow-trap	Polish	Pułapka ze strzałami
+arrow-trap	Turkish	Ok Tuzağı
+spike-trap	English	Spike Trap
+spike-trap	French	Piège à pointes
+spike-trap	Italian	Trappola a spuntoni
+spike-trap	German	Stachelfalle
+spike-trap	SpanishSpain	Trampa de pinchos
+spike-trap	SpanishLatam	Trampa de pinchos
+spike-trap	BRPortuguese	Armadilha de espinhos
+spike-trap	Russian	Шипованная ловушка
+spike-trap	Ukrainian	Пастка з шипами
+spike-trap	SimplifiedChinese	尖刺陷阱
+spike-trap	TraditionalChinese	尖刺陷阱
+spike-trap	Japanese	スパイクトラップ
+spike-trap	Korean	가시 함정
+spike-trap	Polish	Pułapka z kolcami
+spike-trap	Turkish	Diken Tuzağı
+saw-blade	English	Saw Blade
+saw-blade	French	Lame de scie
+saw-blade	Italian	Lama circolare
+saw-blade	German	Sägeblatt
+saw-blade	SpanishSpain	Hoja de sierra
+saw-blade	SpanishLatam	Hoja de sierra
+saw-blade	BRPortuguese	Serra circular
+saw-blade	Russian	Пила
+saw-blade	Ukrainian	Пила
+saw-blade	SimplifiedChinese	锯刃
+saw-blade	TraditionalChinese	鋸刃
+saw-blade	Japanese	回転ノコギリ
+saw-blade	Korean	톱날
+saw-blade	Polish	Piła tarczowa
+saw-blade	Turkish	Testere
+swinging-mace	English	Swinging Mace
+swinging-mace	French	Masse oscillante
+swinging-mace	Italian	Mazza oscillante
+swinging-mace	German	Pendelkeule
+swinging-mace	SpanishSpain	Maza oscilante
+swinging-mace	SpanishLatam	Maza oscilante
+swinging-mace	BRPortuguese	Maça oscilante
+swinging-mace	Russian	Качающаяся булава
+swinging-mace	Ukrainian	Хитна булава
+swinging-mace	SimplifiedChinese	摆锤
+swinging-mace	TraditionalChinese	擺錘
+swinging-mace	Japanese	振り子メイス
+swinging-mace	Korean	흔들리는 철퇴
+swinging-mace	Polish	Wahadłowa maczuga
+swinging-mace	Turkish	Sallanan Topuz
+spike-roller	English	Spike Roller
+spike-roller	French	Rouleau à pointes
+spike-roller	Italian	Rullo con spuntoni
+spike-roller	German	Stachelwalze
+spike-roller	SpanishSpain	Rodillo de pinchos
+spike-roller	SpanishLatam	Rodillo de pinchos
+spike-roller	BRPortuguese	Rolo de espinhos
+spike-roller	Russian	Шипованный вал
+spike-roller	Ukrainian	Шипований вал
+spike-roller	SimplifiedChinese	尖刺滚轴
+spike-roller	TraditionalChinese	尖刺滾軸
+spike-roller	Japanese	スパイクローラー
+spike-roller	Korean	가시 롤러
+spike-roller	Polish	Kolczasty wałek
+spike-roller	Turkish	Dikenli Silindir
