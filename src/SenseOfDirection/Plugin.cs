@@ -70,6 +70,7 @@ namespace SenseOfDirection
             Wire("PauseSuppressPatch", () => Ui.PauseSuppressPatch.Apply(_harmony, Logger));
             Wire("LuggageCompassSpawner", () => CompassItems.LuggageCompassSpawner.Apply(_harmony, Logger));
             Wire("PingableRegistryPatches", () => PingableRegistryPatches.Apply(_harmony, Logger));
+            Wire("PirateCompassNeedlePatch", () => PirateCompassNeedlePatch.Apply(_harmony, Logger));
 
             // Watches for known-broken patches other mods leave on vanilla
             // methods this mod depends on (currently PEAKSleepTalk's), and

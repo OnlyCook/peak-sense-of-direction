@@ -184,15 +184,27 @@ namespace SenseOfDirection.PirateCompass
         /// filtering on <c>IsOpen</c> is what actually matches reality on
         /// clients. No distance cap, matching the native Pirate Compass needle's
         /// own unlimited-range behavior (<c>CompassPointer.UpdateHeadingPirate</c>).
+        ///
+        /// <c>Pirate-Compass/clown-luggage-only</c> narrows the search to
+        /// <see cref="ClownLuggage"/> only - deliberately no fallback to
+        /// regular luggage when none are left, same as the real needle's own
+        /// patched behavior (<see cref="PirateCompassNeedlePatch"/>): nearest
+        /// null just means this indicator shows nothing, per the maintainer's
+        /// ask.
         /// </summary>
         private static Luggage FindNearestUnopenedLuggage()
         {
+            bool clownOnly = Plugin.Instance.Cfg.PirateCompassClownLuggageOnly.Value;
             Vector3 origin = CharacterPositions.LocalViewpoint();
             Luggage nearest = null;
             float nearestSqDistance = float.MaxValue;
             foreach (Luggage luggage in Luggage.ALL_LUGGAGE)
             {
                 if (luggage == null || luggage.IsOpen || !luggage.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                if (clownOnly && !ClownLuggage.Is(luggage))
                 {
                     continue;
                 }

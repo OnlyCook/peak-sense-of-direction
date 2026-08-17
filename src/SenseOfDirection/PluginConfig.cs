@@ -122,6 +122,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> CompassColorPlayerLabels;
 
         public readonly ConfigEntry<bool> EnablePirateCompassLuggageIndicator;
+        public readonly ConfigEntry<bool> PirateCompassClownLuggageOnly;
         public readonly ConfigEntry<SenseOfDirection.PirateCompass.PirateCompassLuggageDisplayMode> PirateCompassLuggageDisplayMode;
         public readonly ConfigEntry<bool> ShowPirateCompassLuggageName;
         public readonly ConfigEntry<bool> ShowPirateCompassLuggageDistance;
@@ -799,6 +800,16 @@ namespace SenseOfDirection
                 "is up to luggage-indicator-display-mode below. NOTE: as the host you " +
                 "can increase the chance to get a Pirate's Compass or even another " +
                 "regular Compass from Luggage in this mod's config.");
+
+            // Client-sided: only ever changes what the local player's own
+            // client resolves "nearest unopened luggage" to (both this mod's
+            // indicator and the real in-game needle - see
+            // PirateCompass/PirateCompassNeedlePatch.cs), never anything
+            // networked, so this works with no other client needing the mod.
+            PirateCompassClownLuggageOnly = config.Bind(
+                "Pirate-Compass", "clown-luggage-only", false,
+                "Make the Pirate's Compass only ever target unopened Clown Luggage, " +
+                "ignoring every other kind of Luggage.");
 
             // Deliberately its own setting rather than reusing the compass
             // tape's display-mode pair: the tape and this indicator are

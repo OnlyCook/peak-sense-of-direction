@@ -607,6 +607,7 @@ namespace SenseOfDirection.Ui
                     // read as one interleaved block.
                     cfg.PirateCompassDisplayMode,
                     cfg.EnablePirateCompassLuggageIndicator, cfg.PirateCompassLuggageDisplayMode, cfg.PirateCompassLuggagePlacement,
+                    cfg.PirateCompassClownLuggageOnly,
                 },
             });
 
