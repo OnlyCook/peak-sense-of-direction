@@ -587,6 +587,7 @@ namespace SenseOfDirection.Ui
                 {
                     cfg.EnableCampfireIndicator, cfg.CampfirePlacement, cfg.ShowCampfireDistance,
                     cfg.HideCampfireName, cfg.EnableScoutStatueIndicator, cfg.HideScoutStatueIndicatorName,
+                    cfg.EnableBelltowerIndicator,
                 },
             });
 

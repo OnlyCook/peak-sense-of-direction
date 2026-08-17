@@ -65,6 +65,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> HideCampfireName;
         public readonly ConfigEntry<bool> EnableScoutStatueIndicator;
         public readonly ConfigEntry<bool> HideScoutStatueIndicatorName;
+        public readonly ConfigEntry<bool> EnableBelltowerIndicator;
 
         public readonly ConfigEntry<bool> RemoveVisibilityCutoff;
         public readonly ConfigEntry<bool> EnablePingScaling;
@@ -416,6 +417,12 @@ namespace SenseOfDirection
                 "Campfire", "hide-scout-statue-indicator-name", true,
                 "Never show the scout statue indicator's amulet name label (e.g. " +
                 "\"SCOUT'S TENACITY\"). On by default since those names run quite long.");
+
+            EnableBelltowerIndicator = config.Bind(
+                "Campfire", "enable-belltower-indicator", false,
+                "Show an edge-of-screen indicator pointing at the nearest not-yet-lit " +
+                "Belltower (Gloom biome only). Uses the same campfire-placement setting " +
+                "as the campfire indicator above.");
 
             // ---- Pings. remove-visibility-cutoff is bound first because it's
             // the foundation the rest of this section sits on: with it off,

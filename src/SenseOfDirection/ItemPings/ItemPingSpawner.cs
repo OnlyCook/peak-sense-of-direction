@@ -164,17 +164,19 @@ namespace SenseOfDirection.ItemPings
         }
 
         /// <summary>
-        /// The campfire/scout-amulet special case described above <see cref="SpawnFor"/>'s
-        /// own call site: matched by component (a live <c>Campfire</c>, or a
-        /// <c>FakeItem</c> tagged <c>Item.ItemTags.ScoutAmulet</c> - the same
-        /// tag <c>Peak.ScoutStatue.IsConstantlyInteractable</c> gates on)
-        /// rather than by GameObject identity against whichever instance the
-        /// indicator controllers currently track, since a ping can land on
-        /// *any* of the (up to) 4 scout amulets, not just the nearest one
-        /// this session's single indicator widget happens to be pointing at
-        /// right now - the flash still fires either way, per the maintainer's
-        /// ask ("the pointing scout statue indicator" is the one persistent
-        /// widget this feature ever creates).
+        /// The campfire/scout-amulet/Belltower special case described above
+        /// <see cref="SpawnFor"/>'s own call site: matched by component (a
+        /// live <c>Campfire</c>, a <c>FakeItem</c> tagged
+        /// <c>Item.ItemTags.ScoutAmulet</c> - the same tag
+        /// <c>Peak.ScoutStatue.IsConstantlyInteractable</c> gates on - or a
+        /// <c>GhostFire</c>) rather than by GameObject identity against
+        /// whichever instance the indicator controllers currently track,
+        /// since a ping can land on *any* of the (up to) 4 scout amulets or
+        /// any Belltower in the level, not just the nearest one this
+        /// session's single indicator widget happens to be pointing at right
+        /// now - the flash still fires either way, per the maintainer's ask
+        /// ("the pointing [...] indicator" is the one persistent widget each
+        /// of these features ever creates).
         /// </summary>
         private static bool TryHandleFixedIndicatorPing(PingableTarget target, Color color, PluginConfig cfg)
         {
@@ -194,6 +196,12 @@ namespace SenseOfDirection.ItemPings
                 && fakeItem.realItemPrefab != null && fakeItem.realItemPrefab.itemTags.HasFlag(Item.ItemTags.ScoutAmulet))
             {
                 ScoutStatueIndicator.ScoutStatueIndicatorController.Instance.NotifyPinged(color);
+                return true;
+            }
+
+            if (cfg.EnableBelltowerIndicator.Value && go.TryGetComponent(out GhostFire _))
+            {
+                BelltowerIndicator.BelltowerIndicatorController.Instance.NotifyPinged(color);
                 return true;
             }
 

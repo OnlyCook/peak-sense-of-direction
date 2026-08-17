@@ -85,6 +85,9 @@ namespace SenseOfDirection
             // Same no-op-when-disabled pattern - internally checks EnableScoutStatueIndicator.
             Wire("ScoutStatueIndicatorController", () => _ = ScoutStatueIndicator.ScoutStatueIndicatorController.Instance);
 
+            // Same no-op-when-disabled pattern - internally checks EnableBelltowerIndicator.
+            Wire("BelltowerIndicatorController", () => _ = BelltowerIndicator.BelltowerIndicatorController.Instance);
+
             // Same no-op-when-disabled pattern - internally checks EnablePingAudioBoost.
             Wire("PingAudioTuner", () => _ = PingAudioTuner.Instance);
 
