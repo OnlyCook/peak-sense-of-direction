@@ -1,6 +1,12 @@
 ## 1.1.2
 
-
+- Added new `Campfire/enable-scout-statue-indicator` setting (also in Quick Setup panel; off by default) to show an indicator pointing towards the next Scout Statue if it still holds it's amulet (the name of the held amulet is hidden by default). Thanks to Crasben for suggesting this!
+- Added new `Campfire/enable-belltower-indicator` setting (also in Quick Setup panel; off by default) to show the closest unlit Belltower in the Gloom biome. 
+- Added new `Pirate-Compass/clown-luggage-only` setting (also in Quick Setup panel under *Compass*; off by default) to make the Pirate's Compass only point at unopened Clown Luggage.
+- Item pinging an unlit campfire, belltower, scout statue or by the Pirate's Compass targetted luggage with its designated indicator enabled only changes that indicators color, instead of creating a separate entry.
+- The Pirate's Compass item now spins its needle clockwise if there's no more unopened luggage to track (just like the removed Warp Compass would).
+- The Pirate's Compass doesn't track *unloaded* Luggage anymore (this is a vanilla bug but I fixed it anyway).
+- Renamed the *Ghost Ball* to *Big Ghost* (as that's the actual name of it).
 
 ## 1.1.1
 

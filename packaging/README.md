@@ -61,13 +61,13 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 - **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, overlap avoidance animation speed, the quick setup panel's key (**`F8`**).
 - **Fonts**: separate size multipliers for on-screen, off-screen, and compass text.
 - **Player-Labels**: master switch, toggle key (default **`G`**), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, badge icon size, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
-- **Campfire**: master switch, show distance label, and hide name label.
+- **Campfire**: master switch, show distance label, hide name label, point at Scout Statue, and point towards nearest Belltower.
 - **Pings**: distance scaling and its multiplier, the color ripple, off-screen indicator, distance label, and ghost pinging.
 - **Ping-Audio**: audio boost toggle, range, minimum distance, and volume multiplier.
 - **Ping-Anti-Spam**: how many pings are free before slow-mode kicks in, the slow-mode interval, queue length, and reset timing.
 - **Item-Pings**: master switch, highlight duration, grouping, creature pings, native icons, name mode, distance, and off-screen indicator, plus separate detection radii and hit/ray assist for landing pings on hard-to-hit items.
 - **Compass**: master switch, whether a compass item is required, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color, thickness, keep player label color.
-- **Pirate-Compass**: luggage indicator toggle, how close to hand the compass has to be for it (held / in your inventory / anywhere on you, separately from the compass tape's own display mode), name/distance display, off-screen indicator.
+- **Pirate-Compass**: luggage indicator toggle, how close to hand the compass has to be for it (held / in your inventory / anywhere on you, separately from the compass tape's own display mode), name/distance display, off-screen indicator, Clown Luggage only tracking.
 - **Compass-Items**: host-only extra compasses, one placed on the ground next to the backpack at every campfire (on by default, optionally limited to co-op runs that actually need it), an extra chance for an opened luggage to also contain a regular Compass or a Pirate's Compass (both off by default).
 - **Luggage-Ping**: master switch, key (default **`T`**), radius, duration, cooldown (optional).
 - **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **`B`**), move speed and sprint multiplier, crosshair, key hint, secondary ascend/descend keybinds, and hiding every ghost from your own view.
