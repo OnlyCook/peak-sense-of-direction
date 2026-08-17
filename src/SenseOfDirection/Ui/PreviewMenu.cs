@@ -586,7 +586,7 @@ namespace SenseOfDirection.Ui
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnableCampfireIndicator, cfg.CampfirePlacement, cfg.ShowCampfireDistance,
-                    cfg.HideCampfireName,
+                    cfg.HideCampfireName, cfg.EnableScoutStatueIndicator, cfg.HideScoutStatueIndicatorName,
                 },
             });
 

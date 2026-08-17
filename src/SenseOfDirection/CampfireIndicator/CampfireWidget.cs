@@ -42,21 +42,26 @@ namespace SenseOfDirection.CampfireIndicator
         /// <summary>Size the distance line is tuned at; the `Fonts` section scales this rather than replacing it (see <see cref="Common.HudFontScale"/>).</summary>
         private const float DistanceFontSizeBase = 18f;
 
+        /// <summary>Size the (normally-hidden) name row is tuned at - see <see cref="SetFlashName"/>.</summary>
+        private const float NameFontSizeBase = 18f;
+
         public readonly IndicatorAnchor Anchor;
 
         private readonly RectTransform _root;
         private readonly Image _iconImage;
         private readonly Image[] _outlineImages;
         private readonly TMP_Text _distanceText;
+        private readonly TMP_Text _nameText;
 
         private CampfireWidget(
             RectTransform root, Image iconImage, Image[] outlineImages,
-            TMP_Text distanceText, System.Func<Vector3> getWorldPosition)
+            TMP_Text distanceText, TMP_Text nameText, System.Func<Vector3> getWorldPosition)
         {
             _root = root;
             _iconImage = iconImage;
             _outlineImages = outlineImages;
             _distanceText = distanceText;
+            _nameText = nameText;
             // Icon is always visible, so the box is never fully zero (unlike
             // Pings.PingWidget) - just shrunk to icon-only when the distance
             // sub-line is hidden, refined every Refresh() call below. The whole
@@ -101,7 +106,25 @@ namespace SenseOfDirection.CampfireIndicator
             distanceText.fontSize = DistanceFontSizeBase;
             distanceText.enableWordWrapping = false;
 
-            return new CampfireWidget(root, iconImage, outlineImages, distanceText, getWorldPosition);
+            // Hidden by default - this widget deliberately shows no name at
+            // all under normal operation (see this class's own doc comment),
+            // only while SetFlashName is holding it visible for a ping-flash
+            // (Common.PingFlashState).
+            var nameGo = new GameObject("Name", typeof(RectTransform), typeof(TextMeshProUGUI));
+            var nameRect = (RectTransform)nameGo.transform;
+            nameRect.SetParent(root, false);
+            nameRect.sizeDelta = new Vector2(320f, 28f);
+            nameRect.anchoredPosition = new Vector2(0f, 22f);
+
+            var nameText = nameGo.GetComponent<TextMeshProUGUI>();
+            nameText.alignment = TextAlignmentOptions.Center;
+            nameText.color = Color.white;
+            nameText.fontSize = NameFontSizeBase;
+            nameText.enableWordWrapping = false;
+            nameText.overflowMode = TextOverflowModes.Overflow;
+            nameGo.SetActive(false);
+
+            return new CampfireWidget(root, iconImage, outlineImages, distanceText, nameText, getWorldPosition);
         }
 
         private static Image CreateIconImage(RectTransform parent, string goName, Vector2 anchoredPosition, Color color)
@@ -189,20 +212,70 @@ namespace SenseOfDirection.CampfireIndicator
             }
 
             // Box measured from what's actually drawn (the icon, plus the
-            // distance line hanging below it at -22) rather than a fixed guess,
-            // so it neither invents collisions with a neighbour it's clear of nor
-            // misses one it isn't. Icon top/bottom scale with iconSize above, so
-            // a bigger icon (indicator-icon-size-multiplier) still gets a
-            // correctly-sized overlap footprint instead of clipping a neighbour.
+            // distance line hanging below it at -22, plus the name row above
+            // it at +22 while a ping flash is holding it visible) rather than
+            // a fixed guess, so it neither invents collisions with a
+            // neighbour it's clear of nor misses one it isn't. Icon top/
+            // bottom scale with iconSize above, so a bigger icon
+            // (indicator-icon-size-multiplier) still gets a correctly-sized
+            // overlap footprint instead of clipping a neighbour.
+            bool showName = _nameText.gameObject.activeSelf;
             float iconHalf = iconSize * 0.5f;
-            float top = iconHalf;
+            float top = showName ? iconHalf + 20f : iconHalf;
             float bottom = showDistance ? -(iconHalf + 20f) : -iconHalf;
-            float width = showDistance
-                ? Mathf.Max(iconSize, _distanceText.GetPreferredValues().x + 12f)
-                : iconSize;
+            float width = iconSize;
+            if (showDistance)
+            {
+                width = Mathf.Max(width, _distanceText.GetPreferredValues().x + 12f);
+            }
+            if (showName)
+            {
+                width = Mathf.Max(width, _nameText.GetPreferredValues().x + 12f);
+            }
 
             Anchor.OverlapSize = new Vector2(width, top - bottom);
             Anchor.OverlapCenterOffset = new Vector2(0f, (top + bottom) * 0.5f);
+        }
+
+        /// <summary>
+        /// Temporarily shows (or hides again) a name row above the icon -
+        /// this widget normally has no name label at all (see this class's
+        /// own doc comment), only while a ping flash
+        /// (<see cref="Common.PingFlashState"/>) is holding it visible, per
+        /// the maintainer's ask that a ping on the campfire show its name the
+        /// same way a real item ping would (<c>Item-Pings/name-mode</c>),
+        /// regardless of <c>Campfire/hide-name</c> (which only governs the
+        /// compass marker's own label, a separate rendering surface).
+        /// </summary>
+        public void SetFlashName(bool show, string text)
+        {
+            _nameText.gameObject.SetActive(show);
+            if (show)
+            {
+                if (NativeAssets.Font != null && _nameText.font != NativeAssets.Font)
+                {
+                    _nameText.font = NativeAssets.Font;
+                }
+                if (NativeAssets.OutlineMaterial != null && _nameText.fontSharedMaterial != NativeAssets.OutlineMaterial)
+                {
+                    _nameText.fontSharedMaterial = NativeAssets.OutlineMaterial;
+                }
+                _nameText.fontSize = Common.HudFontScale.Name(NameFontSizeBase, Anchor.OffScreenBlend);
+                _nameText.text = text;
+            }
+        }
+
+        /// <summary>
+        /// Overrides the name text color - used by
+        /// <see cref="CampfireIndicatorController"/>'s ping-flash feedback.
+        /// Leaves the distance text (always stays white regardless of a ping
+        /// flash, maintainer's ask) and the icon/outline (those stay the
+        /// campfire's/summit's/portal's own untinted native art either way,
+        /// see <see cref="Refresh"/>'s own icon-color handling) alone.
+        /// </summary>
+        public void SetNameColor(Color color)
+        {
+            _nameText.color = color;
         }
     }
 }

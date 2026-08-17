@@ -56,6 +56,13 @@ namespace SenseOfDirection.CampfireIndicator
         private Transform _trackedPeak;
         private Transform _trackedPortal;
         private CampfireWidget _widget;
+        private System.Func<string> _rawName;
+
+        /// <summary>
+        /// Drives the "pinged" color/name feedback - see <see cref="NotifyPinged"/>
+        /// and <see cref="Common.PingFlashState"/>'s own doc comment.
+        /// </summary>
+        private readonly Common.PingFlashState _pingFlash = new Common.PingFlashState();
 
         /// <summary>One <see cref="Common.MapTargets.LogPeakCandidates"/> dump per entry into peak territory, not per frame.</summary>
         private bool _peakDumpLogged;
@@ -176,7 +183,33 @@ namespace SenseOfDirection.CampfireIndicator
 
             float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), tracked.position) * CharacterStats.unitsToMeters;
             _widget.Refresh(distanceMeters, cfg.ShowCampfireDistance.Value, icon);
+
+            // Ping-flash feedback (see NotifyPinged/PingFlashState): while
+            // active, temporarily show the name row per Item-Pings/name-mode
+            // (same rule a real item ping would use) and tint it toward the
+            // pinging player's color, fading to fully transparent (not just
+            // white) as the flash ends - this row is always normally hidden
+            // (see this class's own/CampfireWidget's doc comment on why it has
+            // no name outside a flash at all), so fading its alpha to 0 is
+            // what makes it disappear smoothly instead of popping away the
+            // instant the flash window ends - see PingFlashState.Evaluate's
+            // own doc comment.
+            _widget.SetFlashName(ShouldFlashName(), _rawName != null ? _rawName() : null);
+            _widget.SetNameColor(_pingFlash.Evaluate(new Color(1f, 1f, 1f, 0f)));
         }
+
+        /// <summary>Whether the off-screen widget's normally-absent name row is forced on right now.</summary>
+        private bool ShouldFlashName() =>
+            _pingFlash.Active && Plugin.Instance.Cfg.ItemPingNameMode.Value == ItemPings.ItemPingNameMode.Always;
+
+        /// <summary>
+        /// Called from <see cref="ItemPings.ItemPingSpawner"/> when a ping
+        /// lands on the currently-tracked campfire while
+        /// <c>Campfire/enable-campfire-indicator</c> is on, in place of
+        /// spawning a redundant <see cref="ItemPings.ItemPingHighlight"/> for
+        /// the same thing this indicator is already showing.
+        /// </summary>
+        internal void NotifyPinged(Color color) => _pingFlash.Trigger(color);
 
         private void TrackCampfire(Campfire campfire)
         {
@@ -192,7 +225,7 @@ namespace SenseOfDirection.CampfireIndicator
             Build(
                 () => campfire.transform.position,
                 () => campfire != null && campfire.gameObject.activeInHierarchy,
-                () => Plugin.Instance.Cfg.HideCampfireName.Value ? null : CampfireLocalization.Name,
+                () => CampfireLocalization.Name,
                 () => null);
         }
 
@@ -231,7 +264,7 @@ namespace SenseOfDirection.CampfireIndicator
             Build(
                 () => peak.position,
                 () => peak != null,
-                () => Plugin.Instance.Cfg.HideCampfireName.Value ? null : PeakLocalization.Name,
+                () => PeakLocalization.Name,
                 () => IconAssets.Peak);
         }
 
@@ -276,23 +309,68 @@ namespace SenseOfDirection.CampfireIndicator
             Build(
                 () => portal.position,
                 () => portal != null,
-                () => Plugin.Instance.Cfg.HideCampfireName.Value ? null : PortalLocalization.Name,
+                () => PortalLocalization.Name,
                 () => IconAssets.Portal);
         }
 
+        /// <param name="rawName">
+        /// The target's unconditional display name - <see cref="Build"/> applies
+        /// <c>Campfire/hide-name</c> itself for the compass label (and the
+        /// ping-flash name-mode override for both surfaces - see
+        /// <see cref="RefreshWidget"/>), so callers pass the plain name, not a
+        /// pre-gated one.
+        /// </param>
         private void Build(
             System.Func<Vector3> getWorldPosition, System.Func<bool> isActive,
-            System.Func<string> getLabel, System.Func<Sprite> getCompassIcon)
+            System.Func<string> rawName, System.Func<Sprite> getCompassIcon)
         {
             _widget = CampfireWidget.Create(getWorldPosition);
+            _rawName = rawName;
             _widget.Anchor.IsActive = isActive;
             _widget.Anchor.CompassKind = CompassMarkerKind.Campfire;
             _widget.Anchor.GetPlacement = () => Plugin.Instance.Cfg.CampfirePlacement.Value;
-            _widget.Anchor.GetCompassLabel = getLabel;
+            _widget.Anchor.GetCompassLabel = () => ShouldShowCompassName() ? rawName() : null;
             _widget.Anchor.GetCompassIcon = getCompassIcon;
+
+            // Campfire markers are never text-tinted by default (see
+            // CompassMarkerWidget) - forced on here only for the ping-flash
+            // window, and only for the name (SuppressCompassDistanceTint):
+            // the distance line stays white always, matching the off-screen
+            // widget's own SetNameColor (name-only) split.
+            _widget.Anchor.GetCompassColor = () => _pingFlash.Evaluate(CompassNameRestColor());
+            _widget.Anchor.ForceCompassTextTint = () => _pingFlash.Active;
+            _widget.Anchor.SuppressCompassDistanceTint = () => true;
 
             IndicatorManager.Instance.RegisterAnchor(_widget.Anchor);
         }
+
+        /// <summary>
+        /// Whether the compass marker's own name label shows right now.
+        /// Normally governed by <c>Campfire/hide-name</c>; while a ping flash
+        /// is active it instead follows the same rule a real item ping would
+        /// use (<c>Item-Pings/name-mode</c>) - see <see cref="ShouldFlashName"/>.
+        /// </summary>
+        private bool ShouldShowCompassName()
+        {
+            if (!Plugin.Instance.Cfg.HideCampfireName.Value)
+            {
+                return true;
+            }
+            return ShouldFlashName();
+        }
+
+        /// <summary>
+        /// The color <see cref="Common.PingFlashState.Evaluate"/> settles the
+        /// compass marker's name at once a flash finishes. Opaque white when
+        /// the name is normally shown there (<c>Campfire/hide-name</c> off) -
+        /// it stays visible, just un-tinted; fully transparent white when it's
+        /// normally hidden (the default), so the forced-visible window during
+        /// a flash fades out smoothly instead of popping away the instant it
+        /// ends - see <see cref="Common.PingFlashState.Evaluate"/>'s own doc
+        /// comment.
+        /// </summary>
+        private static Color CompassNameRestColor() =>
+            !Plugin.Instance.Cfg.HideCampfireName.Value ? Color.white : new Color(1f, 1f, 1f, 0f);
 
         private void Teardown()
         {
@@ -306,6 +384,7 @@ namespace SenseOfDirection.CampfireIndicator
             _trackedCampfire = null;
             _trackedPeak = null;
             _trackedPortal = null;
+            _rawName = null;
         }
     }
 }

@@ -595,6 +595,24 @@ namespace SenseOfDirection.ItemPings
             }
         }
 
+        /// <summary>
+        /// Overrides the name text color for the rest of this widget's life
+        /// (or until the next call) - used by
+        /// <see cref="ScoutStatueIndicator.ScoutStatueIndicatorController"/>'s
+        /// ping-flash feedback (<see cref="Common.PingFlashState"/>) to tint
+        /// its own persistent widget without going through <see cref="Bind"/>
+        /// (which would also reset the icon/arrow tint and every other bound
+        /// field). Deliberately leaves the distance text and the crosshair/
+        /// arrow alone - the distance line always stays white regardless of a
+        /// ping flash (maintainer's ask), and the crosshair/arrow stay the
+        /// amulet's own untinted native icon either way, see
+        /// <see cref="Refresh"/>'s own icon-color handling.
+        /// </summary>
+        public void SetNameColor(Color color)
+        {
+            _nameText.color = color;
+        }
+
         /// <summary>Half the rendered width of <paramref name="text"/>, re-measured only when its string has changed since the last call.</summary>
         private static float MeasureHalfWidth(TMP_Text text, ref string measuredText, ref float measuredHalfWidth)
         {

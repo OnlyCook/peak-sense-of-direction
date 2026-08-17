@@ -63,6 +63,8 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> EnableCampfireIndicator;
         public readonly ConfigEntry<bool> ShowCampfireDistance;
         public readonly ConfigEntry<bool> HideCampfireName;
+        public readonly ConfigEntry<bool> EnableScoutStatueIndicator;
+        public readonly ConfigEntry<bool> HideScoutStatueIndicatorName;
 
         public readonly ConfigEntry<bool> RemoveVisibilityCutoff;
         public readonly ConfigEntry<bool> EnablePingScaling;
@@ -401,6 +403,19 @@ namespace SenseOfDirection
                 "Never show the campfire's name label (\"Campfire\") on the compass. " +
                 "On by default since the icon alone already makes it obvious which " +
                 "marker is the campfire.");
+
+            EnableScoutStatueIndicator = config.Bind(
+                "Campfire", "enable-scout-statue-indicator", false,
+                "Show an edge-of-screen indicator pointing at the nearest scout statue " +
+                "(one of the 4 randomly-placed statues in the first 4 biomes, each " +
+                "holding a Scout's Amulet) for as long as its amulet hasn't been picked " +
+                "up yet. Uses the same campfire-placement setting as the campfire " +
+                "indicator above.");
+
+            HideScoutStatueIndicatorName = config.Bind(
+                "Campfire", "hide-scout-statue-indicator-name", true,
+                "Never show the scout statue indicator's amulet name label (e.g. " +
+                "\"SCOUT'S TENACITY\"). On by default since those names run quite long.");
 
             // ---- Pings. remove-visibility-cutoff is bound first because it's
             // the foundation the rest of this section sits on: with it off,

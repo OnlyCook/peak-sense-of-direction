@@ -106,9 +106,21 @@ namespace SenseOfDirection.ItemPings
                 ItemPingDetector.LogNearbyUnmatched(point, itemRadiusUnits, Plugin.Instance.Log);
             }
 
+            // The campfire indicator and the scout statue indicator both
+            // already show an always-on indicator for exactly the thing
+            // ItemPingDetector just (re-)detected here (the current
+            // campfire, an unclaimed scout amulet) - so pinging either one,
+            // while its own indicator is on, flashes that existing
+            // indicator's color instead of spawning a second, overlapping
+            // highlight for the same thing. See PingFlashState's own doc
+            // comment. Still counted in the returned total (the caller uses
+            // it to suppress the generic ping's own redundant distance
+            // label), same as an ordinary highlight would be.
+            int flashHandledCount = found.RemoveAll(target => TryHandleFixedIndicatorPing(target, color, cfg));
+
             if (found.Count == 0)
             {
-                return 0;
+                return flashHandledCount;
             }
 
             bool enableArrow = cfg.EnableItemPingOffScreenIndicator.Value;
@@ -148,7 +160,44 @@ namespace SenseOfDirection.ItemPings
                 SpawnOrMerge(cluster, color, duration, enableArrow);
             }
 
-            return found.Count;
+            return found.Count + flashHandledCount;
+        }
+
+        /// <summary>
+        /// The campfire/scout-amulet special case described above <see cref="SpawnFor"/>'s
+        /// own call site: matched by component (a live <c>Campfire</c>, or a
+        /// <c>FakeItem</c> tagged <c>Item.ItemTags.ScoutAmulet</c> - the same
+        /// tag <c>Peak.ScoutStatue.IsConstantlyInteractable</c> gates on)
+        /// rather than by GameObject identity against whichever instance the
+        /// indicator controllers currently track, since a ping can land on
+        /// *any* of the (up to) 4 scout amulets, not just the nearest one
+        /// this session's single indicator widget happens to be pointing at
+        /// right now - the flash still fires either way, per the maintainer's
+        /// ask ("the pointing scout statue indicator" is the one persistent
+        /// widget this feature ever creates).
+        /// </summary>
+        private static bool TryHandleFixedIndicatorPing(PingableTarget target, Color color, PluginConfig cfg)
+        {
+            GameObject go = target.GameObject;
+            if (go == null)
+            {
+                return false;
+            }
+
+            if (cfg.EnableCampfireIndicator.Value && go.TryGetComponent(out Campfire _))
+            {
+                CampfireIndicator.CampfireIndicatorController.Instance.NotifyPinged(color);
+                return true;
+            }
+
+            if (cfg.EnableScoutStatueIndicator.Value && go.TryGetComponent(out FakeItem fakeItem)
+                && fakeItem.realItemPrefab != null && fakeItem.realItemPrefab.itemTags.HasFlag(Item.ItemTags.ScoutAmulet))
+            {
+                ScoutStatueIndicator.ScoutStatueIndicatorController.Instance.NotifyPinged(color);
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

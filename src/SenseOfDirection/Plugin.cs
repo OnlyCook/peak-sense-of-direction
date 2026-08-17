@@ -82,6 +82,9 @@ namespace SenseOfDirection
             // PlayerLabelController's own EnablePlayerLabels check.
             Wire("CampfireIndicatorController", () => _ = CampfireIndicatorController.Instance);
 
+            // Same no-op-when-disabled pattern - internally checks EnableScoutStatueIndicator.
+            Wire("ScoutStatueIndicatorController", () => _ = ScoutStatueIndicator.ScoutStatueIndicatorController.Instance);
+
             // Same no-op-when-disabled pattern - internally checks EnablePingAudioBoost.
             Wire("PingAudioTuner", () => _ = PingAudioTuner.Instance);
 

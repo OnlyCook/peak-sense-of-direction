@@ -704,7 +704,9 @@ namespace SenseOfDirection.Compass
                     elevation,
                     anchor.GetIsDead(),
                     anchor.GetIsUnconscious(),
-                    anchor.GetCompassIcon());
+                    anchor.GetCompassIcon(),
+                    anchor.ForceCompassTextTint(),
+                    anchor.SuppressCompassDistanceTint());
 
                 // Overlap resolution (see ResolveMarkerOverlaps) only pushes
                 // markers apart along the tape's one axis (all share the same
