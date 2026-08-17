@@ -85,6 +85,12 @@ namespace SenseOfDirection.PirateCompass
         private ItemPingWidget _widget;
         private bool _shouldShow;
 
+        /// <summary>
+        /// Drives the "pinged" color feedback - see <see cref="NotifyPinged"/>
+        /// and <see cref="Common.PingFlashState"/>'s own doc comment.
+        /// </summary>
+        private readonly PingFlashState _pingFlash = new PingFlashState();
+
         private static readonly Common.Safe.Context _ctxUpdateImpl =
             new Common.Safe.Context("PirateCompassLuggageIndicatorController.Update", failureLimit: 300);
 
@@ -122,8 +128,63 @@ namespace SenseOfDirection.PirateCompass
 
             string displayName = _trackedLuggage.GetName().ToUpperInvariant();
             float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), _trackedLuggage.transform.position) * CharacterStats.unitsToMeters;
-            _widget.Refresh(displayName, distanceMeters, cfg.ShowPirateCompassLuggageName.Value, cfg.ShowPirateCompassLuggageDistance.Value);
+            _widget.Refresh(displayName, distanceMeters, ShouldShowName(), cfg.ShowPirateCompassLuggageDistance.Value);
+            _widget.SetNameColor(_pingFlash.Evaluate(NameRestColor()));
         }
+
+        /// <summary>
+        /// Called from <see cref="ItemPingSpawner"/> when a ping lands on the
+        /// currently-tracked luggage while
+        /// <c>Pirate-Compass/enable-pirate-compass-luggage-indicator</c> is
+        /// on, in place of spawning a redundant <see cref="ItemPingHighlight"/>
+        /// for the same thing this indicator is already showing.
+        /// </summary>
+        internal void NotifyPinged(Color color) => _pingFlash.Trigger(color);
+
+        /// <summary>
+        /// Whether <paramref name="go"/> is exactly the luggage this
+        /// indicator is currently showing (not just *any* luggage - unlike
+        /// the scout statue indicator, which flashes for any of the (up to)
+        /// 4 amulets, there can be dozens of unopened Luggage in a level at
+        /// once, so only the one this indicator is actually pointing at
+        /// should ever suppress a normal item-ping highlight). Also covers
+        /// a <c>RespawnChest</c> ("Ancient Statue") - it's a <c>Luggage</c>
+        /// subclass with no exclusion anywhere in <see cref="FindNearestUnopenedLuggage"/>
+        /// or <see cref="ItemPings.ItemPingDetector"/>'s own Luggage search, so
+        /// it's already a legitimate (if rare) target for both.
+        /// </summary>
+        internal bool IsTracking(GameObject go) =>
+            _shouldShow && _trackedLuggage != null && _trackedLuggage.gameObject == go;
+
+        /// <summary>
+        /// Whether the name label shows right now. When
+        /// <c>show-luggage-name</c> is on, always (its color still eases back
+        /// to white as a flash fades). When it's off, the name is normally
+        /// hidden entirely and only forced on while a ping flash is active,
+        /// per <c>Item-Pings/name-mode</c> - "as if" this had spawned a normal
+        /// highlight, same as the scout statue/campfire/Belltower indicators'
+        /// own equivalent.
+        /// </summary>
+        private bool ShouldShowName()
+        {
+            PluginConfig cfg = Plugin.Instance.Cfg;
+            if (cfg.ShowPirateCompassLuggageName.Value)
+            {
+                return true;
+            }
+            return _pingFlash.Active && cfg.ItemPingNameMode.Value == ItemPingNameMode.Always;
+        }
+
+        /// <summary>
+        /// The color <see cref="Common.PingFlashState.Evaluate"/> settles the
+        /// name text at once a flash finishes - opaque white when the name is
+        /// normally shown (stays visible, just un-tinted), fully transparent
+        /// white when it's normally hidden (fades out smoothly instead of
+        /// popping away the instant the flash window ends - see that
+        /// method's own doc comment).
+        /// </summary>
+        private static Color NameRestColor() =>
+            Plugin.Instance.Cfg.ShowPirateCompassLuggageName.Value ? Color.white : new Color(1f, 1f, 1f, 0f);
 
         /// <summary>Built once, the first time there's something to show; stays registered for the rest of the session (see this class's own doc comment for why).</summary>
         private void EnsureWidget(PluginConfig cfg)
@@ -147,8 +208,16 @@ namespace SenseOfDirection.PirateCompass
             // the ordinary gradual compass fade were used instead.
             _widget.Anchor.CompassInstantHide = true;
             _widget.Anchor.GetPlacement = () => Plugin.Instance.Cfg.PirateCompassLuggagePlacement.Value;
-            _widget.Anchor.GetCompassColor = () => Color.white;
-            _widget.Anchor.GetCompassLabel = () => _trackedLuggage != null && Plugin.Instance.Cfg.ShowPirateCompassLuggageName.Value
+            _widget.Anchor.GetCompassColor = () => _pingFlash.Evaluate(NameRestColor());
+
+            // The compass marker's ItemPing kind is already unconditionally
+            // text-tinted (see CompassMarkerWidget) - real item pings want
+            // both name and distance colored, but this is this indicator's
+            // own persistent anchor, not a real ping's, so its distance stays
+            // white always, matching the off-screen widget's own SetNameColor
+            // (name-only) split above.
+            _widget.Anchor.SuppressCompassDistanceTint = () => true;
+            _widget.Anchor.GetCompassLabel = () => _trackedLuggage != null && ShouldShowName()
                 ? _trackedLuggage.GetName().ToUpperInvariant()
                 : null;
 
@@ -184,15 +253,27 @@ namespace SenseOfDirection.PirateCompass
         /// filtering on <c>IsOpen</c> is what actually matches reality on
         /// clients. No distance cap, matching the native Pirate Compass needle's
         /// own unlimited-range behavior (<c>CompassPointer.UpdateHeadingPirate</c>).
+        ///
+        /// <c>Pirate-Compass/clown-luggage-only</c> narrows the search to
+        /// <see cref="ClownLuggage"/> only - deliberately no fallback to
+        /// regular luggage when none are left, same as the real needle's own
+        /// patched behavior (<see cref="PirateCompassNeedlePatch"/>): nearest
+        /// null just means this indicator shows nothing, per the maintainer's
+        /// ask.
         /// </summary>
         private static Luggage FindNearestUnopenedLuggage()
         {
+            bool clownOnly = Plugin.Instance.Cfg.PirateCompassClownLuggageOnly.Value;
             Vector3 origin = CharacterPositions.LocalViewpoint();
             Luggage nearest = null;
             float nearestSqDistance = float.MaxValue;
             foreach (Luggage luggage in Luggage.ALL_LUGGAGE)
             {
                 if (luggage == null || luggage.IsOpen || !luggage.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                if (clownOnly && !ClownLuggage.Is(luggage))
                 {
                     continue;
                 }

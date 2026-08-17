@@ -586,7 +586,8 @@ namespace SenseOfDirection.Ui
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnableCampfireIndicator, cfg.CampfirePlacement, cfg.ShowCampfireDistance,
-                    cfg.HideCampfireName,
+                    cfg.HideCampfireName, cfg.EnableScoutStatueIndicator, cfg.HideScoutStatueIndicatorName,
+                    cfg.EnableBelltowerIndicator,
                 },
             });
 
@@ -606,6 +607,7 @@ namespace SenseOfDirection.Ui
                     // read as one interleaved block.
                     cfg.PirateCompassDisplayMode,
                     cfg.EnablePirateCompassLuggageIndicator, cfg.PirateCompassLuggageDisplayMode, cfg.PirateCompassLuggagePlacement,
+                    cfg.PirateCompassClownLuggageOnly,
                 },
             });
 

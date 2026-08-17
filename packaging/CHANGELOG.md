@@ -1,3 +1,7 @@
+## 1.1.2
+
+
+
 ## 1.1.1
 
 - A lot of new things that couldn't be pinged before now can be: Scout amulets still in their statue, the Belltower, the Flytrap, the floating Ghost Ball thingy, and every new trap in The Citadel.

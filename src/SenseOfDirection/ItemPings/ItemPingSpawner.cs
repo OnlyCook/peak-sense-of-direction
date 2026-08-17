@@ -106,9 +106,21 @@ namespace SenseOfDirection.ItemPings
                 ItemPingDetector.LogNearbyUnmatched(point, itemRadiusUnits, Plugin.Instance.Log);
             }
 
+            // The campfire indicator and the scout statue indicator both
+            // already show an always-on indicator for exactly the thing
+            // ItemPingDetector just (re-)detected here (the current
+            // campfire, an unclaimed scout amulet) - so pinging either one,
+            // while its own indicator is on, flashes that existing
+            // indicator's color instead of spawning a second, overlapping
+            // highlight for the same thing. See PingFlashState's own doc
+            // comment. Still counted in the returned total (the caller uses
+            // it to suppress the generic ping's own redundant distance
+            // label), same as an ordinary highlight would be.
+            int flashHandledCount = found.RemoveAll(target => TryHandleFixedIndicatorPing(target, color, cfg));
+
             if (found.Count == 0)
             {
-                return 0;
+                return flashHandledCount;
             }
 
             bool enableArrow = cfg.EnableItemPingOffScreenIndicator.Value;
@@ -148,7 +160,71 @@ namespace SenseOfDirection.ItemPings
                 SpawnOrMerge(cluster, color, duration, enableArrow);
             }
 
-            return found.Count;
+            return found.Count + flashHandledCount;
+        }
+
+        /// <summary>
+        /// The campfire/scout-amulet/Belltower/Pirate's-Compass-luggage
+        /// special case described above <see cref="SpawnFor"/>'s own call
+        /// site. The first three are matched by component alone (a live
+        /// <c>Campfire</c>, a <c>FakeItem</c> tagged
+        /// <c>Item.ItemTags.ScoutAmulet</c> - the same tag
+        /// <c>Peak.ScoutStatue.IsConstantlyInteractable</c> gates on - or a
+        /// <c>GhostFire</c>) rather than by GameObject identity against
+        /// whichever instance the indicator controllers currently track,
+        /// since a ping can land on *any* of the (up to) 4 scout amulets or
+        /// any Belltower in the level, not just the nearest one this
+        /// session's single indicator widget happens to be pointing at right
+        /// now - the flash still fires either way, per the maintainer's ask
+        /// ("the pointing [...] indicator" is the one persistent widget each
+        /// of these features ever creates). The luggage case is different:
+        /// a level can hold dozens of unopened Luggage at once, so it's
+        /// matched by identity against the one specific instance the Pirate's
+        /// Compass indicator is actually tracking - see
+        /// <see cref="PirateCompass.PirateCompassLuggageIndicatorController.IsTracking"/>.
+        /// </summary>
+        private static bool TryHandleFixedIndicatorPing(PingableTarget target, Color color, PluginConfig cfg)
+        {
+            GameObject go = target.GameObject;
+            if (go == null)
+            {
+                return false;
+            }
+
+            if (cfg.EnableCampfireIndicator.Value && go.TryGetComponent(out Campfire _))
+            {
+                CampfireIndicator.CampfireIndicatorController.Instance.NotifyPinged(color);
+                return true;
+            }
+
+            if (cfg.EnableScoutStatueIndicator.Value && go.TryGetComponent(out FakeItem fakeItem)
+                && fakeItem.realItemPrefab != null && fakeItem.realItemPrefab.itemTags.HasFlag(Item.ItemTags.ScoutAmulet))
+            {
+                ScoutStatueIndicator.ScoutStatueIndicatorController.Instance.NotifyPinged(color);
+                return true;
+            }
+
+            if (cfg.EnableBelltowerIndicator.Value && go.TryGetComponent(out GhostFire _))
+            {
+                BelltowerIndicator.BelltowerIndicatorController.Instance.NotifyPinged(color);
+                return true;
+            }
+
+            // Unlike the three cases above, a level can hold dozens of
+            // unopened Luggage at once (a RespawnChest/"Ancient Statue"
+            // included - it's a Luggage subclass with no exclusion anywhere
+            // in this detection path), so this one has to match by identity
+            // against the specific instance PirateCompassLuggageIndicatorController
+            // is actually showing right now, not just "any Luggage" - see
+            // that class's own IsTracking doc comment.
+            if (cfg.EnablePirateCompassLuggageIndicator.Value && go.TryGetComponent(out Luggage luggage)
+                && PirateCompass.PirateCompassLuggageIndicatorController.Instance.IsTracking(luggage.gameObject))
+            {
+                PirateCompass.PirateCompassLuggageIndicatorController.Instance.NotifyPinged(color);
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

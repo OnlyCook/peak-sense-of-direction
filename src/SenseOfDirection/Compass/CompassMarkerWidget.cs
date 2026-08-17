@@ -435,7 +435,8 @@ namespace SenseOfDirection.Compass
         public void Refresh(
             float iconSizePixels, Color color, string name, float distanceMeters,
             bool showName, bool showDistance, CompassElevation elevation,
-            bool isDead, bool isUnconscious, Sprite nativeIcon = null)
+            bool isDead, bool isUnconscious, Sprite nativeIcon = null,
+            bool forceTintText = false, bool suppressDistanceTint = false)
         {
             if (NativeAssets.Font != null)
             {
@@ -502,16 +503,21 @@ namespace SenseOfDirection.Compass
             // players, opt-in via color-player-labels, for anyone who wants
             // their compass name/distance labels differentiable by color too
             // instead of relying on the (already colored) icon alone.
-            bool tintText = _kind == CompassMarkerKind.Ping || _kind == CompassMarkerKind.ItemPing
+            bool tintText = forceTintText || _kind == CompassMarkerKind.Ping || _kind == CompassMarkerKind.ItemPing
                 || (_kind == CompassMarkerKind.Player && Plugin.Instance.Cfg.CompassColorPlayerLabels.Value);
+            bool tintDistance = tintText && !suppressDistanceTint;
             _nameText.color = tintText ? color : Color.white;
-            _distanceText.color = tintText ? color : new Color(1f, 1f, 1f, 0.9f);
-            if (tintText)
+            _distanceText.color = tintDistance ? color : new Color(1f, 1f, 1f, 0.9f);
+
+            // Instanced (not shared) material so the outline can be darkened
+            // per-anchor-color without touching NativeAssets.OutlineMaterial,
+            // which every untinted label on the compass/HUD still shares.
+            // Name/distance are switched onto it independently (tintText vs.
+            // tintDistance) rather than together - suppressDistanceTint means
+            // the distance line's face stays plain white, and a colored
+            // outline behind plain-white text would read as a mismatch.
+            if (tintText || tintDistance)
             {
-                // Instanced (not shared) material so the outline can be
-                // darkened per-anchor-color without touching
-                // NativeAssets.OutlineMaterial, which every untinted label
-                // on the compass/HUD still shares.
                 if (_tintedTextMaterial == null && NativeAssets.OutlineMaterial != null)
                 {
                     _tintedTextMaterial = new Material(NativeAssets.OutlineMaterial);
@@ -519,14 +525,23 @@ namespace SenseOfDirection.Compass
                 if (_tintedTextMaterial != null)
                 {
                     _tintedTextMaterial.SetColor(OutlineColorProperty, ColorUtil.Darken(color));
-                    if (_nameText.fontSharedMaterial != _tintedTextMaterial) _nameText.fontSharedMaterial = _tintedTextMaterial;
-                    if (_distanceText.fontSharedMaterial != _tintedTextMaterial) _distanceText.fontSharedMaterial = _tintedTextMaterial;
                 }
             }
-            else if (NativeAssets.OutlineMaterial != null)
+            if (tintText && _tintedTextMaterial != null)
             {
-                if (_nameText.fontSharedMaterial != NativeAssets.OutlineMaterial) _nameText.fontSharedMaterial = NativeAssets.OutlineMaterial;
-                if (_distanceText.fontSharedMaterial != NativeAssets.OutlineMaterial) _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
+                if (_nameText.fontSharedMaterial != _tintedTextMaterial) _nameText.fontSharedMaterial = _tintedTextMaterial;
+            }
+            else if (NativeAssets.OutlineMaterial != null && _nameText.fontSharedMaterial != NativeAssets.OutlineMaterial)
+            {
+                _nameText.fontSharedMaterial = NativeAssets.OutlineMaterial;
+            }
+            if (tintDistance && _tintedTextMaterial != null)
+            {
+                if (_distanceText.fontSharedMaterial != _tintedTextMaterial) _distanceText.fontSharedMaterial = _tintedTextMaterial;
+            }
+            else if (NativeAssets.OutlineMaterial != null && _distanceText.fontSharedMaterial != NativeAssets.OutlineMaterial)
+            {
+                _distanceText.fontSharedMaterial = NativeAssets.OutlineMaterial;
             }
 
             // Live config values, so re-applied every frame rather than baked in

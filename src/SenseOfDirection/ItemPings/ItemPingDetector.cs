@@ -773,7 +773,7 @@ namespace SenseOfDirection.ItemPings
         /// <summary>
         /// Whether the aim line passes straight through a prop's bounding box
         /// within reach. The center-distance test alone isn't enough for the
-        /// props: a Ghost Ball has no collider the ping raycast can land on at
+        /// props: a Big Ghost has no collider the ping raycast can land on at
         /// all (so the point ends up on whatever terrain is behind it, arbitrarily
         /// far away), and for anything long the center can sit well off the line
         /// you actually aimed down even when you're looking right at the thing.

@@ -241,6 +241,31 @@ namespace SenseOfDirection.Indicators
 
         public Func<Color> GetCompassColor = () => Color.white;
 
+        /// <summary>
+        /// Overrides <see cref="Compass.CompassMarkerWidget"/>'s own kind-based
+        /// decision of whether <see cref="GetCompassColor"/> actually tints the
+        /// marker's name/distance text (normally only <c>Ping</c>/<c>ItemPing</c>,
+        /// see that class's own doc comment) - used by
+        /// <see cref="CampfireIndicator.CampfireIndicatorController"/>'s
+        /// ping-flash feedback, since a <c>Campfire</c>-kind marker is
+        /// otherwise never text-tinted at all, unlike <c>ItemPing</c> (which
+        /// <see cref="ScoutStatueIndicator.ScoutStatueIndicatorController"/>
+        /// already uses and so needs no override here).
+        /// </summary>
+        public Func<bool> ForceCompassTextTint = () => false;
+
+        /// <summary>
+        /// Opts this anchor's compass distance text out of tinting even while
+        /// the name is tinted (<see cref="ForceCompassTextTint"/>/the kind's own
+        /// default) - used by <see cref="CampfireIndicator.CampfireIndicatorController"/>
+        /// and <see cref="ScoutStatueIndicator.ScoutStatueIndicatorController"/>'s
+        /// ping-flash feedback, which per the maintainer's ask only ever
+        /// colors the name, never the distance. A real (transient) item ping's
+        /// own compass marker is a different anchor entirely and leaves this
+        /// at its default (false), so its distance keeps tinting as always.
+        /// </summary>
+        public Func<bool> SuppressCompassDistanceTint = () => false;
+
         /// <summary>Null/empty means no name text is available for this anchor (e.g. a generic point ping).</summary>
         public Func<string> GetCompassLabel = () => null;
 

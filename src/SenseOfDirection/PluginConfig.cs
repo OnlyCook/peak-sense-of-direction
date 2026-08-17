@@ -63,6 +63,9 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> EnableCampfireIndicator;
         public readonly ConfigEntry<bool> ShowCampfireDistance;
         public readonly ConfigEntry<bool> HideCampfireName;
+        public readonly ConfigEntry<bool> EnableScoutStatueIndicator;
+        public readonly ConfigEntry<bool> HideScoutStatueIndicatorName;
+        public readonly ConfigEntry<bool> EnableBelltowerIndicator;
 
         public readonly ConfigEntry<bool> RemoveVisibilityCutoff;
         public readonly ConfigEntry<bool> EnablePingScaling;
@@ -119,6 +122,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> CompassColorPlayerLabels;
 
         public readonly ConfigEntry<bool> EnablePirateCompassLuggageIndicator;
+        public readonly ConfigEntry<bool> PirateCompassClownLuggageOnly;
         public readonly ConfigEntry<SenseOfDirection.PirateCompass.PirateCompassLuggageDisplayMode> PirateCompassLuggageDisplayMode;
         public readonly ConfigEntry<bool> ShowPirateCompassLuggageName;
         public readonly ConfigEntry<bool> ShowPirateCompassLuggageDistance;
@@ -401,6 +405,25 @@ namespace SenseOfDirection
                 "Never show the campfire's name label (\"Campfire\") on the compass. " +
                 "On by default since the icon alone already makes it obvious which " +
                 "marker is the campfire.");
+
+            EnableScoutStatueIndicator = config.Bind(
+                "Campfire", "enable-scout-statue-indicator", false,
+                "Show an edge-of-screen indicator pointing at the nearest scout statue " +
+                "(one of the 4 randomly-placed statues in the first 4 biomes, each " +
+                "holding a Scout's Amulet) for as long as its amulet hasn't been picked " +
+                "up yet. Uses the same campfire-placement setting as the campfire " +
+                "indicator above.");
+
+            HideScoutStatueIndicatorName = config.Bind(
+                "Campfire", "hide-scout-statue-indicator-name", true,
+                "Never show the scout statue indicator's amulet name label (e.g. " +
+                "\"SCOUT'S TENACITY\"). On by default since those names run quite long.");
+
+            EnableBelltowerIndicator = config.Bind(
+                "Campfire", "enable-belltower-indicator", false,
+                "Show an edge-of-screen indicator pointing at the nearest not-yet-lit " +
+                "Belltower (Gloom biome only). Uses the same campfire-placement setting " +
+                "as the campfire indicator above.");
 
             // ---- Pings. remove-visibility-cutoff is bound first because it's
             // the foundation the rest of this section sits on: with it off,
@@ -777,6 +800,16 @@ namespace SenseOfDirection
                 "is up to luggage-indicator-display-mode below. NOTE: as the host you " +
                 "can increase the chance to get a Pirate's Compass or even another " +
                 "regular Compass from Luggage in this mod's config.");
+
+            // Client-sided: only ever changes what the local player's own
+            // client resolves "nearest unopened luggage" to (both this mod's
+            // indicator and the real in-game needle - see
+            // PirateCompass/PirateCompassNeedlePatch.cs), never anything
+            // networked, so this works with no other client needing the mod.
+            PirateCompassClownLuggageOnly = config.Bind(
+                "Pirate-Compass", "clown-luggage-only", false,
+                "Make the Pirate's Compass only ever target unopened Clown Luggage, " +
+                "ignoring every other kind of Luggage.");
 
             // Deliberately its own setting rather than reusing the compass
             // tape's display-mode pair: the tape and this indicator are
