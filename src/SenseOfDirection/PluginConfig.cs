@@ -7,23 +7,14 @@ using UnityEngine;
 
 namespace SenseOfDirection
 {
-    /// <summary>
-    /// All user-facing configuration for Sense of Direction.
-    ///
-    /// Two conventions hold throughout, both of them driven by how
-    /// PEAKLib.ModConfig renders this in-game (one tab per section, every key
-    /// shown uppercase next to its section):
-    ///
-    /// <list type="bullet">
-    /// <item>Section order follows <em>bind</em> order, so the binds below run
-    /// global-first, then per-mechanic, then dev/QA last.</item>
-    /// <item>A key never repeats its own section's name. <c>Compass/width-pixels</c>,
-    /// not <c>Compass/compass-width-pixels</c>. The one deliberate exception is
-    /// each section's master switch, which stays fully descriptive
-    /// (<c>enable-item-pings</c>, not a bare <c>enable</c>) - a lone "ENABLE"
-    /// in the settings menu reads identically across every tab.</item>
-    /// </list>
-    /// </summary>
+    // All user-facing configuration for Sense of Direction. Two conventions
+    // hold throughout, both driven by PEAKLib.ModConfig rendering this as one
+    // tab per section with every key shown uppercase: section order follows
+    // bind order below (global-first, then per-mechanic, then dev/QA last),
+    // and a key never repeats its own section's name (Compass/width-pixels,
+    // not Compass/compass-width-pixels) except each section's master switch,
+    // which stays fully descriptive (enable-item-pings, not a bare enable) so
+    // a lone "ENABLE" doesn't read identically across every tab.
     public class PluginConfig
     {
         public readonly ConfigEntry<IndicatorPlacement> PlayerLabelPlacement;
@@ -161,101 +152,64 @@ namespace SenseOfDirection
 
         public PluginConfig(ConfigFile config)
         {
-            // ---- General: what shows up, and where. The four *-placement
-            // settings are the ones people actually reach for ("put everything
-            // on the compass"), so they lead - and they belong together rather
-            // than one per mechanic tab, because they aren't a property of any
-            // mechanic: they route a tracked thing between the two shared
-            // rendering surfaces (screen edge vs. compass tape). Split across
-            // four tabs, the single intent "show all of it on the compass" cost
-            // four trips through the settings menu.
-            //
-            // Note the deliberate distinction from Player-Labels/display-mode:
-            // placement answers *where* a thing is drawn, display-mode answers
-            // *when* player labels are shown (Toggle/AlwaysOn/Hold). Two
-            // different questions, so two clearly different words - see
-            // Indicators.IndicatorPlacement.
+            // General: the *-placement settings lead because they're the ones people
+            // actually reach for ("put everything on the compass"), and they're grouped
+            // here instead of one per mechanic tab because they route a tracked thing
+            // between the two shared rendering surfaces (screen edge vs. compass tape)
+            // rather than being a property of any one mechanic. Compare
+            // Player-Labels/display-mode, which answers *when* labels show, not *where*.
             PlayerLabelPlacement = config.Bind(
                 "General", "player-label-placement", IndicatorPlacement.Both,
-                "Where player labels are drawn. Both: as the edge-of-screen " +
-                "label and as a marker on the compass tape at once. OffScreenOnly: only " +
-                "the edge-of-screen label. CompassOnly: only the compass marker.");
+                "Where player labels are drawn. Both: as the edge-of-screen label and as a marker on the compass tape at once. OffScreenOnly: only the edge-of-screen label. CompassOnly: only the compass marker.");
 
             CampfirePlacement = config.Bind(
                 "General", "campfire-placement", IndicatorPlacement.OffScreenOnly,
-                "Where the campfire indicator is drawn, using the same OffScreenOnly/" +
-                "CompassOnly/Both choice as player-label-placement.");
+                "Where the campfire indicator is drawn, using the same OffScreenOnly/CompassOnly/Both choice as player-label-placement.");
 
             PingPlacement = config.Bind(
                 "General", "ping-placement", IndicatorPlacement.OffScreenOnly,
-                "Where pings are drawn, using the same OffScreenOnly/CompassOnly/Both " +
-                "choice as player-label-placement.");
+                "Where pings are drawn, using the same OffScreenOnly/CompassOnly/Both choice as player-label-placement.");
 
             ItemPingPlacement = config.Bind(
                 "General", "item-ping-placement", IndicatorPlacement.OffScreenOnly,
-                "Where item/luggage/creature ping highlights are drawn, using the same " +
-                "OffScreenOnly/CompassOnly/Both choice as player-label-placement.");
+                "Where item/luggage/creature ping highlights are drawn, using the same OffScreenOnly/CompassOnly/Both choice as player-label-placement.");
 
             PirateCompassLuggagePlacement = config.Bind(
                 "General", "pirate-compass-luggage-placement", IndicatorPlacement.Both,
-                "Where the Pirate's Compass luggage indicator is drawn, using the same " +
-                "OffScreenOnly/CompassOnly/Both choice as player-label-placement.");
+                "Where the Pirate's Compass luggage indicator is drawn, using the same OffScreenOnly/CompassOnly/Both choice as player-label-placement.");
 
             EnableLabelOverlapAvoidance = config.Bind(
                 "General", "enable-label-overlap-avoidance", true,
-                "Nudges overlapping player/ping/item-ping/campfire labels (and compass " +
-                "markers) apart so they stay readable when several land on top of each " +
-                "other, instead of stacking illegibly. Off restores every label/marker " +
-                "to its exact tracked position with no nudging at all.");
+                "Nudges overlapping player/ping/item-ping/campfire labels (and compass markers) apart so they stay readable when several land on top of each other, instead of stacking illegibly. Off restores every label/marker to its exact tracked position with no nudging at all.");
 
             AntiOverlapAnimationSpeedMultiplier = config.Bind(
                 "General", "anti-overlap-animation-speed-multiplier", 1f,
                 new ConfigDescription(
-                    "How fast overlapping labels/markers slide apart and back together " +
-                    "(enable-label-overlap-avoidance above). 1 keeps the shipped speed; " +
-                    "lower both slows the motion and adds a short delay before a label " +
-                    "starts reacting to a newly created/resolved overlap, for anyone who " +
-                    "finds this mod's labels moving around distracting. Still fully " +
-                    "smooth either way, just slower to start and to travel.",
+                    "How fast overlapping labels/markers slide apart and back together (enable-label-overlap-avoidance above). 1 keeps the shipped speed; lower both slows the motion and adds a short delay before a label starts reacting to a newly created/resolved overlap, for anyone who finds this mod's labels moving around distracting.",
                     new AcceptableValueRange<float>(0.2f, 1f)));
 
             IndicatorIconSizeMultiplier = config.Bind(
                 "General", "indicator-icon-size-multiplier", 1f,
                 new ConfigDescription(
-                    "Scales the size of every on-/off-screen indicator icon: the ping " +
-                    "hand's off-screen arrow, item pings' on-screen crosshair/off-screen " +
-                    "arrow (native item icons included) and the campfire icon. 1 keeps " +
-                    "the shipped size. Does not affect the compass, the compass has its " +
-                    "own icon-size-pixels, or player label badges, which have their own " +
-                    "badge-size-pixels below.",
+                    "Scales the size of every on-/off-screen indicator icon: the ping hand's off-screen arrow, item pings' on-screen crosshair/off-screen arrow (native item icons included) and the campfire icon. 1 keeps the shipped size. Does not affect the compass (its own icon-size-pixels) or player label badges (their own badge-size-pixels below).",
                     new AcceptableValueRange<float>(0.5f, 2f)));
 
             PreviewMenuKey = config.Bind(
                 "General", "preview-menu-key", KeyCode.F8,
-                "Key that opens the in-game settings menu: every visual setting in " +
-                "this mod, laid out over a live preview of what it actually does " +
-                "(player labels, pings, item pings, the campfire indicator and the " +
-                "compass, all drawn on a real screenshot and updating as you change " +
-                "them). Changes there are written straight to this config file. Set " +
-                "to None to disable the key entirely.");
+                "Key that opens the in-game settings menu: every visual setting in this mod, laid out over a live preview of what it actually does (player labels, pings, item pings, the campfire indicator and the compass, all drawn on a real screenshot and updating as you change them). Changes there are written straight to this config file. Set to None to disable the key entirely.");
 
-            // ---- Fonts: three areas, each split into name vs. distance text.
-            // Multipliers rather than absolute sizes on purpose: each widget's
-            // own size is tuned relative to its neighbours (a player's name is
-            // deliberately bigger than an item ping's, a compass marker's
-            // smaller than either), and one flat pixel size per area would
-            // flatten that hierarchy. 1 = exactly the sizes the mod ships with.
-            //
-            // On-screen vs. off-screen is a state the *same* label passes
-            // through - it isn't two different widgets - so a label crossing
-            // that boundary eases between the two scales along with the
-            // position transition (IndicatorManager.TransitionState) rather
-            // than snapping.
+            // Fonts: multipliers rather than absolute sizes on purpose, since each
+            // widget's own size is already tuned relative to its neighbours (a
+            // player's name is deliberately bigger than an item ping's, a compass
+            // marker's smaller than either). On-screen/off-screen is a state the
+            // *same* label passes through rather than two different widgets, so a
+            // label crossing that boundary eases between the two scales along with
+            // the position transition (IndicatorManager.TransitionState) instead of
+            // snapping.
             OnScreenNameFontScale = config.Bind(
                 "Fonts", "on-screen-name-scale", 1f,
                 new ConfigDescription(
-                    "Scales every name label drawn on a thing you can actually see " +
-                    "(player labels, item/creature pings). 1 keeps the shipped sizes.",
+                    "Scales every name label drawn on a thing you can actually see (player labels, item/creature pings). 1 keeps the shipped sizes.",
                     new AcceptableValueRange<float>(0.5f, 2f)));
 
             OnScreenDistanceFontScale = config.Bind(
@@ -267,10 +221,7 @@ namespace SenseOfDirection
             OffScreenNameFontScale = config.Bind(
                 "Fonts", "off-screen-name-scale", 1f,
                 new ConfigDescription(
-                    "Scales every name label on a thing that's currently off-screen, i.e. " +
-                    "clamped to the edge with an arrow. Set this below on-screen-name-scale " +
-                    "to keep a crowded screen edge quieter without shrinking the labels on " +
-                    "things you're actually looking at.",
+                    "Scales every name label on a thing that's currently off-screen, i.e. clamped to the edge with an arrow. Set this below on-screen-name-scale to keep a crowded screen edge quieter without shrinking the labels on things you're actually looking at.",
                     new AcceptableValueRange<float>(0.5f, 2f)));
 
             OffScreenDistanceFontScale = config.Bind(
@@ -282,8 +233,7 @@ namespace SenseOfDirection
             CompassNameFontScale = config.Bind(
                 "Fonts", "compass-name-scale", 1f,
                 new ConfigDescription(
-                    "Scales the name label above each compass-tape marker (only shown at " +
-                    "all when Compass/show-names is on).",
+                    "Scales the name label above each compass-tape marker (only shown at all when Compass/show-names is on).",
                     new AcceptableValueRange<float>(0.5f, 2f)));
 
             CompassDistanceFontScale = config.Bind(
@@ -292,58 +242,45 @@ namespace SenseOfDirection
                     "Scales the distance sub-label under each compass-tape marker.",
                     new AcceptableValueRange<float>(0.5f, 2f)));
 
-            // ---- Player labels.
+            // Player labels.
             EnablePlayerLabels = config.Bind(
                 "Player-Labels", "enable-player-labels", true,
-                "Master switch for Sense of Direction's player labels. Off hides them " +
-                "entirely (vanilla's own name labels are unaffected either way).");
+                "Master switch for Sense of Direction's player labels. Off hides them entirely (vanilla's own name labels are unaffected either way).");
 
             EnablePlayerLabelOffScreenIndicator = config.Bind(
                 "Player-Labels", "enable-offscreen-indicator", true,
-                "Keep a player's label visible, clamped to the screen edge, once they " +
-                "go off-screen. Off hides the label entirely instead, so it only shows " +
-                "while the player is actually in view. Does nothing while " +
-                "player-label-placement is CompassOnly, which hides the whole edge-of-" +
-                "screen widget anyway.");
+                "Keep a player's label visible, clamped to the screen edge, once they go off-screen. Off hides the label entirely instead, so it only shows while the player is actually in view. Does nothing while player-label-placement is CompassOnly, which hides the whole edge-of-screen widget anyway.");
 
             PlayerLabelToggleKey = config.Bind(
                 "Player-Labels", "toggle-key", KeyCode.G,
-                "Key that shows/hides player labels, per display-mode below. Only a " +
-                "single key can be bound here, not a combination like Ctrl+G.");
+                "Key that shows/hides player labels, per display-mode below. Only a single key can be bound here, not a combination like Ctrl+G.");
 
             PlayerLabelDisplayMode = config.Bind(
                 "Player-Labels", "display-mode", LabelDisplayMode.Toggle,
-                "Toggle: press toggle-key to show/hide labels. AlwaysOn: labels are " +
-                "always visible (toggle-key does nothing). Hold: labels show while " +
-                "toggle-key is held down.");
+                "Toggle: press toggle-key to show/hide labels. AlwaysOn: labels are always visible (toggle-key does nothing). Hold: labels show while toggle-key is held down.");
 
             HoldShownDuration = config.Bind(
                 "Player-Labels", "hold-shown-duration", 1.5f,
                 new ConfigDescription(
-                    "Hold mode only: how many seconds labels stay visible after the key is " +
-                    "released (also covers a quick tap).",
+                    "Hold mode only: how many seconds labels stay visible after the key is released (also covers a quick tap).",
                     new AcceptableValueRange<float>(0f, 10f)));
 
             PlayerLabelMaxDistanceMeters = config.Bind(
                 "Player-Labels", "max-distance-meters", 1000f,
                 new ConfigDescription(
-                    "A player's label stops showing beyond this distance. Lower it if " +
-                    "you'd rather only track teammates who are actually nearby, or raise " +
-                    "it to cover longer sightlines.",
+                    "A player's label stops showing beyond this distance. Lower it if you'd rather only track teammates who are actually nearby, or raise it to cover longer sightlines.",
                     new AcceptableValueRange<float>(50f, 2000f)));
 
             PlayerLabelNameFontSize = config.Bind(
                 "Player-Labels", "name-font-size", 28f,
                 new ConfigDescription(
-                    "Base font size of each player's name label, before the Fonts section's " +
-                    "on-screen/off-screen name scale is applied on top.",
+                    "Base font size of each player's name label, before the Fonts section's on-screen/off-screen name scale is applied on top.",
                     new AcceptableValueRange<float>(10f, 60f)));
 
             PlayerLabelDistanceFontSize = config.Bind(
                 "Player-Labels", "distance-font-size", 18f,
                 new ConfigDescription(
-                    "Base font size of the distance sub-line under each name label, before " +
-                    "the Fonts section's distance scale is applied on top.",
+                    "Base font size of the distance sub-line under each name label, before the Fonts section's distance scale is applied on top.",
                     new AcceptableValueRange<float>(8f, 40f)));
 
             ShowPlayerLabelDistance = config.Bind(
@@ -362,48 +299,34 @@ namespace SenseOfDirection
 
             UseCharacterColor = config.Bind(
                 "Player-Labels", "use-character-color", true,
-                "Color each label's name with that player's own character color " +
-                "instead of the vanilla name-label color.");
+                "Color each label's name with that player's own character color instead of the vanilla name-label color.");
 
             ReplaceVanillaLabels = config.Bind(
                 "Player-Labels", "replace-vanilla-labels", false,
-                "Hide the game's own close-range player name labels entirely, so " +
-                "Sense of Direction's labels are the only ones ever shown. Normally the " +
-                "two systems hand off to each other instead.");
+                "Hide the game's own close-range player name labels entirely, so Sense of Direction's labels are the only ones ever shown. Normally the two systems hand off to each other instead.");
 
             ShowPlayerSkeleton = config.Bind(
                 "Player-Labels", "show-skeleton", false,
-                "Draw each player's skeleton over the world, visible through walls and " +
-                "terrain. Shows and hides together with the labels themselves, so the " +
-                "display-mode and toggle-key above apply to it too. Off by default: it " +
-                "gives away a lot more than a name label does.");
+                "Draw each player's skeleton over the world, visible through walls and terrain. Shows and hides together with the labels themselves, so the display-mode and toggle-key above apply to it too. Off by default: it gives away a lot more than a name label does.");
 
             PlayerSkeletonLineThickness = config.Bind(
                 "Player-Labels", "skeleton-line-thickness", 2f,
                 new ConfigDescription(
-                    "How thick the skeleton's bones are drawn. Thickness stays the same " +
-                    "on screen at any distance, so a far-off player is still a readable " +
-                    "stick figure rather than a hairline.",
+                    "How thick the skeleton's bones are drawn. Thickness stays the same on screen at any distance, so a far-off player is still a readable stick figure rather than a hairline.",
                     new AcceptableValueRange<float>(1f, 8f)));
 
             PlayerSkeletonUseCharacterColor = config.Bind(
                 "Player-Labels", "skeleton-use-character-color", true,
-                "Color each skeleton with that player's own character color. Off draws " +
-                "them all in the vanilla name-label color instead. Separate from " +
-                "use-character-color above, so the skeletons and the name labels can be " +
-                "colored differently.");
+                "Color each skeleton with that player's own character color. Off draws them all in the vanilla name-label color instead. Separate from use-character-color above, so the skeletons and the name labels can be colored differently.");
 
             ShowPlayerSkeletonJoints = config.Bind(
                 "Player-Labels", "skeleton-show-joints", true,
                 "Draw a dot at each joint of the skeleton, on top of the bones.");
 
-            // ---- Campfire.
+            // Campfire.
             EnableCampfireIndicator = config.Bind(
                 "Campfire", "enable-campfire-indicator", true,
-                "Show an always-on edge-of-screen indicator pointing at the current " +
-                "segment's campfire (the one you're trying to reach next), so you " +
-                "always know which way to go. Turn it off if you'd rather find your own way " +
-                "up and keep the rest of the mod.");
+                "Show an always-on edge-of-screen indicator pointing at the current segment's campfire (the one you're trying to reach next), so you always know which way to go. Turn it off if you'd rather find your own way up and keep the rest of the mod.");
 
             ShowCampfireDistance = config.Bind(
                 "Campfire", "show-distance", true,
@@ -411,66 +334,45 @@ namespace SenseOfDirection
 
             HideCampfireName = config.Bind(
                 "Campfire", "hide-name", true,
-                "Never show the campfire's name label (\"Campfire\") on the compass. " +
-                "On by default since the icon alone already makes it obvious which " +
-                "marker is the campfire.");
+                "Never show the campfire's name label (\"Campfire\") on the compass. On by default since the icon alone already makes it obvious which marker is the campfire.");
 
             EnableScoutStatueIndicator = config.Bind(
                 "Campfire", "enable-scout-statue-indicator", false,
-                "Show an edge-of-screen indicator pointing at the nearest scout statue " +
-                "(one of the 4 randomly-placed statues in the first 4 biomes, each " +
-                "holding a Scout's Amulet) for as long as its amulet hasn't been picked " +
-                "up yet. Uses the same campfire-placement setting as the campfire " +
-                "indicator above.");
+                "Show an edge-of-screen indicator pointing at the nearest scout statue (one of the 4 randomly-placed statues in the first 4 biomes, each holding a Scout's Amulet) for as long as its amulet hasn't been picked up yet. Uses the same campfire-placement setting as the campfire indicator above.");
 
             HideScoutStatueIndicatorName = config.Bind(
                 "Campfire", "hide-scout-statue-indicator-name", true,
-                "Never show the scout statue indicator's amulet name label (e.g. " +
-                "\"SCOUT'S TENACITY\"). On by default since those names run quite long.");
+                "Never show the scout statue indicator's amulet name label (e.g. \"SCOUT'S TENACITY\"). On by default since those names run quite long.");
 
             EnableBelltowerIndicator = config.Bind(
                 "Campfire", "enable-belltower-indicator", false,
-                "Show an edge-of-screen indicator pointing at the nearest not-yet-lit " +
-                "Belltower (Gloom biome only). Uses the same campfire-placement setting " +
-                "as the campfire indicator above.");
+                "Show an edge-of-screen indicator pointing at the nearest not-yet-lit Belltower (Gloom biome only). Uses the same campfire-placement setting as the campfire indicator above.");
 
-            // ---- Pings. remove-visibility-cutoff is bound first because it's
-            // the foundation the rest of this section sits on: with it off,
-            // vanilla never spawns a distant ping's visual at all, so there's
-            // nothing for the scaling/ripple/indicator settings to act on.
+            // Pings: remove-visibility-cutoff is bound first since it's the
+            // foundation the rest of this section sits on - with it off, vanilla
+            // never even spawns a distant ping's visual, so there's nothing for
+            // scaling/ripple/indicator to act on.
             RemoveVisibilityCutoff = config.Bind(
                 "Pings", "remove-visibility-cutoff", true,
-                "Vanilla silently refuses to even spawn a ping's visual once its " +
-                "pinging player is more than ~45m from you; turning this on makes " +
-                "far pings still show up at all. Most of the other Pings settings only " +
-                "matter once this is on.");
+                "Vanilla silently refuses to even spawn a ping's visual once its pinging player is more than ~45m from you; turning this on makes far pings still show up at all. Most of the other Pings settings only matter once this is on.");
 
             EnablePingScaling = config.Bind(
                 "Pings", "enable-scaling", true,
-                "Scale ping visuals up the further away they are, well past vanilla's " +
-                "own hard-capped scale, so far pings stay easy to spot.");
+                "Scale ping visuals up the further away they are, well past vanilla's own hard-capped scale, so far pings stay easy to spot.");
 
             PingScaleMultiplier = config.Bind(
                 "Pings", "scale-multiplier", 1f,
                 new ConfigDescription(
-                    "Extra multiplier applied on top of vanilla's own (uncapped, see " +
-                    "remove-visibility-cutoff) ping scale. 1x is vanilla's own uncapped " +
-                    "size; higher makes every ping bigger regardless of distance.",
+                    "Extra multiplier applied on top of vanilla's own (uncapped, see remove-visibility-cutoff) ping scale. 1x is vanilla's own uncapped size; higher makes every ping bigger regardless of distance.",
                     new AcceptableValueRange<float>(0.5f, 3f)));
 
             EnablePingRipple = config.Bind(
                 "Pings", "enable-ripple", true,
-                "Show an expanding ring in the pinging player's own character color " +
-                "at the ping location, so it reads against similarly-colored terrain. " +
-                "Press your ping key to preview this here.");
+                "Show an expanding ring in the pinging player's own character color at the ping location, so it reads against similarly-colored terrain. Press your ping key to preview this here.");
 
             EnablePingOffScreenIndicator = config.Bind(
                 "Pings", "enable-offscreen-indicator", true,
-                "Show an edge-of-screen arrow pointing toward an active ping when it's " +
-                "off-screen, same mechanism as the player-label/campfire indicators. " +
-                "Only the arrow; the distance line below is show-distance's own call. " +
-                "Does nothing while General/ping-placement is CompassOnly, which hides " +
-                "the whole edge-of-screen widget anyway.");
+                "Show an edge-of-screen arrow pointing toward an active ping when it's off-screen, same mechanism as the player-label/campfire indicators. Only the arrow; the distance line below is show-distance's own call. Does nothing while General/ping-placement is CompassOnly, which hides the whole edge-of-screen widget anyway.");
 
             ShowPingDistanceLabel = config.Bind(
                 "Pings", "show-distance", true,
@@ -478,18 +380,13 @@ namespace SenseOfDirection
 
             EnableGhostPing = config.Bind(
                 "Pings", "enable-ghost-ping", true,
-                "Let dead or unconscious players keep pinging (vanilla blocks pinging " +
-                "once passed out, well before actual death), colored using their own " +
-                "character color same as when alive. Requires both sides to have this " +
-                "mod installed.");
+                "Let dead or unconscious players keep pinging (vanilla blocks pinging once passed out, well before actual death), colored using their own character color same as when alive. Requires both sides to have this mod installed.");
 
-            // ---- Ping audio: its own section rather than four more keys in
-            // Pings, since all four are inert unless the boost is on.
+            // Ping audio: its own section rather than four more keys in Pings,
+            // since all four are inert unless the boost is on.
             EnablePingAudioBoost = config.Bind(
                 "Ping-Audio", "enable-audio-boost", true,
-                "Drastically reduce the ping sound's distance falloff so it's audible " +
-                "from much further away, while sounding unchanged up close. The rest of " +
-                "this section does nothing while this is off.");
+                "Drastically reduce the ping sound's distance falloff so it's audible from much further away, while sounding unchanged up close. The rest of this section does nothing while this is off.");
 
             PingAudioRangeMeters = config.Bind(
                 "Ping-Audio", "range-meters", 600f,
@@ -500,103 +397,71 @@ namespace SenseOfDirection
             PingAudioMinDistanceMeters = config.Bind(
                 "Ping-Audio", "min-distance-meters", 10f,
                 new ConfigDescription(
-                    "Distance under which the ping sound plays at full volume before it " +
-                    "starts falling off toward range-meters.",
+                    "Distance under which the ping sound plays at full volume before it starts falling off toward range-meters.",
                     new AcceptableValueRange<float>(1f, 50f)));
 
             PingAudioVolumeMultiplier = config.Bind(
                 "Ping-Audio", "volume-multiplier", 0.85f,
                 new ConfigDescription(
-                    "Multiplier on the ping sound's own base (close-range) volume. The " +
-                    "far-range audibility boost also makes it slightly too loud up close, " +
-                    "so this trims that back down.",
+                    "Multiplier on the ping sound's own base (close-range) volume. The far-range audibility boost also makes it slightly too loud up close, so this trims that back down.",
                     new AcceptableValueRange<float>(0.3f, 1.5f)));
 
-            // ---- Ping anti-spam: likewise its own section - five knobs that
-            // are all inert unless the throttle is on, and all describe one
-            // mechanism.
+            // Ping anti-spam: likewise its own section - five knobs that are all
+            // inert unless the throttle is on, and all describe one mechanism.
             EnablePingAntiSpam = config.Bind(
                 "Ping-Anti-Spam", "enable-anti-spam", true,
-                "Rate-limits how often *other* players' pings actually render/play once " +
-                "they're pinging rapidly, so spamming the ping key isn't more disruptive " +
-                "than vanilla now that pings are bigger/louder. A short burst always goes " +
-                "through instantly; only once someone keeps spamming does \"slow mode\" " +
-                "kick in, queueing further pings to arrive at a throttled rate instead " +
-                "(never silently dropped, unless the queue itself is full; see " +
-                "max-queue-length). Never applies to your own pings.");
+                "Rate-limits how often *other* players' pings actually render/play once they're pinging rapidly, so spamming the ping key isn't more disruptive than vanilla now that pings are bigger/louder. A short burst always goes through instantly; only once someone keeps spamming does \"slow mode\" kick in, queueing further pings to arrive at a throttled rate instead (never silently dropped, unless the queue itself is full; see max-queue-length). Never applies to your own pings.");
 
             PingAntiSpamFreeSpamCount = config.Bind(
                 "Ping-Anti-Spam", "free-spam-count", 3,
                 new ConfigDescription(
-                    "How many pings in a row from the same player always show up instantly " +
-                    "before slow mode kicks in.",
+                    "How many pings in a row from the same player always show up instantly before slow mode kicks in.",
                     new AcceptableValueRange<int>(1, 20)));
 
             PingAntiSpamSlowModeIntervalSeconds = config.Bind(
                 "Ping-Anti-Spam", "slow-mode-interval-seconds", 0.5f,
                 new ConfigDescription(
-                    "Once slow mode kicks in, queued pings from that player are spaced at " +
-                    "least this far apart before they're actually shown to you.",
+                    "Once slow mode kicks in, queued pings from that player are spaced at least this far apart before they're actually shown to you.",
                     new AcceptableValueRange<float>(0.1f, 5f)));
 
             PingAntiSpamMaxQueueLength = config.Bind(
                 "Ping-Anti-Spam", "max-queue-length", 2,
                 new ConfigDescription(
-                    "How many of a spamming player's pings can be queued up waiting to " +
-                    "show at once while in slow mode. Any further ping while the queue's " +
-                    "already full is dropped entirely rather than queued.",
+                    "How many of a spamming player's pings can be queued up waiting to show at once while in slow mode. Any further ping while the queue's already full is dropped entirely rather than queued.",
                     new AcceptableValueRange<int>(1, 10)));
 
             PingAntiSpamResetSeconds = config.Bind(
                 "Ping-Anti-Spam", "reset-seconds", 2f,
                 new ConfigDescription(
-                    "How long a player has to go without pinging (with their queue fully " +
-                    "drained) before slow mode fully resets to normal.",
+                    "How long a player has to go without pinging (with their queue fully drained) before slow mode fully resets to normal.",
                     new AcceptableValueRange<float>(1f, 30f)));
 
-            // ---- Item pings: what a ping highlights, and how that highlight looks.
+            // Item pings: what a ping highlights, and how that highlight looks.
             EnableItemPings = config.Bind(
                 "Item-Pings", "enable-item-pings", true,
-                "Highlight nearby items/luggage when you ping near them, with a name " +
-                "and distance label, as a native replacement for the (broken/unmaintained) " +
-                "PingItems mod by memiczny.");
+                "Highlight nearby items/luggage when you ping near them, with a name and distance label, as a native replacement for the (broken/unmaintained) PingItems mod by memiczny.");
 
             ItemPingDurationSeconds = config.Bind(
                 "Item-Pings", "duration-seconds", 6f,
                 new ConfigDescription(
-                    "How long an item/luggage highlight stays visible before fading " +
-                    "out (ends early regardless if the item is picked up or the " +
-                    "luggage is opened).",
+                    "How long an item/luggage highlight stays visible before fading out (ends early regardless if the item is picked up or the luggage is opened).",
                     new AcceptableValueRange<float>(2f, 20f)));
 
             EnableItemPingGrouping = config.Bind(
                 "Item-Pings", "enable-grouping", true,
-                "Group multiple nearby items of the same kind into a single " +
-                "highlight showing a count (e.g. \"3x Coconut\") instead of one " +
-                "highlight per item.");
+                "Group multiple nearby items of the same kind into a single highlight showing a count (e.g. \"3x Coconut\") instead of one highlight per item.");
 
             EnableCreaturePings = config.Bind(
                 "Item-Pings", "enable-creature-pings", true,
-                "Also highlight creatures (beetles, spiders, zombies, ...) when pinged, " +
-                "same as items/luggage. OFF leaves creature pings behaving like vanilla " +
-                "(so it won't work for them).");
+                "Also highlight creatures (beetles, spiders, zombies, ...) when pinged, same as items/luggage. OFF leaves creature pings behaving like vanilla (so it won't work for them).");
 
             UseNativeItemPingIcons = config.Bind(
                 "Item-Pings", "use-native-icons", true,
-                "Show the item's own in-game icon (the art its inventory slot uses, " +
-                "e.g. an actual bandage for a pinged bandage) as the highlight's " +
-                "crosshair and its compass marker, instead of the mod's generic " +
-                "item-ping icon. Only items (and the campfire) have an icon in the " +
-                "game at all; luggage, creatures and hazards keep the generic icon " +
-                "either way. Works with custom modded items as well.");
+                "Show the item's own in-game icon (the art its inventory slot uses, e.g. an actual bandage for a pinged bandage) as the highlight's crosshair and its compass marker, instead of the mod's generic item-ping icon. Only items (and the campfire) have an icon in the game at all; luggage, creatures and hazards keep the generic icon either way. Works with custom modded items as well.");
 
             ItemPingNameMode = config.Bind(
                 "Item-Pings", "name-mode", ItemPings.ItemPingNameMode.Always,
-                "Always: every highlight shows what it is. HideWhenIconShown: " +
-                "anything already showing its own in-game icon (see use-native-icons) " +
-                "drops its name, since the icon says what it is (luggage, creatures and " +
-                "hazards have no icon, so they keep theirs). Never: no names at all. A " +
-                "grouped ping keeps its count regardless (a hidden name still shows \"3x\").");
+                "Always: every highlight shows what it is. HideWhenIconShown: anything already showing its own in-game icon (see use-native-icons) drops its name, since the icon says what it is (luggage, creatures and hazards have no icon, so they keep theirs). Never: no names at all. A grouped ping keeps its count regardless (a hidden name still shows \"3x\").");
 
             ShowItemPingDistance = config.Bind(
                 "Item-Pings", "show-distance", true,
@@ -604,14 +469,11 @@ namespace SenseOfDirection
 
             EnableItemPingOffScreenIndicator = config.Bind(
                 "Item-Pings", "enable-offscreen-indicator", true,
-                "Show an edge-of-screen arrow pointing toward a highlighted item/" +
-                "luggage when it's off-screen, same mechanism as the ping indicator. " +
-                "Does nothing while General/item-ping-placement is CompassOnly, which " +
-                "hides the whole edge-of-screen widget anyway.");
+                "Show an edge-of-screen arrow pointing toward a highlighted item/luggage when it's off-screen, same mechanism as the ping indicator. Does nothing while General/item-ping-placement is CompassOnly, which hides the whole edge-of-screen widget anyway.");
 
-            // ---- Item-ping detection: the "what did that ping actually hit"
-            // tuning, split out from the Item-Pings tab above (which is about
-            // what the resulting highlight *looks* like). Mostly leave alone.
+            // Item-ping detection: the "what did that ping actually hit" tuning,
+            // split out from Item-Pings above (which is about what the resulting
+            // highlight *looks* like). Mostly leave alone.
             ItemPingDetectionRadiusMeters = config.Bind(
                 "Item-Ping-Detection", "item-radius-meters", 2f,
                 new ConfigDescription(
@@ -621,99 +483,63 @@ namespace SenseOfDirection
             ItemPingCrossKindRadiusMeters = config.Bind(
                 "Item-Ping-Detection", "cross-kind-radius-meters", 0.75f,
                 new ConfigDescription(
-                    "How close a *different* kind of item has to be to the item you " +
-                    "actually pinged before it also gets highlighted. Items of the same " +
-                    "kind still group together across the full item-radius-meters (that's " +
-                    "what makes a \"2x COCONUT\" grouping), but a different item only " +
-                    "counts if it was pretty much directly aimed at too, so pinging one " +
-                    "item in a luggage doesn't drag in an unrelated one sitting next to it.",
+                    "How close a *different* kind of item has to be to the item you actually pinged before it also gets highlighted. Items of the same kind still group together across the full item-radius-meters (that's what makes a \"2x COCONUT\" grouping), but a different item only counts if it was pretty much directly aimed at too, so pinging one item in a luggage doesn't drag in an unrelated one sitting next to it.",
                     new AcceptableValueRange<float>(0f, 10f)));
 
             LuggagePingDetectionRadiusMeters = config.Bind(
                 "Item-Ping-Detection", "luggage-radius-meters", 3.5f,
                 new ConfigDescription(
-                    "Same as item-radius-meters, but for luggage, which is a bigger " +
-                    "target.",
+                    "Same as item-radius-meters, but for luggage, which is a bigger target.",
                     new AcceptableValueRange<float>(0.5f, 15f)));
 
             EnableItemPingHitAssist = config.Bind(
                 "Item-Ping-Detection", "enable-hit-assist", true,
-                "Widen the ping's own aim raycast so it can land directly on an " +
-                "item/luggage's own collider (not just terrain/ground), instead of " +
-                "phasing through to whatever's behind it. Fixes hard-to-ping items " +
-                "like a coconut up a tree or a small dropped item. Off falls back to " +
-                "vanilla's own terrain-only ping raycast.");
+                "Widen the ping's own aim raycast so it can land directly on an item/luggage's own collider (not just terrain/ground), instead of phasing through to whatever's behind it. Fixes hard-to-ping items like a coconut up a tree or a small dropped item. Off falls back to vanilla's own terrain-only ping raycast.");
 
             ItemPingHitboxRadiusMeters = config.Bind(
                 "Item-Ping-Detection", "hitbox-radius-meters", 0.35f,
                 new ConfigDescription(
-                    "Only used when enable-hit-assist is on. Treats the ping raycast as a " +
-                    "sphere of this radius instead of an infinitely-thin line, so aiming " +
-                    "near (not pixel-perfect on) an item's collider still hits it. 0 " +
-                    "disables the sphere, falling back to a plain (still item-widened) " +
-                    "raycast.",
+                    "Only used when enable-hit-assist is on. Treats the ping raycast as a sphere of this radius instead of an infinitely-thin line, so aiming near (not pixel-perfect on) an item's collider still hits it. 0 disables the sphere, falling back to a plain (still item-widened) raycast.",
                     new AcceptableValueRange<float>(0f, 1.5f)));
 
             EnableItemPingRayAssist = config.Bind(
                 "Item-Ping-Detection", "enable-ray-assist", true,
-                "Also count an item/luggage as pinged if it's close enough to your " +
-                "aim line, independent of physics entirely. Needed for items that " +
-                "aren't pushable/hittable until first picked up (an unpicked coconut " +
-                "on a tree, berries on a bush, something freshly spawned from opened " +
-                "luggage); their collider is disabled until then, so no physics " +
-                "raycast (not even enable-hit-assist's) can ever land on them.");
+                "Also count an item/luggage as pinged if it's close enough to your aim line, independent of physics entirely. Needed for items that aren't pushable/hittable until first picked up (an unpicked coconut on a tree, berries on a bush, something freshly spawned from opened luggage); their collider is disabled until then, so no physics raycast (not even enable-hit-assist's) can ever land on them.");
 
             ItemPingRayAssistRadiusMeters = config.Bind(
                 "Item-Ping-Detection", "ray-assist-radius-meters", 0.6f,
                 new ConfigDescription(
-                    "Only used when enable-ray-assist is on. How far off your exact aim " +
-                    "line an item/luggage can be and still count as pinged.",
+                    "Only used when enable-ray-assist is on. How far off your exact aim line an item/luggage can be and still count as pinged.",
                     new AcceptableValueRange<float>(0f, 2f)));
 
-            // ---- Compass.
+            // Compass.
             EnableCompass = config.Bind(
                 "Compass", "enable-compass", true,
-                "Master switch for the top-of-screen compass tape. Off hides it " +
-                "entirely regardless of any individual mechanic's placement setting.");
+                "Master switch for the top-of-screen compass tape. Off hides it entirely regardless of any individual mechanic's placement setting.");
 
             CompassDisplayMode = config.Bind(
                 "Compass", "display-mode", SenseOfDirection.Compass.CompassDisplayMode.AlwaysOn,
-                "When the compass tape is shown, from least to most restrictive: " +
-                "ALWAYS ON shows it regardless of inventory. CARRIED needs a compass " +
-                "item somewhere in your inventory or stashed in a worn backpack. " +
-                "MAIN INVENTORY only counts ones in your inventory slots. HOLDING " +
-                "ITEM needs a compass item actively equipped in your hand right now. " +
-                "Only regular compasses count here.");
+                "When the compass tape is shown, from least to most restrictive: ALWAYS ON shows it regardless of inventory. CARRIED needs a compass item somewhere in your inventory or stashed in a worn backpack. MAIN INVENTORY only counts ones in your inventory slots. HOLDING ITEM needs a compass item actively equipped in your hand right now. Only regular compasses count here.");
 
-            // A Pirate's Compass is still a compass, so it shows the same tape,
-            // but it's a strictly better one, so which of the two you happen to be
-            // carrying is worth being able to answer separately (e.g. tape only
-            // while a regular compass is in hand, but any time a Pirate's Compass
-            // is merely on you). Evaluated independently of display-mode above and
-            // OR'd with it: whichever compass type satisfies its own condition
-            // shows the tape.
+            // A Pirate's Compass is still a compass, so it shows the same tape, but
+            // it's strictly better, so which of the two you're carrying is worth
+            // checking separately. Evaluated independently of display-mode above and
+            // OR'd with it: whichever compass type satisfies its own condition shows
+            // the tape.
             PirateCompassDisplayMode = config.Bind(
                 "Compass", "pirate-display-mode", SenseOfDirection.Compass.PirateCompassDisplayMode.MatchDisplayMode,
-                "The same levels as display-mode above, but for Pirate's Compasses " +
-                "only. The tape shows whenever either setting's own condition is met. " +
-                "MATCH DISPLAY MODE keeps Pirate's Compasses on whatever display-mode " +
-                "itself is set to. Only about the compass tape: the Pirate's Compass " +
-                "luggage indicator has its own separate luggage-indicator-display-mode.");
+                "The same levels as display-mode above, but for Pirate's Compasses only. The tape shows whenever either setting's own condition is met. MATCH DISPLAY MODE keeps Pirate's Compasses on whatever display-mode itself is set to. Only about the compass tape: the Pirate's Compass luggage indicator has its own separate luggage-indicator-display-mode.");
 
             CompassWidthPixels = config.Bind(
                 "Compass", "width-pixels", 640f,
                 new ConfigDescription(
-                    "Width of the compass tape, in pixels at the 1920-wide reference " +
-                    "resolution (scales with actual resolution same as everything " +
-                    "else). Wider shows more of the horizon at once.",
+                    "Width of the compass tape, in pixels at the 1920-wide reference resolution (scales with actual resolution same as everything else). Wider shows more of the horizon at once.",
                     new AcceptableValueRange<float>(300f, 1400f)));
 
             CompassMarkerGapPixels = config.Bind(
                 "Compass", "marker-gap-pixels", 40f,
                 new ConfigDescription(
-                    "Vertical gap between the tick row and the marker baseline below it, " +
-                    "on top of a small fixed minimum. Raise this for more breathing room " +
-                    "(e.g. after turning on show-names).",
+                    "Vertical gap between the tick row and the marker baseline below it, on top of a small fixed minimum. Raise this for more breathing room (e.g. after turning on show-names).",
                     new AcceptableValueRange<float>(40f, 200f)));
 
             CompassVerticalOffsetPixels = config.Bind(
@@ -725,18 +551,13 @@ namespace SenseOfDirection
             CompassHorizontalOffsetPixels = config.Bind(
                 "Compass", "horizontal-offset-pixels", 0f,
                 new ConfigDescription(
-                    "Horizontal offset from top-center. 0 keeps it centered; " +
-                    "positive shifts right, negative shifts left (e.g. to dodge " +
-                    "another HUD mod's own top-of-screen element).",
+                    "Horizontal offset from top-center. 0 keeps it centered; positive shifts right, negative shifts left (e.g. to dodge another HUD mod's own top-of-screen element).",
                     new AcceptableValueRange<float>(-800f, 800f)));
 
             CompassFovDegrees = config.Bind(
                 "Compass", "fov-degrees", 150f,
                 new ConfigDescription(
-                    "How much of the horizon (in degrees) is visible on the tape at " +
-                    "once before a heading/marker slides off the edge. Lower feels " +
-                    "closer to your actual field of view; higher gives more lead time " +
-                    "for things approaching from the side.",
+                    "How much of the horizon (in degrees) is visible on the tape at once before a heading/marker slides off the edge. Lower feels closer to your actual field of view; higher gives more lead time for things approaching from the side.",
                     new AcceptableValueRange<float>(60f, 180f)));
 
             CompassIconSizePixels = config.Bind(
@@ -748,22 +569,16 @@ namespace SenseOfDirection
             CompassElevationThresholdMeters = config.Bind(
                 "Compass", "elevation-threshold-meters", 3f,
                 new ConfigDescription(
-                    "A marker only gets an up/down elevation arrow once its target " +
-                    "is at least this many meters above/below you, which avoids a " +
-                    "flickering arrow for things that are roughly level with you.",
+                    "A marker only gets an up/down elevation arrow once its target is at least this many meters above/below you, which avoids a flickering arrow for things that are roughly level with you.",
                     new AcceptableValueRange<float>(0.5f, 30f)));
 
             CompassShowDegreeNumbers = config.Bind(
                 "Compass", "show-degree-numbers", false,
-                "Show a numeric heading (e.g. \"105\") at every non-cardinal tick " +
-                "instead of leaving it as a plain unlabeled line. N/E/S/W are always " +
-                "lettered either way.");
+                "Show a numeric heading (e.g. \"105\") at every non-cardinal tick instead of leaving it as a plain unlabeled line. N/E/S/W are always lettered either way.");
 
             CompassShowNames = config.Bind(
                 "Compass", "show-names", false,
-                "Show a name label above each compass marker that has one (players, " +
-                "item/creature pings, the campfire). Distances still show independently " +
-                "of this setting.");
+                "Show a name label above each compass marker that has one (players, item/creature pings, the campfire). Distances still show independently of this setting.");
 
             CompassShowDistances = config.Bind(
                 "Compass", "show-distances", true,
@@ -771,70 +586,47 @@ namespace SenseOfDirection
 
             CompassLineColor = config.Bind(
                 "Compass", "line-color", SenseOfDirection.Compass.CompassLineColor.White,
-                "Base color of the compass tape's heading ticks/labels and baseline " +
-                "stripe (true north keeps its own dark red accent regardless).");
+                "Base color of the compass tape's heading ticks/labels and baseline stripe (true north keeps its own dark red accent regardless).");
 
             CompassLineThicknessMultiplier = config.Bind(
                 "Compass", "line-thickness-multiplier", 1f,
                 new ConfigDescription(
-                    "Scales the thickness of the compass tape's tick lines (both " +
-                    "cardinal and minor) and its baseline stripe. 1 keeps the " +
-                    "shipped thickness; higher values make the lines bolder.",
+                    "Scales the thickness of the compass tape's tick lines (both cardinal and minor) and its baseline stripe. 1 keeps the shipped thickness; higher values make the lines bolder.",
                     new AcceptableValueRange<float>(0.5f, 3f)));
 
             CompassClampIconsToEdge = config.Bind(
                 "Compass", "clamp-icons-to-edge", false,
-                "Markers that would otherwise not be visible (outside the compass " +
-                "FOV window) are instead clamped to the nearest left/right edge of " +
-                "the tape and shown dimmed, like a mini radar, instead of not " +
-                "appearing at all.");
+                "Markers that would otherwise not be visible (outside the compass FOV window) are instead clamped to the nearest left/right edge of the tape and shown dimmed, like a mini radar, instead of not appearing at all.");
 
             CompassColorPlayerLabels = config.Bind(
                 "Compass", "color-player-labels", false,
-                "Tint a player's name/distance labels on the compass in their own " +
-                "character color instead of plain white, matching how ping/item " +
-                "ping labels are already colored.");
+                "Tint a player's name/distance labels on the compass in their own character color instead of plain white, matching how ping/item ping labels are already colored.");
 
-            // ---- Pirate's Compass: the in-game Pirate's Compass item already
-            // makes display-mode's Holding Item level show the compass tape
-            // while it's held (any CompassPointer-bearing item does), but the
-            // tape itself has no way to represent what that specific compass
-            // actually points at - the nearest unopened luggage. This adds a
-            // real indicator for that.
+            // Pirate's Compass: Holding Item's display-mode already shows the
+            // compass tape while a Pirate's Compass is held, but the tape itself
+            // can't represent what it actually points at - nearest unopened
+            // luggage. This adds a real indicator for that.
             EnablePirateCompassLuggageIndicator = config.Bind(
                 "Pirate-Compass", "enable-pirate-compass-luggage-indicator", true,
-                "With a Pirate's Compass on you, show an indicator with a distance " +
-                "label pointing at the nearest unopened Luggage, the same target its " +
-                "own in-game needle points at. How close to hand the compass has to be " +
-                "is up to luggage-indicator-display-mode below. NOTE: as the host you " +
-                "can increase the chance to get a Pirate's Compass or even another " +
-                "regular Compass from Luggage in this mod's config.");
+                "With a Pirate's Compass on you, show an indicator with a distance label pointing at the nearest unopened Luggage, the same target its own in-game needle points at. How close to hand the compass has to be is up to luggage-indicator-display-mode below. NOTE: as the host you can increase the chance to get a Pirate's Compass or even another regular Compass from Luggage in this mod's config.");
 
-            // Client-sided: only ever changes what the local player's own
-            // client resolves "nearest unopened luggage" to (both this mod's
-            // indicator and the real in-game needle - see
-            // PirateCompass/PirateCompassNeedlePatch.cs), never anything
-            // networked, so this works with no other client needing the mod.
+            // Client-sided: only changes what "nearest unopened luggage" resolves
+            // to locally (this indicator and the real in-game needle, see
+            // PirateCompass/PirateCompassNeedlePatch.cs), never networked - works
+            // without other clients needing the mod.
             PirateCompassClownLuggageOnly = config.Bind(
                 "Pirate-Compass", "clown-luggage-only", false,
-                "Make the Pirate's Compass only ever target unopened Clown Luggage, " +
-                "ignoring every other kind of Luggage.");
+                "Make the Pirate's Compass only ever target unopened Clown Luggage, ignoring every other kind of Luggage.");
 
-            // Deliberately its own setting rather than reusing the compass
-            // tape's display-mode pair: the tape and this indicator are
-            // different readouts of different things, so wanting the tape from
-            // a compass merely stashed in a backpack says nothing about wanting
-            // the (much stronger) luggage arrow on the same terms. Defaults to
-            // RequireHolding, which is exactly how this mechanic behaved before
-            // the setting existed.
+            // Its own setting rather than reusing the compass tape's display-mode:
+            // they're different readouts, so wanting the tape from a compass
+            // merely stashed in a backpack says nothing about wanting this
+            // (much stronger) luggage arrow too. Defaults to RequireHolding,
+            // matching how this mechanic behaved before the setting existed.
             PirateCompassLuggageDisplayMode = config.Bind(
                 "Pirate-Compass", "luggage-indicator-display-mode",
                 SenseOfDirection.PirateCompass.PirateCompassLuggageDisplayMode.RequireHolding,
-                "How close to hand a Pirate's Compass has to be for its luggage " +
-                "indicator to show, from least to most restrictive: CARRIED needs one " +
-                "somewhere in your inventory or stashed in a worn backpack. MAIN " +
-                "INVENTORY only counts ones in your inventory slots. HOLDING ITEM " +
-                "needs one actively equipped in your hand right now.");
+                "How close to hand a Pirate's Compass has to be for its luggage indicator to show, from least to most restrictive: CARRIED needs one somewhere in your inventory or stashed in a worn backpack. MAIN INVENTORY only counts ones in your inventory slots. HOLDING ITEM needs one actively equipped in your hand right now.");
 
             ShowPirateCompassLuggageName = config.Bind(
                 "Pirate-Compass", "show-luggage-name", true,
@@ -846,101 +638,53 @@ namespace SenseOfDirection
 
             EnablePirateCompassLuggageOffScreenIndicator = config.Bind(
                 "Pirate-Compass", "enable-off-screen-indicator", true,
-                "Show an off-screen arrow pointing toward the nearest unopened luggage " +
-                "while it isn't in view. Off shows the indicator only once it's " +
-                "actually on screen.");
+                "Show an off-screen arrow pointing toward the nearest unopened luggage while it isn't in view. Off shows the indicator only once it's actually on screen.");
 
-            // ---- Compass Items: extra, purely additive compass loot - one
-            // source at campfires, one inside opened luggage. The only
-            // host-authoritative-by-nature section in this mod - item spawning
-            // is the host's job, so only the host's values here ever apply (a
-            // client's own settings are simply never consulted, unlike
-            // Ghost-Free-Cam's, which had to be synced explicitly).
-            // Nothing here touches the game's own loot table or its odds: the
-            // luggage roll only ever happens for a luggage that opened with a
-            // *free* spawn spot, and a hit only ever adds an item into that free
-            // spot, never replaces what vanilla (or another mod) already put
-            // there.
+            // Compass Items: extra, purely additive compass loot - one source at
+            // campfires, one inside opened luggage. Host-authoritative since item
+            // spawning is the host's job, so only the host's values here ever
+            // apply (a client's own settings are simply never consulted, unlike
+            // Ghost-Free-Cam's, which had to be synced explicitly). Doesn't touch
+            // vanilla's own loot table or odds: a roll only ever happens for a
+            // luggage that opened with a free spawn spot, and only fills that free
+            // spot, never replaces what vanilla (or another mod) already put there.
             EnableCompassAtCampfires = config.Bind(
                 "Compass-Items", "enable-compass-at-campfires", true,
-                "Host-only: whenever a campfire is lit, place an extra regular " +
-                "Compass on the ground next to that campfire's backpack. Vanilla " +
-                "only ever gives out one compass per run (right at the start), " +
-                "which leaves everyone else in a co-op run without one - this is " +
-                "the top-up. See only-when-needed below, which limits when this " +
-                "actually happens. Only the host's value matters: items are " +
-                "spawned by the host alone.");
+                "Host-only: whenever a campfire is lit, place an extra regular Compass on the ground next to that campfire's backpack. Vanilla only ever gives out one compass per run (right at the start), which leaves everyone else in a co-op run without one - this is the top-up. See only-when-needed below, which limits when this actually happens. Only the host's value matters: items are spawned by the host alone.");
 
             CampfireCompassOnlyWhenNeeded = config.Bind(
                 "Compass-Items", "campfire-compass-only-when-needed", true,
-                "Only place the campfire compass above when it's actually of use: " +
-                "in a co-op run (solo, the run's own starting compass is already " +
-                "yours) whose host doesn't have Compass/display-mode set to " +
-                "AlwaysOn (on AlwaysOn the compass tape shows without anyone " +
-                "having to hold a compass item at all). Turn this off to have one " +
-                "spawn at every campfire unconditionally. Does nothing if " +
-                "enable-compass-at-campfires above is off.");
+                "Only place the campfire compass above when it's actually of use: in a co-op run (solo, the run's own starting compass is already yours) whose host doesn't have Compass/display-mode set to AlwaysOn (on AlwaysOn the compass tape shows without anyone having to hold a compass item at all). Turn this off to have one spawn at every campfire unconditionally. Does nothing if enable-compass-at-campfires above is off.");
 
             EnableCompassFromLuggage = config.Bind(
                 "Compass-Items", "enable-compass-from-empty-luggage", false,
-                "Host-only: gives opened Luggage a chance (see add-compass-chance-" +
-                "percent below) to also contain a regular Compass. This never replaces or " +
-                "removes anything the game itself rolled - it only fills a slot the " +
-                "game left empty - and it never changes the game's own spawn odds. " +
-                "A small Luggage holds 1-2 items and a big one 2-3, so roughly two " +
-                "opens in three leave a slot free; that free slot is what a compass " +
-                "can go into. Explorer's Luggage always fills every slot and Ancient " +
-                "(cursed) Luggage is left alone entirely, so neither is affected. " +
-                "Only the host's value matters: luggage contents are spawned by " +
-                "the host alone.");
+                "Host-only: gives opened Luggage a chance (see add-compass-chance-percent below) to also contain a regular Compass. This never replaces or removes anything the game itself rolled - it only fills a slot the game left empty - and it never changes the game's own spawn odds. A small Luggage holds 1-2 items and a big one 2-3, so roughly two opens in three leave a slot free; that free slot is what a compass can go into. Explorer's Luggage always fills every slot and Ancient (cursed) Luggage is left alone entirely, so neither is affected. Only the host's value matters: luggage contents are spawned by the host alone.");
 
             CompassFromLuggageChancePercent = config.Bind(
                 "Compass-Items", "add-compass-chance-percent", 3f,
                 new ConfigDescription(
-                    "Chance, in percent, that opening a Luggage gets you a regular " +
-                    "Compass. This is the real chance per luggage opened, not per " +
-                    "luggage that happened to have a free slot - 3 means 3 luggage " +
-                    "in 100. The cap is the odds of a free slot existing at all " +
-                    "(about 66%, i.e. two opens in three), so setting it that high " +
-                    "means every luggage that can take a compass gets one. Only " +
-                    "rolled when enable-compass-from-empty-luggage is on, and only after " +
-                    "the Pirate's Compass roll below missed (if that one is enabled " +
-                    "too - the two shares don't eat into each other, but together " +
-                    "they can't exceed the cap).",
+                    "Chance, in percent, that opening a Luggage gets you a regular Compass. This is the real chance per luggage opened, not per luggage that happened to have a free slot - 3 means 3 luggage in 100. The cap is the odds of a free slot existing at all (about 66%, i.e. two opens in three), so setting it that high means every luggage that can take a compass gets one. Only rolled when enable-compass-from-empty-luggage is on, and only after the Pirate's Compass roll below missed (if that one is enabled too - the two shares don't eat into each other, but together they can't exceed the cap).",
                     new AcceptableValueRange<float>(0.1f, 66f)));
 
             EnablePirateCompassFromLuggage = config.Bind(
                 "Compass-Items", "enable-pirate-compass-from-empty-luggage", false,
-                "Host-only: same as enable-compass-from-empty-luggage above, but for the " +
-                "Pirate's Compass (the one whose needle points at the nearest " +
-                "unopened luggage). Rolled first when both are enabled - a hit here " +
-                "spawns a Pirate's Compass and skips the regular Compass roll " +
-                "entirely, so at most one extra compass is ever added per luggage.");
+                "Host-only: same as enable-compass-from-empty-luggage above, but for the Pirate's Compass (the one whose needle points at the nearest unopened luggage). Rolled first when both are enabled - a hit here spawns a Pirate's Compass and skips the regular Compass roll entirely, so at most one extra compass is ever added per luggage.");
 
             PirateCompassFromLuggageChancePercent = config.Bind(
                 "Compass-Items", "add-pirate-compass-chance-percent", 0.5f,
                 new ConfigDescription(
-                    "Chance, in percent, that opening a Luggage gets you a Pirate's " +
-                    "Compass. Same scale as add-compass-chance-percent above: the real " +
-                    "chance per luggage opened, capped by the roughly 66% odds of a " +
-                    "free slot existing. Kept low by default - it's a much stronger " +
-                    "find than a regular Compass. Only rolled when enable-pirate-" +
-                    "compass-from-empty-luggage is on.",
+                    "Chance, in percent, that opening a Luggage gets you a Pirate's Compass. Same scale as add-compass-chance-percent above: the real chance per luggage opened, capped by the roughly 66% odds of a free slot existing. Kept low by default - it's a much stronger find than a regular Compass. Only rolled when enable-pirate-compass-from-empty-luggage is on.",
                     new AcceptableValueRange<float>(0.1f, 66f)));
 
-            // ---- Luggage Ping: inspired by the "Compass UI" mod's own suitcase-
-            // ping key, for players coming from that mod. Press the key to
-            // highlight every unopened luggage within radius-meters, using the
-            // same item-ping highlight (name/distance label, off-screen arrow,
-            // compass marker) item-ping-placement already routes - purely local,
-            // never sent to other players, unlike a real ping.
+            // Luggage Ping: inspired by the "Compass UI" mod's own suitcase-ping
+            // key, for players coming from that mod. Highlights every unopened
+            // luggage within radius-meters using the same item-ping highlight
+            // (name/distance label, off-screen arrow, compass marker) that
+            // item-ping-placement already routes - purely local, never sent to
+            // other players, unlike a real ping.
             EnableLuggagePing = config.Bind(
                 "Luggage-Ping", "enable-luggage-ping", true,
-                "Master switch: press LUGGAGE PING KEY below to highlight every " +
-                "unopened luggage within the set radius (100m by default) of you, " +
-                "visible only to yourself. Comes with a cooldown by default (15s) " +
-                "which is able to be changed through the mod's config, the same " +
-                "goes for the radius.");
+                "Master switch: press LUGGAGE PING KEY below to highlight every unopened luggage within the set radius (100m by default) of you, visible only to yourself. Comes with a cooldown by default (15s) which is able to be changed through the mod's config, the same goes for the radius.");
 
             LuggagePingKey = config.Bind(
                 "Luggage-Ping", "key", KeyCode.T,
@@ -949,145 +693,91 @@ namespace SenseOfDirection
             LuggagePingRadiusMeters = config.Bind(
                 "Luggage-Ping", "radius-meters", 100f,
                 new ConfigDescription(
-                    "How far around you luggage gets highlighted. Capped well below " +
-                    "the level's own size so this can't turn into a full map-wide " +
-                    "luggage ESP.",
+                    "How far around you luggage gets highlighted. Capped well below the level's own size so this can't turn into a full map-wide luggage ESP.",
                     new AcceptableValueRange<float>(10f, 250f)));
 
             LuggagePingDurationSeconds = config.Bind(
                 "Luggage-Ping", "duration-seconds", 6f,
                 new ConfigDescription(
-                    "How long each highlighted luggage stays visible before fading " +
-                    "out (ends early regardless if it's opened first).",
+                    "How long each highlighted luggage stays visible before fading out (ends early regardless if it's opened first).",
                     new AcceptableValueRange<float>(2f, 20f)));
 
             LuggagePingCooldownSeconds = config.Bind(
                 "Luggage-Ping", "cooldown-seconds", 15f,
                 new ConfigDescription(
-                    "How long you have to wait between luggage pings. Trying to " +
-                    "ping again while this is still running shows a brief on-screen " +
-                    "reminder instead of doing nothing silently. 0 disables the " +
-                    "cooldown entirely.",
+                    "How long you have to wait between luggage pings. Trying to ping again while this is still running shows a brief on-screen reminder instead of doing nothing silently. 0 disables the cooldown entirely.",
                     new AcceptableValueRange<float>(0f, 120f)));
 
-            // ---- Ghost free-cam. The three host-controlled settings are bound
-            // first, ahead of the purely-local ones, so the section reads
-            // top-down as "what the room decides" then "what you decide".
+            // Ghost free-cam. The three host-controlled settings are bound first,
+            // ahead of the purely-local ones, so the section reads top-down as
+            // "what the room decides" then "what you decide".
             EnableGhostFreeCam = config.Bind(
                 "Ghost-Free-Cam", "enable-ghost-free-cam", true,
-                "Lets dead players fly a free camera instead of being stuck in " +
-                "vanilla's third-person spectate view. Unlike every other setting in " +
-                "this mod, this one and the two below it are host-controlled: only " +
-                "the room host's own value for these three settings ever takes " +
-                "effect for every player, the same way enable-ghost-ping requires " +
-                "both sides to have this mod installed. That's because letting each " +
-                "client fly unlimited distances would be an unfair, effectively " +
-                "ESP-like advantage other players in the same run never agreed to. " +
-                "If the host doesn't have this mod installed, ghost free-cam simply " +
-                "doesn't work for anyone, same as ghost pinging. Your own value here " +
-                "still matters if you end up being the host.");
+                "Lets dead players fly a free camera instead of being stuck in vanilla's third-person spectate view. Unlike every other setting in this mod, this one and the two below it are host-controlled: only the room host's own value for these three settings ever takes effect for every player, the same way enable-ghost-ping requires both sides to have this mod installed. That's because letting each client fly unlimited distances would be an unfair, effectively ESP-like advantage other players in the same run never agreed to. If the host doesn't have this mod installed, ghost free-cam simply doesn't work for anyone, same as ghost pinging. Your own value here still matters if you end up being the host.");
 
             GhostFreeCamMaxDistanceMeters = config.Bind(
                 "Ghost-Free-Cam", "max-distance-meters", 50f,
                 new ConfigDescription(
-                    "Host-controlled, see enable-ghost-free-cam. How far a ghost's " +
-                    "free camera can scout from whichever living player they're " +
-                    "currently spectating before being pulled back, like a chain of " +
-                    "this length. Ignored entirely when unlimited-range is on.",
+                    "Host-controlled, see enable-ghost-free-cam. How far a ghost's free camera can scout from whichever living player they're currently spectating before being pulled back, like a chain of this length. Ignored entirely when unlimited-range is on.",
                     new AcceptableValueRange<float>(10f, 500f)));
 
             GhostFreeCamUnlimitedRange = config.Bind(
                 "Ghost-Free-Cam", "unlimited-range", false,
-                "Host-controlled, see enable-ghost-free-cam. Removes max-distance-" +
-                "meters' leash entirely, letting ghosts free-cam anywhere on the " +
-                "map. Although note that the leash is what keeps this mechanic from " +
-                "being overpowered.");
+                "Host-controlled, see enable-ghost-free-cam. Removes max-distance-meters' leash entirely, letting ghosts free-cam anywhere on the map. Note that the leash is what keeps this mechanic from being overpowered.");
 
             GhostFreeCamToggleKey = config.Bind(
                 "Ghost-Free-Cam", "toggle-key", KeyCode.B,
-                "Purely local. Key that toggles free-fly camera mode on/off while " +
-                "you're dead and spectating; each player binds their own. Only does " +
-                "anything while enable-ghost-free-cam ends up effectively on (see that " +
-                "setting for how that's decided).");
+                "Purely local. Key that toggles free-fly camera mode on/off while you're dead and spectating; each player binds their own. Only does anything while enable-ghost-free-cam ends up effectively on (see that setting for how that's decided).");
 
             GhostFreeCamMoveSpeedMetersPerSecond = config.Bind(
                 "Ghost-Free-Cam", "move-speed-meters-per-second", 15f,
                 new ConfigDescription(
-                    "Purely local. How fast the free camera flies. PEAK's own built-" +
-                    "in dev free-camera controller (reused for the first pass of this " +
-                    "feature) turned out to feel unusably slow in practice, so this " +
-                    "mod drives its own movement directly in real-world meters/second " +
-                    "instead of relying on that controller's tuning. Movement, sprint " +
-                    "and up/down keys all follow your own PEAK control bindings - " +
-                    "rebind those in the game's own Controls settings, not here.",
+                    "Purely local. How fast the free camera flies. PEAK's own built-in dev free-camera controller (reused for the first pass of this feature) turned out to feel unusably slow in practice, so this mod drives its own movement directly in real-world meters/second instead of relying on that controller's tuning. Movement, sprint and up/down keys all follow your own PEAK control bindings - rebind those in the game's own Controls settings, not here.",
                     new AcceptableValueRange<float>(1f, 100f)));
 
             GhostFreeCamSprintMultiplier = config.Bind(
                 "Ghost-Free-Cam", "sprint-multiplier", 3f,
                 new ConfigDescription(
-                    "Purely local. Speed multiplier while holding your own sprint key " +
-                    "(whatever you've bound it to in PEAK's own Controls settings).",
+                    "Purely local. Speed multiplier while holding your own sprint key (whatever you've bound it to in PEAK's own Controls settings).",
                     new AcceptableValueRange<float>(1f, 10f)));
 
             GhostFreeCamShowCrosshair = config.Bind(
                 "Ghost-Free-Cam", "show-crosshair", true,
-                "Purely local. Shows a small reticle at the center of the screen " +
-                "while free-cam is engaged, so you have something to aim regular " +
-                "pings at (spectate mode otherwise has no crosshair at all).");
+                "Purely local. Shows a small reticle at the center of the screen while free-cam is engaged, so you have something to aim regular pings at (spectate mode otherwise has no crosshair at all).");
 
             GhostFreeCamShowKeyHint = config.Bind(
                 "Ghost-Free-Cam", "show-key-hint", true,
-                "Purely local. Shows a key badge + short label near vanilla's own " +
-                "\"you are a ghost\" panel reminding you which key toggles free-cam " +
-                "(and whether it'll engage or disengage), since vanilla's UI never " +
-                "mentions this mod's keybind at all.");
+                "Purely local. Shows a key badge + short label near vanilla's own \"you are a ghost\" panel reminding you which key toggles free-cam (and whether it'll engage or disengage), since vanilla's UI never mentions this mod's keybind at all.");
 
             GhostFreeCamAscendKey = config.Bind(
                 "Ghost-Free-Cam", "ascend-key", KeyCode.E,
-                "Purely local. Extra key that flies the free camera straight up, on " +
-                "top of your own jump key (which also works). Ignored while merely " +
-                "unconscious (not yet dead), same as descend-key below, since E/Q " +
-                "are vanilla's own keys to speed up dying right next to each other. " +
-                "Set to None to disable.");
+                "Purely local. Extra key that flies the free camera straight up, on top of your own jump key (which also works). Ignored while merely unconscious (not yet dead), same as descend-key below, since E/Q are vanilla's own keys to speed up dying right next to each other. Set to None to disable.");
 
             GhostFreeCamDescendKey = config.Bind(
                 "Ghost-Free-Cam", "descend-key", KeyCode.Q,
-                "Purely local. Extra key that flies the free camera straight down, " +
-                "on top of your own crouch key (which also works). Ignored while " +
-                "merely unconscious (not yet dead), see ascend-key above. Set to " +
-                "None to disable.");
+                "Purely local. Extra key that flies the free camera straight down, on top of your own crouch key (which also works). Ignored while merely unconscious (not yet dead), see ascend-key above. Set to None to disable.");
 
             HideAllGhosts = config.Bind(
                 "Ghost-Free-Cam", "hide-all-ghosts", false,
-                "Purely local. Hides every dead player's ghost body from your own " +
-                "view entirely. Doesn't affect anyone else, and doesn't affect your " +
-                "own ability to spectate/free-cam while dead yourself.");
+                "Purely local. Hides every dead player's ghost body from your own view entirely. Doesn't affect anyone else, and doesn't affect your own ability to spectate/free-cam while dead yourself.");
 
-            // ---- Debug, bound last so it's the final tab: dev/QA settings
-            // belong behind everything user-facing, not ahead of it.
+            // Debug, bound last so it's the final tab - dev/QA settings belong
+            // behind everything user-facing, not ahead of it.
             EnableDebugLogging = config.Bind(
                 "Debug", "enable-debug-logging", false,
                 "Log extra diagnostic detail to the BepInEx console/log file.");
 
             EnableIndicatorTestHarness = config.Bind(
                 "Debug", "enable-indicator-test-harness", false,
-                "Spawn a handful of fixed dummy world points around the camera to " +
-                "visually verify the edge-of-screen indicator framework. Dev/QA " +
-                "tool only; leave off for normal play.");
+                "Spawn a handful of fixed dummy world points around the camera to visually verify the edge-of-screen indicator framework. Dev/QA tool only; leave off for normal play.");
 
             EnableZombieDebugEsp = config.Bind(
                 "Debug", "enable-zombie-debug-esp", false,
-                "Dev/QA aid: always-visible edge-of-screen label for every " +
-                "naturally-spawned zombie in the level, through walls, to speed up " +
-                "testing zombie-ping detection without hunting a whole level for a " +
-                "rare spawn. Not a real feature; leave off for normal play.");
+                "Dev/QA aid: always-visible edge-of-screen label for every naturally-spawned zombie in the level, through walls, to speed up testing zombie-ping detection without hunting a whole level for a rare spawn. Not a real feature; leave off for normal play.");
 
             EnableGhostFreeCamKeyHintPreview = config.Bind(
                 "Debug", "enable-ghost-free-cam-key-hint-preview", false,
-                "Dev/QA aid: always shows the ghost free-cam key hint badge/label " +
-                "(toggle-key still flips it between its 'go into'/'leave' text), " +
-                "even while alive, to check its look without dying first. Not a " +
-                "real feature; leave off for normal play.");
+                "Dev/QA aid: always shows the ghost free-cam key hint badge/label (toggle-key still flips it between its 'go into'/'leave' text), even while alive, to check its look without dying first. Not a real feature; leave off for normal play.");
         }
     }
 }
