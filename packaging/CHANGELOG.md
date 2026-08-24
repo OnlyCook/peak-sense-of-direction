@@ -1,6 +1,8 @@
 ## 1.1.3
 
 - Added new `Player-Labels/enable-offscreen-indicator` setting (also in Quick Setup panel; enabled by default) which controls whether player labels should be clamped to the screen's edges when they are out of view.
+- Now labels of dead players are hidden when switching biomes to not bloat up the UI.
+- Fixed player labels being kept after winning the game.
 
 ## 1.1.2
 

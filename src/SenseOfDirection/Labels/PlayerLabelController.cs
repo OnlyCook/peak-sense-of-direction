@@ -3,25 +3,15 @@ using SenseOfDirection.Common;
 using SenseOfDirection.Compass;
 using SenseOfDirection.Indicators;
 using UnityEngine;
+using Zorro.Core;
 
 namespace SenseOfDirection.Labels
 {
-    /// <summary>
-    /// Owns one <see cref="PlayerLabel"/> per non-local, non-bot <c>Character</c>
-    /// currently in the scene, registering/unregistering them as
-    /// <c>Character.Awake</c>/<c>OnDestroy</c> fire (see
-    /// <see cref="PlayerLabelPatches"/>), and drives the Toggle/AlwaysOn/Hold
-    /// display-state key logic plus per-frame content refresh: distance gate,
-    /// dead/unconscious/host icons, color, and the fade crossfade with
-    /// vanilla's own name label (RESEARCH.md Q1's `IsLookedAt` distance/cone
-    /// formula, reimplemented here reading each character's own live
-    /// `IsLookedAt` instance directly - our label fades in exactly as
-    /// vanilla's fades out).
-    ///
-    /// Positioning itself is <see cref="IndicatorManager"/>'s job - each label
-    /// registers an <see cref="IndicatorAnchor"/> there and this class never
-    /// touches screen-space math directly.
-    /// </summary>
+    // Owns one PlayerLabel per non-local, non-bot Character in the scene (registered/
+    // unregistered via PlayerLabelPatches), and drives the Toggle/AlwaysOn/Hold display
+    // logic plus per-frame refresh (distance gate, dead/unconscious/host icons, color,
+    // and the fade crossfade with vanilla's own name label - see RESEARCH.md Q1).
+    // Positioning is IndicatorManager's job; this class never touches screen-space math.
     public class PlayerLabelController : MonoBehaviour
     {
         private static PlayerLabelController _instance;
@@ -43,11 +33,10 @@ namespace SenseOfDirection.Labels
         private class Entry
         {
             public PlayerLabel Label;
-            public IsLookedAt LookedAt; // may be null (e.g. local player edge case); Head is the fallback anchor.
+            public IsLookedAt LookedAt; // may be null; Head is the fallback anchor
 
-            // Set by CullDistantDeadLabels when this player died far from a
-            // campfire that just got lit - hides the label/compass marker until
-            // UpdateImpl sees them revived and clears it again. Dead only, never unconscious.
+            // set by CullDistantDeadLabels when this player died far from a campfire that
+            // just got lit; UpdateImpl un-culls once they're revived. Dead only, never unconscious.
             public bool Culled;
         }
 
@@ -58,15 +47,10 @@ namespace SenseOfDirection.Labels
         private float _holdReleaseUntil;
         private bool _labelsVisible;
 
-        /// <summary>
-        /// Backs <c>show-skeleton</c>. Built lazily on first use rather than in
-        /// this controller's own setup, so the overlay canvas is only touched at
-        /// all once someone actually turns the feature on (it's off by default).
-        /// Driven from <see cref="LateUpdate"/>, not <see cref="Update"/> like
-        /// the labels: it projects bone positions directly against the camera
-        /// with no smoothing to hide a frame of lag, so it has to run after the
-        /// camera has finished moving for the frame.
-        /// </summary>
+        // Backs show-skeleton. Built lazily on first use so the overlay canvas is only
+        // touched once someone turns the feature on. Driven from LateUpdate, not Update
+        // like the labels, since it projects bone positions with no lag-hiding smoothing
+        // and needs the camera to have already finished moving for the frame.
         private PlayerSkeletonEsp _skeletonEsp;
 
         public void RegisterCharacter(Character character)
@@ -84,11 +68,8 @@ namespace SenseOfDirection.Labels
 
             Vector3 AnchorPosition()
             {
-                // A dead character's own bodypart transforms (including
-                // whatever playerNamePos is parented under) become an
-                // unreliable moving/despawning target some time after death
-                // - freeze the label at LastLivingPosition instead of
-                // following it there, same fix as CharacterPositions.
+                // a dead character's bodypart transforms become an unreliable moving/
+                // despawning target - freeze at LastLivingPosition instead, same as CharacterPositions
                 if (character.data.dead)
                 {
                     return character.LastLivingPosition;
@@ -114,11 +95,8 @@ namespace SenseOfDirection.Labels
             label.Anchor.GetCompassLabel = () => character.characterName;
             label.Anchor.GetIsDead = () => character.data.dead;
             label.Anchor.GetIsUnconscious = () => character.data.passedOut || character.data.fullyPassedOut;
-            // Compass marker follows the same toggle-key/AlwaysOn/Hold visibility
-            // and max-distance gate as the off-screen label itself (_labelsVisible,
-            // computed once per frame in Update) - only the vanilla-label crossfade
-            // (IsNativeLabelVisible) doesn't apply here, since there's no vanilla
-            // compass to hand off to/from.
+            // same toggle-key/AlwaysOn/Hold + max-distance gate as the label; no vanilla-label
+            // crossfade here since there's no vanilla compass to hand off to/from
             label.Anchor.IsCompassVisible = () => _labelsVisible && !entry.Culled
                 && Vector3.Distance(CharacterPositions.LocalViewpoint(), CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters <= Plugin.Instance.Cfg.PlayerLabelMaxDistanceMeters.Value;
 
@@ -142,18 +120,9 @@ namespace SenseOfDirection.Labels
             }
         }
 
-        /// <summary>
-        /// Called by <see cref="Common.SceneResetCoordinator"/> on every scene
-        /// load - unconditionally clears every currently tracked label,
-        /// whether or not its <c>Character</c> ever fired
-        /// <see cref="UnregisterCharacter"/> on its own (see that class's own
-        /// doc comment for why one can slip through). Fades every label out
-        /// over <see cref="ResetFadeDurationSeconds"/> first rather than
-        /// destroying them this same frame, so one still visible right as the
-        /// new scene loads eases away instead of popping off. Safe to call
-        /// with nothing tracked (e.g. a scene load with no stale labels at
-        /// all) - it's then a no-op.
-        /// </summary>
+        // Called by SceneResetCoordinator on every scene load - unconditionally clears every
+        // tracked label (whether or not UnregisterCharacter fired on its own), fading them
+        // out first so one still visible right as the scene loads eases away instead of popping.
         public void ResetAll()
         {
             if (_entries.Count == 0)
@@ -163,16 +132,11 @@ namespace SenseOfDirection.Labels
             StartCoroutine(FadeOutAndClearAll(new List<Character>(_entries.Keys)));
         }
 
-        /// <summary>Beyond this range from a just-lit campfire, a dead player's body is unreachable - hide their label.</summary>
+        // beyond this range from a just-lit campfire, a dead player's body is unreachable
         private const float DeadLabelCampfireCullRadiusMeters = 100f;
 
-        /// <summary>
-        /// Called by <see cref="DeadLabelCullPatches"/> when a campfire's lighting
-        /// advances the run to the next segment - hides (doesn't destroy) any dead
-        /// player's label further than <see cref="DeadLabelCampfireCullRadiusMeters"/>
-        /// away, since their body is now unreachable. <see cref="UpdateImpl"/>
-        /// un-hides it again on revive.
-        /// </summary>
+        // called by DeadLabelCullPatches when a campfire's lighting advances the run - hides
+        // (doesn't destroy) dead players' labels too far away to reach; UpdateImpl un-hides on revive
         public void CullDistantDeadLabels(Vector3 campfireWorldPosition)
         {
             foreach (var pair in _entries)
@@ -205,9 +169,8 @@ namespace SenseOfDirection.Labels
                 }
             }
 
-            // Unscaled, matching PlayerLabel.Refresh's own fade - a scene load
-            // can happen with the game paused/frozen, and a scaled delta would
-            // be zero there, turning this into an instant pop instead of a fade.
+            // unscaled: a scene load can happen while paused, and a scaled delta would be
+            // zero there, turning this into an instant pop instead of a fade
             float elapsed = 0f;
             while (elapsed < ResetFadeDurationSeconds)
             {
@@ -215,10 +178,8 @@ namespace SenseOfDirection.Labels
                 float alpha = 1f - Mathf.Clamp01(elapsed / ResetFadeDurationSeconds);
                 foreach (PlayerLabel label in labels)
                 {
-                    // Min, not a direct set: a label already more faded than
-                    // this (e.g. it was fading out on its own right as the
-                    // reset began) should keep heading to 0 on its own curve,
-                    // not visibly pop back up towards this one's.
+                    // Min, not a direct set: a label already fading out on its own should
+                    // keep heading to 0 rather than pop back up towards this curve
                     label.Alpha = Mathf.Min(label.Alpha, alpha);
                 }
                 yield return null;
@@ -274,9 +235,9 @@ namespace SenseOfDirection.Labels
                 {
                     if (data.dead)
                     {
-                        continue; // still culled, nothing to refresh
+                        continue;
                     }
-                    entry.Culled = false; // revived - falls through to the normal refresh below
+                    entry.Culled = false;
                 }
 
                 float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters;
@@ -297,11 +258,8 @@ namespace SenseOfDirection.Labels
             }
         }
 
-        /// <summary>
-        /// Draws the through-walls skeletons (see <see cref="_skeletonEsp"/>).
-        /// Gated on exactly the same <see cref="_labelsVisible"/> state and
-        /// max-distance cap as the labels, so one key press flashes both.
-        /// </summary>
+        // draws the through-walls skeletons, gated on the same _labelsVisible state and
+        // max-distance cap as the labels so one key press flashes both
         private static readonly Common.Safe.Context _ctxLateUpdateImpl =
             new Common.Safe.Context("PlayerLabelController.LateUpdate (skeleton ESP)", failureLimit: 300);
 
@@ -318,8 +276,6 @@ namespace SenseOfDirection.Labels
 
             if (!cfg.ShowPlayerSkeleton.Value || !_labelsVisible || Character.localCharacter == null)
             {
-                // Only ever built once the feature is switched on, so there may
-                // be nothing to clear.
                 _skeletonEsp?.Clear();
                 return;
             }
@@ -349,12 +305,9 @@ namespace SenseOfDirection.Labels
                 {
                     continue;
                 }
-                // A dead character's own bodypart transforms stop being a
-                // trustworthy target some time after death (the same reason
-                // RegisterCharacter freezes its label at LastLivingPosition
-                // instead of following them) - there's no equivalent "last
-                // known pose" to fall back on for a whole rig, so dead players
-                // just don't get a skeleton.
+                // same reason RegisterCharacter freezes at LastLivingPosition - a dead
+                // character's bodyparts aren't trustworthy, and there's no "last known
+                // pose" fallback for a whole rig, so dead players just don't get a skeleton
                 if (character.data.dead)
                 {
                     continue;
@@ -388,9 +341,7 @@ namespace SenseOfDirection.Labels
             {
                 return false;
             }
-            // A dead player's native label doesn't exist at all - always show
-            // ours (still gated above by max distance + segment-active, the
-            // latter via the anchor's hard IsActive check).
+            // a dead player has no native label at all - always show ours
             if (isDead)
             {
                 return true;
@@ -398,20 +349,10 @@ namespace SenseOfDirection.Labels
             return !IsNativeLabelVisible(lookedAt, cfg);
         }
 
-        /// <summary>
-        /// Reimplements `IsLookedAt.Update`'s own visibility formula
-        /// (RESEARCH.md Q1) so our label can fade in at exactly the point
-        /// vanilla's own fades out. Reads the thresholds (and the check
-        /// position) directly off the character's own live `IsLookedAt`
-        /// instance rather than a hardcoded/duplicated copy, since the
-        /// decompiled C# field defaults aren't guaranteed to match whatever
-        /// values are actually serialized onto the live prefab - this way
-        /// Sense of Direction's crossfade always matches vanilla exactly,
-        /// even if that ever changes. Skipped entirely (treated as "never
-        /// visible") when replace-vanilla-labels is on, since there's no
-        /// vanilla label to hand off to/from in that mode, or if no
-        /// `IsLookedAt` was found for this character at all.
-        /// </summary>
+        // reimplements IsLookedAt.Update's own visibility formula (RESEARCH.md Q1) so our
+        // label fades in exactly where vanilla's fades out. Reads thresholds off the
+        // character's live IsLookedAt instance rather than a hardcoded copy, since the
+        // decompiled field defaults aren't guaranteed to match the live prefab.
         private bool IsNativeLabelVisible(IsLookedAt lookedAt, PluginConfig cfg)
         {
             if (cfg.ReplaceVanillaLabels.Value)
@@ -453,6 +394,16 @@ namespace SenseOfDirection.Labels
                 return false;
             }
 
+            // PrepareEndCutscene only disables each Character's animator child, not the
+            // Character itself, so activeInHierarchy stays true through the whole win/
+            // helicopter cutscene - without this, labels kept tracking players frozen
+            // wherever they were when it started. isPlayingCinematic is the same flag
+            // vanilla itself gates cinematic-only behavior on (e.g. CharacterVoiceHandler).
+            if (Singleton<PeakHandler>.Instance != null && Singleton<PeakHandler>.Instance.isPlayingCinematic)
+            {
+                return false;
+            }
+
             switch (cfg.PlayerLabelDisplayMode.Value)
             {
                 case LabelDisplayMode.AlwaysOn:
@@ -460,14 +411,9 @@ namespace SenseOfDirection.Labels
 
                 case LabelDisplayMode.Toggle:
                 {
-                    // Deliberately not Input.GetKeyDown here - Unity's legacy
-                    // Input Manager has a long-documented bug where its own
-                    // internal down-edge detection can silently miss a key
-                    // press when another key (e.g. a WASD movement key) is
-                    // already held that same frame, so the toggle key only
-                    // ever registered while standing still. Doing the edge
-                    // detection ourselves off the plain (unaffected) GetKey
-                    // level-state read avoids that bug entirely.
+                    // not Input.GetKeyDown: Unity's legacy Input Manager can silently miss
+                    // a key-down edge when another key (e.g. WASD) is already held that
+                    // frame, so we do the edge detection ourselves off plain GetKey
                     bool keyDownNow = Input.GetKey(cfg.PlayerLabelToggleKey.Value);
                     if (keyDownNow && !_toggleKeyWasDown)
                     {
@@ -480,9 +426,7 @@ namespace SenseOfDirection.Labels
                 case LabelDisplayMode.Hold:
                     if (Input.GetKey(cfg.PlayerLabelToggleKey.Value))
                     {
-                        // Set on every held frame (including the press frame
-                        // itself), so a quick tap is already covered by this
-                        // same timer - no separate "minimum time" needed.
+                        // set on every held frame, so a quick tap is already covered
                         _holdReleaseUntil = Time.time + cfg.HoldShownDuration.Value;
                         return true;
                     }
