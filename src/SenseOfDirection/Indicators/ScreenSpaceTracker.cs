@@ -2,57 +2,81 @@ using UnityEngine;
 
 namespace SenseOfDirection.Indicators
 {
-    /// <summary>
-    /// Result of projecting a world position onto a screen-space canvas: either
-    /// its on-screen position, or a position clamped to the nearest canvas edge
-    /// plus a direction angle for an off-screen arrow indicator.
-    /// </summary>
+    // Result of projecting a world position onto a screen-space canvas: either
+    // its on-screen position, or a position clamped to the nearest canvas edge
+    // plus a direction angle for an off-screen arrow indicator.
     public struct IndicatorState
     {
         public Vector2 CanvasPosition;
         public bool IsOffScreen;
 
-        /// <summary>
-        /// Degrees, standard math convention (0 = +X/right, 90 = +Y/up,
-        /// counter-clockwise). Only meaningful when <see cref="IsOffScreen"/>
-        /// is true. Consumers rotating a "points up" arrow sprite should
-        /// subtract 90 when applying this to a Z rotation.
-        /// </summary>
+        // Degrees, standard math convention (0 = +X/right, 90 = +Y/up, CCW).
+        // Only meaningful when IsOffScreen is true. Rotating a "points up"
+        // arrow sprite should subtract 90 when applying this to a Z rotation.
         public float ArrowAngleDegrees;
     }
 
-    /// <summary>
-    /// Pure screen-space geometry: given a camera, a canvas size, and a world
-    /// position, computes where to place a UI element for it - either the real
-    /// on-screen point, or a point clamped to the edge of the canvas (inset by
-    /// a margin) with a direction for an off-screen indicator arrow.
-    ///
-    /// No MonoBehaviour/gameplay dependency - shared by Mechanic 1 (player
-    /// labels) and Mechanic 2 (ping indicator), and independently testable
-    /// against dummy points before either mechanic exists.
-    /// </summary>
+    // Pure screen-space geometry: given a camera, canvas size, and world
+    // position, computes where to place a UI element for it - the real
+    // on-screen point, or a point clamped to the canvas edge (inset by a
+    // margin) with a direction for an off-screen arrow. No MonoBehaviour/
+    // gameplay dependency, shared by player labels and pings.
     public static class ScreenSpaceTracker
     {
         public static IndicatorState Compute(
             Camera camera,
             Vector2 canvasSize,
             Vector3 worldPosition,
-            float edgeMarginPixels = 48f)
+            float edgeMarginPixels = 48f,
+            bool clampToEdge = true)
         {
             Vector3 viewport = camera.WorldToViewportPoint(worldPosition);
             bool behindCamera = viewport.z < 0f;
             bool withinBounds = viewport.x >= 0f && viewport.x <= 1f
                                  && viewport.y >= 0f && viewport.y <= 1f;
 
+            if (!clampToEdge)
+            {
+                // No edge clamping wanted (e.g. player labels with their
+                // off-screen indicator disabled): report the raw, unclamped
+                // position so the caller can judge visibility off the
+                // label's own footprint instead of this point alone.
+                if (behindCamera)
+                {
+                    // Behind the camera, Unity's viewport coords mirror to
+                    // the opposite side - push far past the canvas in the
+                    // mirrored-back direction rather than at some on-screen
+                    // placeholder the label would appear frozen at.
+                    Vector2 mirroredFromCenter = new Vector2(
+                        (0.5f - viewport.x) * canvasSize.x,
+                        (0.5f - viewport.y) * canvasSize.y);
+                    if (mirroredFromCenter.sqrMagnitude < 0.0001f)
+                    {
+                        mirroredFromCenter = Vector2.up;
+                    }
+                    Vector2 farPosition = mirroredFromCenter.normalized * (canvasSize.magnitude + 10000f);
+                    return new IndicatorState
+                    {
+                        CanvasPosition = farPosition,
+                        IsOffScreen = true,
+                        ArrowAngleDegrees = 0f,
+                    };
+                }
+
+                return new IndicatorState
+                {
+                    CanvasPosition = ViewportToCanvas(viewport, canvasSize),
+                    IsOffScreen = !withinBounds,
+                    ArrowAngleDegrees = 0f,
+                };
+            }
+
             if (!behindCamera && withinBounds)
             {
-                // Clamped to the same inset-by-margin bounds as the off-screen
-                // case below, even though this point is technically on-screen -
-                // a raw viewport projection can still land right at the pixel
-                // edge, close enough that a wide label (e.g. an item ping's
-                // name text) centered on it gets visually clipped by the
-                // actual screen border. Only nudges points already within
-                // edgeMarginPixels of the border; harmless everywhere else.
+                // Inset by the same margin as the off-screen case below even
+                // though this point is on-screen - a raw projection can land
+                // right at the pixel edge, clipping a wide label centered on
+                // it. Only nudges points already near the border.
                 Vector2 position = ViewportToCanvas(viewport, canvasSize);
                 float halfWidth = Mathf.Max(canvasSize.x * 0.5f - edgeMarginPixels, 1f);
                 float halfHeight = Mathf.Max(canvasSize.y * 0.5f - edgeMarginPixels, 1f);
@@ -69,8 +93,7 @@ namespace SenseOfDirection.Indicators
 
             // Direction from canvas center to the (possibly out-of-bounds)
             // viewport point. A point behind the camera projects to the
-            // opposite side of the viewport from where it actually is, so its
-            // raw direction is mirrored back through the center first.
+            // opposite side, so mirror its direction back through center.
             Vector2 fromCenter = new Vector2(
                 (viewport.x - 0.5f) * canvasSize.x,
                 (viewport.y - 0.5f) * canvasSize.y);
@@ -94,12 +117,8 @@ namespace SenseOfDirection.Indicators
             };
         }
 
-        /// <summary>
-        /// Scales a center-relative direction out to the boundary of a
-        /// centered rectangle (canvasSize, inset by edgeMarginPixels on every
-        /// side). Standard rectangle/ray intersection from the center: the
-        /// hit distance is 1 / max(|dx|/halfWidth, |dy|/halfHeight).
-        /// </summary>
+        // Scales a center-relative direction out to the boundary of a
+        // centered rectangle (canvasSize, inset by edgeMarginPixels).
         private static Vector2 ClampToRectEdge(Vector2 direction, Vector2 canvasSize, float edgeMarginPixels)
         {
             float halfWidth = Mathf.Max(canvasSize.x * 0.5f - edgeMarginPixels, 1f);
