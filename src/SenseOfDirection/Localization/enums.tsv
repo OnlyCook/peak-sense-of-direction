@@ -73,21 +73,21 @@ CompassLineColor	Black	Japanese	黒
 CompassLineColor	Black	Korean	검은색
 CompassLineColor	Black	Polish	CZARNY
 CompassLineColor	Black	Turkish	SİYAH
-IndicatorPlacement	OffScreenOnly	English	OFF-SCREEN ONLY
-IndicatorPlacement	OffScreenOnly	French	BORD D'ÉCRAN UNIQUEMENT
-IndicatorPlacement	OffScreenOnly	Italian	SOLO BORDO SCHERMO
-IndicatorPlacement	OffScreenOnly	German	NUR BILDSCHIRMRAND
-IndicatorPlacement	OffScreenOnly	SpanishSpain	SOLO BORDE DE PANTALLA
-IndicatorPlacement	OffScreenOnly	SpanishLatam	SOLO BORDE DE PANTALLA
-IndicatorPlacement	OffScreenOnly	BRPortuguese	SOMENTE BORDA DA TELA
-IndicatorPlacement	OffScreenOnly	Russian	ТОЛЬКО КРАЙ ЭКРАНА
-IndicatorPlacement	OffScreenOnly	Ukrainian	ТІЛЬКИ КРАЙ ЕКРАНА
-IndicatorPlacement	OffScreenOnly	SimplifiedChinese	仅屏幕边缘
-IndicatorPlacement	OffScreenOnly	TraditionalChinese	僅螢幕邊緣
-IndicatorPlacement	OffScreenOnly	Japanese	画面端のみ
-IndicatorPlacement	OffScreenOnly	Korean	화면 가장자리만
-IndicatorPlacement	OffScreenOnly	Polish	TYLKO KRAWĘDŹ EKRANU
-IndicatorPlacement	OffScreenOnly	Turkish	SADECE EKRAN KENARI
+IndicatorPlacement	OffScreenOnly	English	ON-SCREEN ONLY
+IndicatorPlacement	OffScreenOnly	French	À L'ÉCRAN UNIQUEMENT
+IndicatorPlacement	OffScreenOnly	Italian	SOLO A SCHERMO
+IndicatorPlacement	OffScreenOnly	German	NUR BILDSCHIRM
+IndicatorPlacement	OffScreenOnly	SpanishSpain	SOLO EN PANTALLA
+IndicatorPlacement	OffScreenOnly	SpanishLatam	SOLO EN PANTALLA
+IndicatorPlacement	OffScreenOnly	BRPortuguese	SOMENTE NA TELA
+IndicatorPlacement	OffScreenOnly	Russian	ТОЛЬКО НА ЭКРАНЕ
+IndicatorPlacement	OffScreenOnly	Ukrainian	ТІЛЬКИ НА ЕКРАНІ
+IndicatorPlacement	OffScreenOnly	SimplifiedChinese	仅屏幕内
+IndicatorPlacement	OffScreenOnly	TraditionalChinese	僅螢幕內
+IndicatorPlacement	OffScreenOnly	Japanese	画面内のみ
+IndicatorPlacement	OffScreenOnly	Korean	화면만
+IndicatorPlacement	OffScreenOnly	Polish	TYLKO NA EKRANIE
+IndicatorPlacement	OffScreenOnly	Turkish	SADECE EKRANDA
 IndicatorPlacement	CompassOnly	English	COMPASS ONLY
 IndicatorPlacement	CompassOnly	French	BOUSSOLE UNIQUEMENT
 IndicatorPlacement	CompassOnly	Italian	SOLO BUSSOLA

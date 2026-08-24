@@ -160,7 +160,7 @@ namespace SenseOfDirection
             // Player-Labels/display-mode, which answers *when* labels show, not *where*.
             PlayerLabelPlacement = config.Bind(
                 "General", "player-label-placement", IndicatorPlacement.Both,
-                "Where player labels are drawn. Both: as the edge-of-screen label and as a marker on the compass tape at once. OffScreenOnly: only the edge-of-screen label. CompassOnly: only the compass marker.");
+                "Where player labels are drawn. Both: as the on-screen label and as a marker on the compass tape at once. OffScreenOnly: only the label on the screen. CompassOnly: only the compass marker.");
 
             CampfirePlacement = config.Bind(
                 "General", "campfire-placement", IndicatorPlacement.OffScreenOnly,
@@ -249,7 +249,7 @@ namespace SenseOfDirection
 
             EnablePlayerLabelOffScreenIndicator = config.Bind(
                 "Player-Labels", "enable-offscreen-indicator", true,
-                "Keep a player's label visible, clamped to the screen edge, once they go off-screen. Off hides the label entirely instead, so it only shows while the player is actually in view. Does nothing while player-label-placement is CompassOnly, which hides the whole edge-of-screen widget anyway.");
+                "Keep a player's label visible, clamped to the screen edge, once they go off-screen. Off hides the label entirely instead, so it only shows while the player is actually in view. Does nothing while player-label-placement is CompassOnly, which hides the whole widget anyway.");
 
             PlayerLabelToggleKey = config.Bind(
                 "Player-Labels", "toggle-key", KeyCode.G,
@@ -326,7 +326,7 @@ namespace SenseOfDirection
             // Campfire.
             EnableCampfireIndicator = config.Bind(
                 "Campfire", "enable-campfire-indicator", true,
-                "Show an always-on edge-of-screen indicator pointing at the current segment's campfire (the one you're trying to reach next), so you always know which way to go. Turn it off if you'd rather find your own way up and keep the rest of the mod.");
+                "Show an always-on indicator pointing at the current segment's campfire (the one you're trying to reach next), so you always know which way to go. Turn it off if you'd rather find your own way up and keep the rest of the mod.");
 
             ShowCampfireDistance = config.Bind(
                 "Campfire", "show-distance", true,
@@ -338,7 +338,7 @@ namespace SenseOfDirection
 
             EnableScoutStatueIndicator = config.Bind(
                 "Campfire", "enable-scout-statue-indicator", false,
-                "Show an edge-of-screen indicator pointing at the nearest scout statue (one of the 4 randomly-placed statues in the first 4 biomes, each holding a Scout's Amulet) for as long as its amulet hasn't been picked up yet. Uses the same campfire-placement setting as the campfire indicator above.");
+                "Show an indicator pointing at the nearest scout statue (one of the 4 randomly-placed statues in the first 4 biomes, each holding a Scout's Amulet) for as long as its amulet hasn't been picked up yet. Uses the same campfire-placement setting as the campfire indicator above.");
 
             HideScoutStatueIndicatorName = config.Bind(
                 "Campfire", "hide-scout-statue-indicator-name", true,
@@ -346,7 +346,7 @@ namespace SenseOfDirection
 
             EnableBelltowerIndicator = config.Bind(
                 "Campfire", "enable-belltower-indicator", false,
-                "Show an edge-of-screen indicator pointing at the nearest not-yet-lit Belltower (Gloom biome only). Uses the same campfire-placement setting as the campfire indicator above.");
+                "Show an indicator pointing at the nearest not-yet-lit Belltower (Gloom biome only). Uses the same campfire-placement setting as the campfire indicator above.");
 
             // Pings: remove-visibility-cutoff is bound first since it's the
             // foundation the rest of this section sits on - with it off, vanilla
@@ -372,7 +372,7 @@ namespace SenseOfDirection
 
             EnablePingOffScreenIndicator = config.Bind(
                 "Pings", "enable-offscreen-indicator", true,
-                "Show an edge-of-screen arrow pointing toward an active ping when it's off-screen, same mechanism as the player-label/campfire indicators. Only the arrow; the distance line below is show-distance's own call. Does nothing while General/ping-placement is CompassOnly, which hides the whole edge-of-screen widget anyway.");
+                "Show an edge-of-screen arrow pointing toward an active ping when it's off-screen, same mechanism as the player-label/campfire indicators. Only the arrow; the distance line below is show-distance's own call. Does nothing while General/ping-placement is CompassOnly, which hides the whole widget anyway.");
 
             ShowPingDistanceLabel = config.Bind(
                 "Pings", "show-distance", true,
@@ -469,7 +469,7 @@ namespace SenseOfDirection
 
             EnableItemPingOffScreenIndicator = config.Bind(
                 "Item-Pings", "enable-offscreen-indicator", true,
-                "Show an edge-of-screen arrow pointing toward a highlighted item/luggage when it's off-screen, same mechanism as the ping indicator. Does nothing while General/item-ping-placement is CompassOnly, which hides the whole edge-of-screen widget anyway.");
+                "Show an edge-of-screen arrow pointing toward a highlighted item/luggage when it's off-screen, same mechanism as the ping indicator. Does nothing while General/item-ping-placement is CompassOnly, which hides the whole widget anyway.");
 
             // Item-ping detection: the "what did that ping actually hit" tuning,
             // split out from Item-Pings above (which is about what the resulting
@@ -773,7 +773,7 @@ namespace SenseOfDirection
 
             EnableZombieDebugEsp = config.Bind(
                 "Debug", "enable-zombie-debug-esp", false,
-                "Dev/QA aid: always-visible edge-of-screen label for every naturally-spawned zombie in the level, through walls, to speed up testing zombie-ping detection without hunting a whole level for a rare spawn. Not a real feature; leave off for normal play.");
+                "Dev/QA aid: always-visible label for every naturally-spawned zombie in the level, through walls, to speed up testing zombie-ping detection without hunting a whole level for a rare spawn. Not a real feature; leave off for normal play.");
 
             EnableGhostFreeCamKeyHintPreview = config.Bind(
                 "Debug", "enable-ghost-free-cam-key-hint-preview", false,

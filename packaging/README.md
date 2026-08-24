@@ -58,7 +58,7 @@ Config file: `BepInEx/config/OnlyCook.SenseOfDirection.cfg`.
 
 If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/ModConfig/) installed, every setting below is also editable in the game's settings under **Mod Settings → Sense of Direction**, no need to touch the config file by hand. Easiest way to get an overview and tweak things visually, is the **`F8`** quick setup panel described above though (but it doesn't contain everything).
 
-- **General**: where each mechanic's indicator is drawn (off-screen label / compass / both), label overlap avoidance, overlap avoidance animation speed, the quick setup panel's key (**`F8`**).
+- **General**: where each mechanic's indicator is drawn (on-screen label / compass / both), label overlap avoidance, overlap avoidance animation speed, the quick setup panel's key (**`F8`**).
 - **Fonts**: separate size multipliers for on-screen, off-screen, and compass text.
 - **Player-Labels**: master switch, toggle key (default **`G`**), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, badge icon size, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
 - **Campfire**: master switch, show distance label, hide name label, point at Scout Statue, and point towards nearest Belltower.
