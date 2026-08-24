@@ -164,6 +164,8 @@ namespace SenseOfDirection.ItemPings
             _remainingSeconds = durationSeconds;
         }
 
+        private Vector3 _lastKnownCenter; // this is to fix item pings moving to the map's root on pickup
+
         private Vector3 GetGroupCenter()
         {
             Vector3 sum = Vector3.zero;
@@ -177,7 +179,11 @@ namespace SenseOfDirection.ItemPings
                 sum += target.GetCenter();
                 count++;
             }
-            return count > 0 ? sum / count : transform.position;
+            if (count > 0)
+            {
+                _lastKnownCenter = sum / count;
+            }
+            return _lastKnownCenter;
         }
 
         /// <summary>Refills <see cref="_valid"/> with the targets that still exist and are still active.</summary>
