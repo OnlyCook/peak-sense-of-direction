@@ -1,3 +1,7 @@
+## 1.1.3
+
+- Added new `Player-Labels/enable-offscreen-indicator` setting (also in Quick Setup panel; enabled by default) which controls whether player labels should be clamped to the screen's edges when they are out of view.
+
 ## 1.1.2
 
 - Added new `Campfire/enable-scout-statue-indicator` setting (also in Quick Setup panel; off by default) to show an indicator pointing towards the next Scout Statue if it still holds it's amulet (the name of the held amulet is hidden by default). Thanks to Crasben for suggesting this!

@@ -44,6 +44,11 @@ namespace SenseOfDirection.Labels
         {
             public PlayerLabel Label;
             public IsLookedAt LookedAt; // may be null (e.g. local player edge case); Head is the fallback anchor.
+
+            // Set by CullDistantDeadLabels when this player died far from a
+            // campfire that just got lit - hides the label/compass marker until
+            // UpdateImpl sees them revived and clears it again. Dead only, never unconscious.
+            public bool Culled;
         }
 
         private readonly Dictionary<Character, Entry> _entries = new Dictionary<Character, Entry>();
@@ -95,8 +100,10 @@ namespace SenseOfDirection.Labels
                 return character.Head;
             }
 
+            var entry = new Entry { LookedAt = lookedAt };
+
             var label = PlayerLabel.Create(AnchorPosition);
-            label.Anchor.IsActive = () => character != null && character.gameObject.activeInHierarchy;
+            label.Anchor.IsActive = () => character != null && character.gameObject.activeInHierarchy && !entry.Culled;
 
             label.Anchor.CompassKind = CompassMarkerKind.Player;
             label.Anchor.GetPlacement = () => Plugin.Instance.Cfg.PlayerLabelPlacement.Value;
@@ -112,12 +119,13 @@ namespace SenseOfDirection.Labels
             // computed once per frame in Update) - only the vanilla-label crossfade
             // (IsNativeLabelVisible) doesn't apply here, since there's no vanilla
             // compass to hand off to/from.
-            label.Anchor.IsCompassVisible = () => _labelsVisible
+            label.Anchor.IsCompassVisible = () => _labelsVisible && !entry.Culled
                 && Vector3.Distance(CharacterPositions.LocalViewpoint(), CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters <= Plugin.Instance.Cfg.PlayerLabelMaxDistanceMeters.Value;
 
             IndicatorManager.Instance.RegisterAnchor(label.Anchor);
 
-            _entries[character] = new Entry { Label = label, LookedAt = lookedAt };
+            entry.Label = label;
+            _entries[character] = entry;
         }
 
         public void UnregisterCharacter(Character character)
@@ -153,6 +161,35 @@ namespace SenseOfDirection.Labels
                 return;
             }
             StartCoroutine(FadeOutAndClearAll(new List<Character>(_entries.Keys)));
+        }
+
+        /// <summary>Beyond this range from a just-lit campfire, a dead player's body is unreachable - hide their label.</summary>
+        private const float DeadLabelCampfireCullRadiusMeters = 100f;
+
+        /// <summary>
+        /// Called by <see cref="DeadLabelCullPatches"/> when a campfire's lighting
+        /// advances the run to the next segment - hides (doesn't destroy) any dead
+        /// player's label further than <see cref="DeadLabelCampfireCullRadiusMeters"/>
+        /// away, since their body is now unreachable. <see cref="UpdateImpl"/>
+        /// un-hides it again on revive.
+        /// </summary>
+        public void CullDistantDeadLabels(Vector3 campfireWorldPosition)
+        {
+            foreach (var pair in _entries)
+            {
+                Character character = pair.Key;
+                if (character == null || !character.data.dead)
+                {
+                    continue;
+                }
+
+                float distanceMeters = Vector3.Distance(
+                    CharacterPositions.EffectivePosition(character), campfireWorldPosition) * CharacterStats.unitsToMeters;
+                if (distanceMeters > DeadLabelCampfireCullRadiusMeters)
+                {
+                    pair.Value.Culled = true;
+                }
+            }
         }
 
         private const float ResetFadeDurationSeconds = 0.25f;
@@ -232,6 +269,15 @@ namespace SenseOfDirection.Labels
                 Entry entry = pair.Value;
                 PlayerLabel label = entry.Label;
                 CharacterData data = character.data;
+
+                if (entry.Culled)
+                {
+                    if (data.dead)
+                    {
+                        continue; // still culled, nothing to refresh
+                    }
+                    entry.Culled = false; // revived - falls through to the normal refresh below
+                }
 
                 float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), CharacterPositions.EffectivePosition(character)) * CharacterStats.unitsToMeters;
                 bool isHost = character.photonView.Owner.IsMasterClient;

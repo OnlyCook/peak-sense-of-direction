@@ -65,6 +65,7 @@ namespace SenseOfDirection
             // AccessTools/typeof resolution that happens before its own try.
             Wire("PlayerLabelPatches", () => PlayerLabelPatches.Apply(_harmony, Logger));
             Wire("VanillaLabelSuppressionPatch", () => VanillaLabelSuppressionPatch.Apply(_harmony, Logger));
+            Wire("DeadLabelCullPatches", () => DeadLabelCullPatches.Apply(_harmony, Logger));
             Wire("PointPingerPatches", () => PointPingerPatches.Apply(_harmony, Logger));
             Wire("GhostFreeCamPatches", () => GhostFreeCamPatches.Apply(_harmony, Logger));
             Wire("PauseSuppressPatch", () => Ui.PauseSuppressPatch.Apply(_harmony, Logger));
