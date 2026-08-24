@@ -382,6 +382,16 @@ namespace SenseOfDirection.Indicators
             }
 
             var state = ScreenSpaceTracker.Compute(camera, canvasSize, anchor.GetWorldPosition(), anchor.EdgeMarginPixels);
+
+            // Off-screen indicator disabled (e.g. player labels' own
+            // enable-offscreen-indicator): hide instead of clamping to the edge.
+            if (state.IsOffScreen && !anchor.AllowOffScreen())
+            {
+                anchor.Widget.gameObject.SetActive(false);
+                _transitions.Remove(anchor);
+                return;
+            }
+
             Vector2 position = ResolveTransitionedPosition(anchor, state);
             anchor.Widget.anchoredPosition = position;
 

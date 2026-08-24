@@ -44,6 +44,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<float> CompassDistanceFontScale;
 
         public readonly ConfigEntry<bool> EnablePlayerLabels;
+        public readonly ConfigEntry<bool> EnablePlayerLabelOffScreenIndicator;
         public readonly ConfigEntry<KeyCode> PlayerLabelToggleKey;
         public readonly ConfigEntry<LabelDisplayMode> PlayerLabelDisplayMode;
         public readonly ConfigEntry<float> HoldShownDuration;
@@ -296,6 +297,14 @@ namespace SenseOfDirection
                 "Player-Labels", "enable-player-labels", true,
                 "Master switch for Sense of Direction's player labels. Off hides them " +
                 "entirely (vanilla's own name labels are unaffected either way).");
+
+            EnablePlayerLabelOffScreenIndicator = config.Bind(
+                "Player-Labels", "enable-offscreen-indicator", true,
+                "Keep a player's label visible, clamped to the screen edge, once they " +
+                "go off-screen. Off hides the label entirely instead, so it only shows " +
+                "while the player is actually in view. Does nothing while " +
+                "player-label-placement is CompassOnly, which hides the whole edge-of-" +
+                "screen widget anyway.");
 
             PlayerLabelToggleKey = config.Bind(
                 "Player-Labels", "toggle-key", KeyCode.G,

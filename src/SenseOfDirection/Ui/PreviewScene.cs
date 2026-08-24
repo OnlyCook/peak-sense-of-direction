@@ -1067,6 +1067,7 @@ namespace SenseOfDirection.Ui
             IndicatorAnchor anchor = label.Anchor;
             anchor.CompassKind = CompassMarkerKind.Player;
             anchor.GetPlacement = () => Plugin.Instance.Cfg.PlayerLabelPlacement.Value;
+            anchor.AllowOffScreen = () => Plugin.Instance.Cfg.EnablePlayerLabelOffScreenIndicator.Value;
             anchor.GetCompassColor = () => CompassColor(spec.Color);
             anchor.GetCompassLabel = () => spec.Name;
             anchor.GetIsDead = () => spec.IsDead;

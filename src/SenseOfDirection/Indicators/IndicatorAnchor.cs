@@ -236,6 +236,14 @@ namespace SenseOfDirection.Indicators
         /// <summary>Governs whether <see cref="Widget"/>/<see cref="ArrowWidget"/> vs. the compass marker (or both) are shown for this anchor.</summary>
         public Func<IndicatorPlacement> GetPlacement = () => IndicatorPlacement.OffScreenOnly;
 
+        /// <summary>
+        /// Whether <see cref="Widget"/> stays clamped to the screen edge once
+        /// off-screen, vs. just hiding entirely. Player labels' equivalent of
+        /// pings/item pings' own off-screen-arrow toggle, since a label has no
+        /// arrow of its own to disable. True (default) for every anchor.
+        /// </summary>
+        public Func<bool> AllowOffScreen = () => true;
+
         /// <summary>Extra compass-only visibility gate (e.g. player labels' own toggle-key/distance-gate state) on top of <see cref="IsActive"/>.</summary>
         public Func<bool> IsCompassVisible = () => true;
 

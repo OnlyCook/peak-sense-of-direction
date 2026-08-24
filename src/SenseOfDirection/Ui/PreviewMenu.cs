@@ -549,8 +549,8 @@ namespace SenseOfDirection.Ui
                 Name = strings.TabPlayerLabels,
                 Entries = new List<ConfigEntryBase>
                 {
-                    cfg.EnablePlayerLabels, cfg.PlayerLabelPlacement, cfg.PlayerLabelDisplayMode,
-                    cfg.PlayerLabelToggleKey, cfg.HoldShownDuration,
+                    cfg.EnablePlayerLabels, cfg.PlayerLabelPlacement, cfg.EnablePlayerLabelOffScreenIndicator,
+                    cfg.PlayerLabelDisplayMode, cfg.PlayerLabelToggleKey, cfg.HoldShownDuration,
                     cfg.PlayerLabelMaxDistanceMeters, cfg.PlayerLabelNameFontSize, cfg.PlayerLabelDistanceFontSize,
                     cfg.ShowPlayerLabelDistance, cfg.ShowStatusBadges, cfg.PlayerLabelBadgeSizePixels, cfg.UseCharacterColor,
                     cfg.ReplaceVanillaLabels, cfg.ShowPlayerSkeleton,

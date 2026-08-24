@@ -100,6 +100,7 @@ namespace SenseOfDirection.Labels
 
             label.Anchor.CompassKind = CompassMarkerKind.Player;
             label.Anchor.GetPlacement = () => Plugin.Instance.Cfg.PlayerLabelPlacement.Value;
+            label.Anchor.AllowOffScreen = () => Plugin.Instance.Cfg.EnablePlayerLabelOffScreenIndicator.Value;
             label.Anchor.GetCompassColor = () => Plugin.Instance.Cfg.UseCharacterColor.Value
                 ? character.refs.customization.PlayerColor
                 : NativeAssets.DefaultTextColor;
