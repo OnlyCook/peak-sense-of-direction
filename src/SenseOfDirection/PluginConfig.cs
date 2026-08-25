@@ -63,6 +63,7 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> EnablePingScaling;
         public readonly ConfigEntry<float> PingScaleMultiplier;
         public readonly ConfigEntry<bool> EnablePingRipple;
+        public readonly ConfigEntry<float> RippleScaleCounterMultiplier;
         public readonly ConfigEntry<bool> EnablePingOffScreenIndicator;
         public readonly ConfigEntry<bool> ShowPingDistanceLabel;
         public readonly ConfigEntry<bool> EnableGhostPing;
@@ -369,6 +370,12 @@ namespace SenseOfDirection
             EnablePingRipple = config.Bind(
                 "Pings", "enable-ripple", true,
                 "Show an expanding ring in the pinging player's own character color at the ping location, so it reads against similarly-colored terrain. Press your ping key to preview this here.");
+
+            RippleScaleCounterMultiplier = config.Bind(
+                "Pings", "ripple-scale-counter-multiplier", 0.8f,
+                new ConfigDescription(
+                    "The ripple grows together with the ping's own distance-scaling (see enable-scaling above), which can end up huge on a very far ping. This counteracts that growth: 1x leaves it untouched, lower values increasingly hold the ripple back the bigger it would otherwise get, while a nearby ping's already-small ripple barely changes at any value. Only affects the ripple, not the ping marker itself.",
+                    new AcceptableValueRange<float>(0.1f, 1f)));
 
             EnablePingOffScreenIndicator = config.Bind(
                 "Pings", "enable-offscreen-indicator", true,

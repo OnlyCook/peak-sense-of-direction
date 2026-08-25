@@ -1,5 +1,6 @@
 ## 1.1.4
 
+- Added new `Pings/ripple-scale-counter-multiplier` setting (also in Quick Setup panel) which holds back the ping ripple from growing so large at a distance. The lower the value, the smaller the ripple will get. Thanks to Danicchi for the suggestion!
 - Nudged native item ping icon downward slightly so that it's actually centered.
 
 ## 1.1.3

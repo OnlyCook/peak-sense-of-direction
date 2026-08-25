@@ -563,7 +563,7 @@ namespace SenseOfDirection.Ui
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.RemoveVisibilityCutoff, cfg.PingPlacement, cfg.EnablePingScaling, cfg.PingScaleMultiplier,
-                    cfg.EnablePingRipple, cfg.EnablePingOffScreenIndicator, cfg.ShowPingDistanceLabel,
+                    cfg.EnablePingRipple, cfg.RippleScaleCounterMultiplier, cfg.EnablePingOffScreenIndicator, cfg.ShowPingDistanceLabel,
                     cfg.EnableGhostPing,
                 },
             });

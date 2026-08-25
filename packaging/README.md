@@ -62,7 +62,7 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 - **Fonts**: separate size multipliers for on-screen, off-screen, and compass text.
 - **Player-Labels**: master switch, toggle key (default **`G`**), display mode (Toggle/AlwaysOn/Hold) and its timings, min/max distance, font sizes, distance/badges/character-color toggles, badge icon size, whether to replace vanilla's own labels, and the through-walls skeleton ESP (off by default).
 - **Campfire**: master switch, show distance label, hide name label, point at Scout Statue, and point towards nearest Belltower.
-- **Pings**: distance scaling and its multiplier, the color ripple, off-screen indicator, distance label, and ghost pinging.
+- **Pings**: distance scaling and its multiplier, the color ripple, ripple scaling counter, off-screen indicator, distance label, and ghost pinging.
 - **Ping-Audio**: audio boost toggle, range, minimum distance, and volume multiplier.
 - **Ping-Anti-Spam**: how many pings are free before slow-mode kicks in, the slow-mode interval, queue length, and reset timing.
 - **Item-Pings**: master switch, highlight duration, grouping, creature pings, native icons, name mode, distance, and off-screen indicator, plus separate detection radii and hit/ray assist for landing pings on hard-to-hit items.

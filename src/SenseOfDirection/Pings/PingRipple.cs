@@ -25,6 +25,9 @@ namespace SenseOfDirection.Pings
         private const float StartRadius = 0.05f;
         private const float BaseMaxRadius = 2f;
 
+        // anchor to hold back the ripple from growing dynamically at a distance
+        private const float ScaleDampeningAnchor = 1f;
+
         private Renderer _renderer;
         private Color _color;
         private Transform _pingTransform;
@@ -121,6 +124,15 @@ namespace SenseOfDirection.Pings
             _renderer.SetPropertyBlock(_propertyBlock);
         }
 
+        private static float DampenPingScale(float scale, float counterMultiplier)
+        {
+            if (scale <= ScaleDampeningAnchor || counterMultiplier >= 1f)
+            {
+                return scale;
+            }
+            return ScaleDampeningAnchor * Mathf.Pow(scale / ScaleDampeningAnchor, counterMultiplier);
+        }
+
         private void Update()
         {
             _elapsed += _unscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
@@ -130,7 +142,8 @@ namespace SenseOfDirection.Pings
             {
                 _lastKnownPingScale = _pingTransform.localScale.x;
             }
-            float radius = Mathf.Lerp(StartRadius, BaseMaxRadius, t) * _lastKnownPingScale;
+            float dampenedPingScale = DampenPingScale(_lastKnownPingScale, Plugin.Instance.Cfg.RippleScaleCounterMultiplier.Value);
+            float radius = Mathf.Lerp(StartRadius, BaseMaxRadius, t) * dampenedPingScale;
             transform.localScale = Vector3.one * (radius * 2f);
 
             Color c = _color;
