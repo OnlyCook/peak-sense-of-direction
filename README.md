@@ -97,8 +97,6 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 
 ## For developers
 
-- [`ROADMAP.md`](ROADMAP.md): full feature spec, phased plan, status, handoff notes.
-
 Build:
 ```bash
 cd src/SenseOfDirection

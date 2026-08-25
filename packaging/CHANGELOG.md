@@ -5,6 +5,7 @@
 - Fixed player labels being kept after winning the game.
 - Fixed item ping labels moving to the map's root on pickup.
 - Fixed item ping's campfire icon being differently styled than the campfire indicator's icon.
+- Fixed Quick Setup preview image being driven by the game's rendering scale which made the image unrecognizable on lower settings. Also optimized the image's rendering slightly.
 - Changed certain descriptions and enum values, to resolve some confusion about the placement of labels (off-screen / edge-of-screen).
 
 ## 1.1.2

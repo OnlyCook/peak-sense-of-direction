@@ -10,8 +10,6 @@
 
 ## For developers
 
-- [`ROADMAP.md`](ROADMAP.md): full feature spec, phased plan, status, handoff notes.
-
 Build:
 ```bash
 cd src/SenseOfDirection

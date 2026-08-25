@@ -92,6 +92,8 @@ namespace SenseOfDirection.ItemPings
         /// </summary>
         private const float CrosshairSizePixels = 30f;
         private const float NativeIconSizePixels = 44f;
+ 
+        private const float CampfireIconSizePixels = 28f;
 
         // set offsets so they appear consistent
         private static readonly Vector2[] OutlineOffsets =

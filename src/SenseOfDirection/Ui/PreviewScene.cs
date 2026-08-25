@@ -554,6 +554,8 @@ namespace SenseOfDirection.Ui
 
             canvas.worldCamera = _renderCamera;
 
+            NativeResolutionCamera.Register(_renderCamera);
+
             EnsureRenderTexture();
         }
 
@@ -955,6 +957,8 @@ namespace SenseOfDirection.Ui
 
         private void OnDestroy()
         {
+            NativeResolutionCamera.Unregister(_renderCamera);
+
             // Both of these are root objects of our own making (see BuildCamera /
             // BuildStageCanvas), so nothing else will clean them up with the menu.
             if (_cameraObject != null)

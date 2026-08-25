@@ -203,6 +203,9 @@ namespace SenseOfDirection.Ui
             _camera.allowHDR = false;
             _camera.allowMSAA = false;
 
+            // otherwise this camera silently inherits whatever the game's own render scale option is set to (see NativeResolutionCamera's own comment)
+            NativeResolutionCamera.Register(_camera);
+
             BuildBackdrop(background);
 
             _ping = SpawnHand(prefab, local);
@@ -699,6 +702,8 @@ namespace SenseOfDirection.Ui
 
         private void OnDestroy()
         {
+            NativeResolutionCamera.Unregister(_camera);
+
             if (_root != null)
             {
                 Destroy(_root);
