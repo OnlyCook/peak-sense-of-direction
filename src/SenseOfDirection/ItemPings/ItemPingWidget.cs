@@ -26,8 +26,8 @@ namespace SenseOfDirection.ItemPings
     /// Pooled (<see cref="Rent"/>/<see cref="Release"/>), because one of these
     /// is built per pinged item group and thrown away a few seconds later:
     /// building the hierarchy means five GameObjects carrying two TMP texts and
-    /// two Images, each of which allocates a mesh and pulls a material, and
-    /// pinging a pile of loot builds several of them in the same frame. Rented
+    /// two Images (+16 more for the campfire's own outline copies)
+    /// Rented
     /// widgets are re-bound (<see cref="Bind"/>) to a new target/color instead,
     /// and <see cref="Prewarm"/> fills the pool while nothing is happening, so
     /// even the very first ping of a session doesn't pay for the first one.
@@ -40,11 +40,14 @@ namespace SenseOfDirection.ItemPings
         public CanvasGroup CanvasGroup { get; }
 
         private readonly RectTransform _root;
+        private readonly RectTransform _arrowIconGroup;
         private readonly RectTransform _arrow;
         private readonly RectTransform _crosshair;
         private readonly RectTransform _labelGroup;
         private readonly Image _arrowImage;
         private readonly Image _crosshairImage;
+        private readonly Image[] _arrowOutlineImages;
+        private readonly Image[] _crosshairOutlineImages;
         private readonly TMP_Text _nameText;
         private readonly TMP_Text _distanceText;
 
@@ -90,6 +93,14 @@ namespace SenseOfDirection.ItemPings
         private const float CrosshairSizePixels = 30f;
         private const float NativeIconSizePixels = 44f;
 
+        // set offsets so they appear consistent
+        private static readonly Vector2[] OutlineOffsets =
+        {
+            new Vector2(-1f, -1f), new Vector2(0f, -1f), new Vector2(1f, -1f),
+            new Vector2(-1f, 0f), new Vector2(1f, 0f),
+            new Vector2(-1f, 1f), new Vector2(0f, 1f), new Vector2(1f, 1f),
+        };
+
         /// <summary>Sizes the name/distance lines are tuned at; the `Fonts` section scales these rather than replacing them (see <see cref="HudFontScale"/>).</summary>
         private const float NameFontSizeBase = 20f;
         private const float DistanceFontSizeBase = 16f;
@@ -118,16 +129,20 @@ namespace SenseOfDirection.ItemPings
         private static readonly Vector2 ItemArrowSize = new Vector2(22f, 24f);
 
         private ItemPingWidget(
-            RectTransform root, CanvasGroup canvasGroup, RectTransform arrow, Image arrowImage,
-            RectTransform crosshair, Image crosshairImage, RectTransform labelGroup,
+            RectTransform root, CanvasGroup canvasGroup, RectTransform arrowIconGroup, RectTransform arrow, Image arrowImage,
+            Image[] arrowOutlineImages, RectTransform crosshair, Image crosshairImage,
+            Image[] crosshairOutlineImages, RectTransform labelGroup,
             TMP_Text nameText, TMP_Text distanceText)
         {
             _root = root;
             CanvasGroup = canvasGroup;
+            _arrowIconGroup = arrowIconGroup;
             _arrow = arrow;
             _arrowImage = arrowImage;
+            _arrowOutlineImages = arrowOutlineImages;
             _crosshair = crosshair;
             _crosshairImage = crosshairImage;
+            _crosshairOutlineImages = crosshairOutlineImages;
             _labelGroup = labelGroup;
             _nameText = nameText;
             _distanceText = distanceText;
@@ -184,10 +199,19 @@ namespace SenseOfDirection.ItemPings
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
 
+            // keeps the item stay as one unit
+            var arrowGroupGo = new GameObject("ArrowIconGroup", typeof(RectTransform));
+            var arrowGroupRect = (RectTransform)arrowGroupGo.transform;
+            arrowGroupRect.SetParent(root, false);
+
+            // built (inactive) before the arrow itself so they render behind it.
+            Image[] arrowOutlineImages = CreateOutlineImages(arrowGroupRect, "ArrowOutline");
+
             // Always built, shown or hidden per binding (enable-item-ping-off-
             // screen-indicator is a live config toggle, and a pooled widget can
             // be rented next under the opposite setting).
-            RectTransform arrowRect = OffScreenArrow.Create(root, Color.white);
+            RectTransform arrowRect = OffScreenArrow.Create(arrowGroupRect, Color.white);
+            arrowRect.anchoredPosition = Vector2.zero;
             Image arrowImage = arrowRect.GetComponent<Image>();
 
             // Home position (0,0) relative to root - overlap resolution
@@ -226,6 +250,10 @@ namespace SenseOfDirection.ItemPings
             // shown while the target is actually on-screen - see
             // IndicatorAnchor.OnScreenOnlyWidget - since it makes no sense
             // overlaid on nothing while the off-screen arrow is showing instead.
+            //
+            // build before the crosshair itself so they appear behind it
+            Image[] crosshairOutlineImages = CreateOutlineImages(root, "CrosshairOutline", new Vector2(0f, CrosshairYOffset));
+
             var crosshairGo = new GameObject("Crosshair", typeof(RectTransform), typeof(Image));
             var crosshairRect = (RectTransform)crosshairGo.transform;
             crosshairRect.SetParent(root, false);
@@ -237,7 +265,46 @@ namespace SenseOfDirection.ItemPings
             crosshairIcon.raycastTarget = false;
             crosshairIcon.preserveAspect = true;
 
-            return new ItemPingWidget(root, canvasGroup, arrowRect, arrowImage, crosshairRect, crosshairIcon, labelGroupRect, nameText, distanceText);
+            return new ItemPingWidget(
+                root, canvasGroup, arrowGroupRect, arrowRect, arrowImage, arrowOutlineImages,
+                crosshairRect, crosshairIcon, crosshairOutlineImages, labelGroupRect, nameText, distanceText);
+        }
+
+        private static Image[] CreateOutlineImages(RectTransform parent, string namePrefix, Vector2 basePosition = default)
+        {
+            var images = new Image[OutlineOffsets.Length];
+            for (int i = 0; i < OutlineOffsets.Length; i++)
+            {
+                var go = new GameObject($"{namePrefix}{i}", typeof(RectTransform), typeof(Image));
+                var rect = (RectTransform)go.transform;
+                rect.SetParent(parent, false);
+                rect.anchoredPosition = basePosition + OutlineOffsets[i];
+
+                var image = go.GetComponent<Image>();
+                image.color = Color.black;
+                image.raycastTarget = false;
+                image.preserveAspect = true;
+                go.SetActive(false);
+                images[i] = image;
+            }
+            return images;
+        }
+ 
+        private static void ApplyOutline(Image[] outlines, Sprite sprite, Vector2 size, bool visible)
+        {
+            foreach (Image outline in outlines)
+            {
+                outline.gameObject.SetActive(visible);
+                if (!visible)
+                {
+                    continue;
+                }
+                if (outline.sprite != sprite)
+                {
+                    outline.sprite = sprite;
+                }
+                outline.rectTransform.sizeDelta = size;
+            }
         }
 
         private void Bind(Func<Vector3> getWorldPosition, Color color, bool enableArrow)
@@ -376,10 +443,15 @@ namespace SenseOfDirection.ItemPings
             // that derives from crosshairSize (the distance line's drop, the
             // overlap box) already reads it live too, so scaling it here is
             // enough to cascade through the rest of this widget's layout.
+            // the campfire's native icon gets this class's own size (instead of NativeIconSizePixels)
+            // to match CampfireIndicator.CampfireWidget's own icon size
+            bool isCampfireIcon = nativeIcon != null && nativeIcon == NativeAssets.CampfireIconSprite;
+
             float iconSizeMultiplier = Plugin.Instance.Cfg.IndicatorIconSizeMultiplier.Value;
-            float crosshairSize = (nativeIcon != null ? NativeIconSizePixels : CrosshairSizePixels) * iconSizeMultiplier;
+            float crosshairSize = (isCampfireIcon ? CampfireIconSizePixels : nativeIcon != null ? NativeIconSizePixels : CrosshairSizePixels) * iconSizeMultiplier;
             _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
             _crosshairImage.color = nativeIcon != null ? Color.white : _color;
+            ApplyOutline(_crosshairOutlineImages, crosshairSprite, new Vector2(crosshairSize, crosshairSize), isCampfireIcon && _crosshair.gameObject.activeSelf);
 
             // The crosshair/icon stays pinned to the tracked point (y=0) while the
             // spread distance line sits just below it, so a big enough icon reaches
@@ -408,10 +480,12 @@ namespace SenseOfDirection.ItemPings
             {
                 _arrowImage.sprite = arrowSprite;
             }
+            float arrowIconSize = isCampfireIcon ? CampfireIconSizePixels : NativeIconSizePixels;
             _arrow.sizeDelta = (nativeIcon != null
-                ? new Vector2(NativeIconSizePixels, NativeIconSizePixels)
+                ? new Vector2(arrowIconSize, arrowIconSize)
                 : ItemArrowSize) * iconSizeMultiplier;
             _arrowImage.color = nativeIcon != null ? Color.white : _color;
+            ApplyOutline(_arrowOutlineImages, arrowSprite, _arrow.sizeDelta, isCampfireIcon && _arrow.gameObject.activeSelf);
             if (Anchor != null)
             {
                 Anchor.RotateArrowWidget = nativeIcon == null;
@@ -525,7 +599,7 @@ namespace SenseOfDirection.ItemPings
             // whole unit - icon included - clear of its neighbours. On-screen the
             // arrow is hidden (the pinned crosshair shows instead), so this is a
             // no-op there.
-            _arrow.anchoredPosition = _labelGroup.anchoredPosition + new Vector2(0f, ArrowYOffset);
+            _arrowIconGroup.anchoredPosition = _labelGroup.anchoredPosition + new Vector2(0f, ArrowYOffset);
 
             // Off-screen, several labels can pile onto the same clamped edge
             // point. This cap is how far one may travel along that edge before the

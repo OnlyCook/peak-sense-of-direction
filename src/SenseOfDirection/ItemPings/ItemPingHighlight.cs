@@ -320,6 +320,9 @@ namespace SenseOfDirection.ItemPings
             }
             _fadeStarted = true;
             OnFadeStart?.Invoke();
+
+            _widget.Anchor.IsCompassVisible = () => false;
+
             PingWidgetFadeOut.Begin(_widget.CanvasGroup, _widget.Anchor);
         }
 

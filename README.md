@@ -81,7 +81,7 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 
 ## Credits
 
-- Item pinging is inspired by [PingItems](https://thunderstore.io/c/peak/p/memiczny/PingItems/) by memiczny (reimplemented from scratch and revived, that mod is broken against the current game build).
+- Item pinging is inspired by [PingItems](https://thunderstore.io/c/peak/p/memiczny/PingItems/) by memiczny (reimplemented from scratch and revived, that mod *was* broken against the *previous* game build).
 - The compass is inspired by [Compass UI](https://thunderstore.io/c/peak/p/Coomzy/Compass_UI/) by Coomzy (also redone from the ground up as its broken).
 - Ghost pinging idea from [GhostPing](https://thunderstore.io/c/peak/p/boxofbiscuits97/GhostPing/) by boxofbiscuits97 (also gave me the idea to add the ghost free-cam mechanic).
 
