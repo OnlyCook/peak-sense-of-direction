@@ -127,6 +127,9 @@ namespace SenseOfDirection.ItemPings
         /// <summary>Nudges the off-screen arrow/native-icon down a few pixels off the label group's exact centre point, to read as visually centered between the name and distance lines the same way <see cref="CrosshairYOffset"/> balances the on-screen crosshair.</summary>
         private const float ArrowYOffset = -3f;
 
+        /// extra downward nudge (only for native item icons)
+        private const float NativeItemIconExtraYOffset = -3f;
+
         /// <summary>Fallback dart size shown off-screen when the item has no native icon, a touch larger than <see cref="OffScreenArrow.DartSize"/> so it reads clearly at a glance - only applied here (not the shared constant) so it doesn't also grow <see cref="Pings.PingWidget"/>'s arrow.</summary>
         private static readonly Vector2 ItemArrowSize = new Vector2(22f, 24f);
 
@@ -449,9 +452,13 @@ namespace SenseOfDirection.ItemPings
             // to match CampfireIndicator.CampfireWidget's own icon size
             bool isCampfireIcon = nativeIcon != null && nativeIcon == NativeAssets.CampfireIconSprite;
 
+            bool isTrueNativeItemIcon = nativeIcon != null && !isCampfireIcon;
+            float extraIconYOffset = isTrueNativeItemIcon ? NativeItemIconExtraYOffset : 0f;
+
             float iconSizeMultiplier = Plugin.Instance.Cfg.IndicatorIconSizeMultiplier.Value;
             float crosshairSize = (isCampfireIcon ? CampfireIconSizePixels : nativeIcon != null ? NativeIconSizePixels : CrosshairSizePixels) * iconSizeMultiplier;
             _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
+            _crosshair.anchoredPosition = new Vector2(0f, CrosshairYOffset + extraIconYOffset);
             _crosshairImage.color = nativeIcon != null ? Color.white : _color;
             ApplyOutline(_crosshairOutlineImages, crosshairSprite, new Vector2(crosshairSize, crosshairSize), isCampfireIcon && _crosshair.gameObject.activeSelf);
 
@@ -601,7 +608,7 @@ namespace SenseOfDirection.ItemPings
             // whole unit - icon included - clear of its neighbours. On-screen the
             // arrow is hidden (the pinned crosshair shows instead), so this is a
             // no-op there.
-            _arrowIconGroup.anchoredPosition = _labelGroup.anchoredPosition + new Vector2(0f, ArrowYOffset);
+            _arrowIconGroup.anchoredPosition = _labelGroup.anchoredPosition + new Vector2(0f, ArrowYOffset + extraIconYOffset);
 
             // Off-screen, several labels can pile onto the same clamped edge
             // point. This cap is how far one may travel along that edge before the

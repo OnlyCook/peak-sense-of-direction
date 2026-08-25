@@ -1,3 +1,7 @@
+## 1.1.4
+
+- Nudged native item ping icon downward slightly so that it's actually centered.
+
 ## 1.1.3
 
 - Added new `Player-Labels/enable-offscreen-indicator` setting (also in Quick Setup panel; enabled by default) which controls whether player labels should be clamped to the screen's edges when they are out of view.
