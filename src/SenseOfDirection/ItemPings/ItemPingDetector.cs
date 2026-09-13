@@ -34,12 +34,20 @@ namespace SenseOfDirection.ItemPings
         /// </summary>
         public readonly Func<Sprite> GetNativeIcon;
 
-        public PingableTarget(GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName, Func<Sprite> getNativeIcon = null)
+        // tint for GetNativeIcon's sprite (cooked-food color for an item, white
+        // for everything else)
+        // null for any target with no tint of its own
+        public readonly Func<Color> GetNativeIconTint;
+
+        public PingableTarget(
+            GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName,
+            Func<Sprite> getNativeIcon = null, Func<Color> getNativeIconTint = null)
         {
             GameObject = gameObject;
             GetCenter = getCenter;
             GetDisplayName = getDisplayName;
             GetNativeIcon = getNativeIcon;
+            GetNativeIconTint = getNativeIconTint;
         }
     }
 
@@ -135,11 +143,13 @@ namespace SenseOfDirection.ItemPings
             var results = new List<PingableTarget>();
             Matched.Clear();
 
-            void Add(GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName, Func<Sprite> getNativeIcon = null)
+            void Add(
+                GameObject gameObject, Func<Vector3> getCenter, Func<string> getDisplayName,
+                Func<Sprite> getNativeIcon = null, Func<Color> getNativeIconTint = null)
             {
                 if (Matched.Add(gameObject))
                 {
-                    results.Add(new PingableTarget(gameObject, getCenter, getDisplayName, getNativeIcon));
+                    results.Add(new PingableTarget(gameObject, getCenter, getDisplayName, getNativeIcon, getNativeIconTint));
                 }
             }
 
@@ -322,7 +332,7 @@ namespace SenseOfDirection.ItemPings
                     }
                     Item capturedItem = item;
                     Add(capturedItem.gameObject, () => capturedItem.Center(), () => capturedItem.GetItemName(),
-                        () => NativeIconCache.ForItem(capturedItem));
+                        () => NativeIconCache.ForItem(capturedItem), () => NativeIconCache.CookTint(capturedItem));
                 }
             }
 

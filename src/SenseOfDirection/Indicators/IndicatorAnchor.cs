@@ -289,6 +289,9 @@ namespace SenseOfDirection.Indicators
         /// </summary>
         public Func<Sprite> GetCompassIcon = () => null;
 
+        // tint applied over GetCompassIcon's sprite (e.g. a cooked item's color); which is white by default
+        public Func<Color> GetCompassIconTint = () => Color.white;
+
         public Func<bool> GetIsDead = () => false;
         public Func<bool> GetIsUnconscious = () => false;
 

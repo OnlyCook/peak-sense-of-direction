@@ -1,5 +1,9 @@
-## 1.1.4
+## 1.1.5
 
+- Made it that item pings of cooked items get the appropriately tinted icon instead of always using the regular (uncooked) version.
+- Fixed the Quick Setup preview showing "Clown Luggage" label for a regular Luggage.
+
+## 1.1.4
 - Added new `Pings/ripple-scale-counter-multiplier` setting (also in Quick Setup panel) which holds back the ping ripple from growing so large at a distance. The lower the value, the smaller the ripple will get. Thanks to Danicchi for the suggestion!
 - Nudged native item ping icon downward slightly so that it's actually centered.
 

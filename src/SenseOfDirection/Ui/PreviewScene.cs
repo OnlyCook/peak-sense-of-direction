@@ -1374,7 +1374,7 @@ namespace SenseOfDirection.Ui
         {
             foreach (Luggage luggage in Resources.FindObjectsOfTypeAll<Luggage>())
             {
-                if (luggage != null)
+                if (luggage != null && !PirateCompass.ClownLuggage.Is(luggage))
                 {
                     return luggage.GetName();
                 }

@@ -706,7 +706,8 @@ namespace SenseOfDirection.Compass
                     anchor.GetIsUnconscious(),
                     anchor.GetCompassIcon(),
                     anchor.ForceCompassTextTint(),
-                    anchor.SuppressCompassDistanceTint());
+                    anchor.SuppressCompassDistanceTint(),
+                    anchor.GetCompassIconTint());
 
                 // Overlap resolution (see ResolveMarkerOverlaps) only pushes
                 // markers apart along the tape's one axis (all share the same

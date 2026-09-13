@@ -427,13 +427,17 @@ namespace SenseOfDirection.ItemPings
             _lastDistanceMeters = int.MinValue;
         }
 
-        public void Refresh(string displayName, float distanceMeters, bool showName, bool showDistance, Sprite nativeIcon = null)
+        public void Refresh(
+            string displayName, float distanceMeters, bool showName, bool showDistance,
+            Sprite nativeIcon = null, Color? nativeIconTint = null)
         {
+            Color iconTint = nativeIconTint ?? Color.white;
             // The mod's own diamond is authored white-fill/black-outline so it
             // can be tinted to the pinging player's color (Common.IconAssets);
             // the game's own item icon is finished, colored art, so it's shown
-            // untinted and a size up instead - the same reasoning the compass
-            // marker uses (Compass.CompassMarkerWidget.Refresh). Resolved every
+            // untinted (aside from nativeIconTint, e.g. a cooked item's color)
+            // and a size up instead the same reasoning the compass marker uses 
+            // (Compass.CompassMarkerWidget.Refresh). Resolved every
             // frame rather than at bind time because the widget is pooled and
             // use-native-item-ping-icons is a live toggle - a widget rented next
             // by a luggage/creature (no icon of its own) has to be able to get
@@ -459,7 +463,7 @@ namespace SenseOfDirection.ItemPings
             float crosshairSize = (isCampfireIcon ? CampfireIconSizePixels : nativeIcon != null ? NativeIconSizePixels : CrosshairSizePixels) * iconSizeMultiplier;
             _crosshair.sizeDelta = new Vector2(crosshairSize, crosshairSize);
             _crosshair.anchoredPosition = new Vector2(0f, CrosshairYOffset + extraIconYOffset);
-            _crosshairImage.color = nativeIcon != null ? Color.white : _color;
+            _crosshairImage.color = nativeIcon != null ? iconTint : _color;
             ApplyOutline(_crosshairOutlineImages, crosshairSprite, new Vector2(crosshairSize, crosshairSize), isCampfireIcon && _crosshair.gameObject.activeSelf);
 
             // The crosshair/icon stays pinned to the tracked point (y=0) while the
@@ -493,7 +497,7 @@ namespace SenseOfDirection.ItemPings
             _arrow.sizeDelta = (nativeIcon != null
                 ? new Vector2(arrowIconSize, arrowIconSize)
                 : ItemArrowSize) * iconSizeMultiplier;
-            _arrowImage.color = nativeIcon != null ? Color.white : _color;
+            _arrowImage.color = nativeIcon != null ? iconTint : _color;
             ApplyOutline(_arrowOutlineImages, arrowSprite, _arrow.sizeDelta, isCampfireIcon && _arrow.gameObject.activeSelf);
             if (Anchor != null)
             {

@@ -436,7 +436,7 @@ namespace SenseOfDirection.Compass
             float iconSizePixels, Color color, string name, float distanceMeters,
             bool showName, bool showDistance, CompassElevation elevation,
             bool isDead, bool isUnconscious, Sprite nativeIcon = null,
-            bool forceTintText = false, bool suppressDistanceTint = false)
+            bool forceTintText = false, bool suppressDistanceTint = false, Color? nativeIconTint = null)
         {
             if (NativeAssets.Font != null)
             {
@@ -472,10 +472,11 @@ namespace SenseOfDirection.Compass
             // player color) would just muddy them. They get the plain
             // white/black treatment the campfire's HUD icon already had.
             bool nativeArt = nativeIcon != null || _kind == CompassMarkerKind.Campfire;
+            Color iconTint = nativeIconTint ?? Color.white;
 
             var iconRect = (RectTransform)_iconImage.transform;
             iconRect.sizeDelta = new Vector2(iconSizePixels, iconSizePixels);
-            _iconImage.color = nativeArt ? Color.white : color;
+            _iconImage.color = nativeArt ? iconTint : color;
             if (iconSprite != null && _iconImage.sprite != iconSprite)
             {
                 _iconImage.sprite = iconSprite;

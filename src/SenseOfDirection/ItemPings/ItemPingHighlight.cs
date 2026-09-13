@@ -82,6 +82,10 @@ namespace SenseOfDirection.ItemPings
         /// </summary>
         private Sprite _currentIcon;
 
+        // tint for _currentIcon 
+        // re-read every frame since the item can keep cooking while pinged
+        private Color _currentIconTint = Color.white;
+
         /// <summary>
         /// Inputs the display name was last built from. The name only changes
         /// when the group's size or its first target's name does (an item being
@@ -134,6 +138,7 @@ namespace SenseOfDirection.ItemPings
             // exactly the same targets (only-show-item-ping-name-without-icon).
             highlight._widget.Anchor.GetCompassLabel = () => highlight._currentLabel;
             highlight._widget.Anchor.GetCompassIcon = () => highlight._currentIcon;
+            highlight._widget.Anchor.GetCompassIconTint = () => highlight._currentIconTint;
             highlight._widget.Anchor.CompassSpawnPop = compassSpawnPop;
 
             // Before the anchor is registered (i.e. before anything can render
@@ -278,6 +283,8 @@ namespace SenseOfDirection.ItemPings
 
             Func<Sprite> getIcon = _valid[0].GetNativeIcon;
             _currentIcon = cfg.UseNativeItemPingIcons.Value && getIcon != null ? getIcon() : null;
+            Func<Color> getIconTint = _valid[0].GetNativeIconTint;
+            _currentIconTint = _currentIcon != null && getIconTint != null ? getIconTint() : Color.white;
 
             // HideWhenIconShown drops the name only for something whose own icon
             // is actually being drawn - the icon already says what it is. A
@@ -292,7 +299,7 @@ namespace SenseOfDirection.ItemPings
             bool showName = nameMode != ItemPingNameMode.Never && !string.IsNullOrEmpty(_currentLabel);
 
             float distanceMeters = Vector3.Distance(CharacterPositions.LocalViewpoint(), GetGroupCenter()) * CharacterStats.unitsToMeters;
-            _widget.Refresh(_currentLabel, distanceMeters, showName, cfg.ShowItemPingDistance.Value, _currentIcon);
+            _widget.Refresh(_currentLabel, distanceMeters, showName, cfg.ShowItemPingDistance.Value, _currentIcon, _currentIconTint);
         }
 
         private void BeginFadeOut()

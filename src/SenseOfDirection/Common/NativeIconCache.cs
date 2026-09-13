@@ -111,5 +111,16 @@ namespace SenseOfDirection.Common
         {
             return item == null || item.UIData == null ? null : SpriteFor(item.UIData.GetIcon());
         }
+
+        // how the game tints cooked icons
+        public static Color CookTint(Item item)
+        {
+            if (item != null && item.data != null
+                && item.data.TryGetDataEntry<IntItemData>(DataEntryKey.CookedAmount, out IntItemData cookedAmount))
+            {
+                return ItemCooking.GetCookColor(cookedAmount.Value);
+            }
+            return Color.white;
+        }
     }
 }
