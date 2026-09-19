@@ -479,6 +479,7 @@ namespace SenseOfDirection.Ui
             // switched off with it - OnEnable/OnDisable do that by hand, and this is
             // the initial sync. See SyncStageActive.
             scene.SyncStageActive();
+            PreviewDiagnostics.Attach(frameGo, scene._renderCamera, scene._pingMarker != null ? scene._pingMarker.HandCamera : null);
             return scene;
         }
 
@@ -545,6 +546,11 @@ namespace SenseOfDirection.Ui
             _renderCamera.farClipPlane = 20f;
             _renderCamera.clearFlags = CameraClearFlags.SolidColor;
 
+            // flat ui into an ARGB32 texture: an HDR intermediate (32-bit float per channel
+            // under this game's URP asset) or MSAA buffers at up to 4k are pure waste here
+            _renderCamera.allowHDR = false;
+            _renderCamera.allowMSAA = false;
+
             // Opaque, not transparent: alpha-blended UI rendered onto a transparent
             // clear leaves the *alpha* channel of every antialiased edge wrong, and
             // the frame shows this texture over the panel, where that would read as
@@ -566,6 +572,8 @@ namespace SenseOfDirection.Ui
         /// stage pixel and a screen pixel are the same size, which is the whole
         /// claim the magnifier makes.
         /// </summary>
+        private static int _reallocLogs;
+
         private void EnsureRenderTexture()
         {
             int height = Mathf.Clamp(Screen.height, 540, 2160);
@@ -582,6 +590,16 @@ namespace SenseOfDirection.Ui
             if (_renderTexture != null && _renderTexture.width == width && _renderTexture.height == height)
             {
                 return;
+            }
+
+            // TEMP DIAGNOSTIC
+            if (++_reallocLogs <= 20)
+            {
+                Plugin.Instance.Log.LogInfo(
+                    $"[F8-DIAG] PreviewScene: reallocating stage RenderTexture {(_renderTexture == null ? "(first build)" : $"{_renderTexture.width}x{_renderTexture.height} -> ")}{width}x{height} " +
+                    $"(Screen.height={Screen.height}, SystemInfo.graphicsDeviceType={SystemInfo.graphicsDeviceType}, " +
+                    $"Mono heap={System.GC.GetTotalMemory(false) / (1024 * 1024)}MB, " +
+                    $"Unity reserved={UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong() / (1024 * 1024)}MB)");
             }
 
             if (_renderTexture != null)

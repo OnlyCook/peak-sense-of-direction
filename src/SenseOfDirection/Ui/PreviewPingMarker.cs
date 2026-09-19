@@ -456,11 +456,22 @@ namespace SenseOfDirection.Ui
         }
 
         /// <summary>Matches the stage's own render target, so the magnifier shows the hand at the same 1:1 sharpness as everything else in the preview.</summary>
+        private static int _reallocLogs;
+
+        internal Camera HandCamera => _camera;
+
         internal void EnsureTexture(int width, int height)
         {
             if (_texture != null && _texture.width == width && _texture.height == height)
             {
                 return;
+            }
+
+            // TEMP DIAGNOSTIC
+            if (++_reallocLogs <= 20)
+            {
+                Plugin.Instance.Log.LogInfo(
+                    $"[F8-DIAG] PreviewPingMarker: reallocating hand RenderTexture {(_texture == null ? "(first build)" : $"{_texture.width}x{_texture.height} -> ")}{width}x{height}");
             }
 
             if (_texture != null)
