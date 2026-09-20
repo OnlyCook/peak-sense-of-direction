@@ -70,7 +70,7 @@ namespace SenseOfDirection.Ui
                 _overrideCount++;
                 if (_overrideCount <= 5 || _overrideCount % 600 == 0)
                 {
-                    Plugin.Instance.Log.LogInfo(
+                    F8Bisect.Raw(
                         $"[F8-DIAG] NativeResolutionCamera: overrode renderScale {_savedRenderScale} -> 1 for '{camera.name}' " +
                         $"(override #{_overrideCount} this session, graphicsDeviceType={SystemInfo.graphicsDeviceType})");
                 }

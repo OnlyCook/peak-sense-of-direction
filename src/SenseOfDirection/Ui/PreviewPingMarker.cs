@@ -471,7 +471,7 @@ namespace SenseOfDirection.Ui
             // TEMP DIAGNOSTIC
             if (++_reallocLogs <= 20)
             {
-                Plugin.Instance.Log.LogInfo(
+                F8Bisect.Raw(
                     $"[F8-DIAG] PreviewPingMarker: reallocating hand RenderTexture {(_texture == null ? "(first build)" : $"{_texture.width}x{_texture.height} -> ")}{width}x{height}");
             }
 

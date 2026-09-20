@@ -124,6 +124,7 @@ namespace SenseOfDirection.Ui
                 PanelFillColor, PanelBorderColor,
                 EdgeJagAmplitude, EdgeJagFrequency, JagFrameSeedOffsets[frame]);
             _panelSprites[key] = sprite;
+            F8Bisect.Mark("panel sprite baked " + width + "x" + height + " jag frame " + frame);
             return sprite;
         }
 
@@ -329,9 +330,16 @@ namespace SenseOfDirection.Ui
         private const float GrainLightMul = 1.03f;
         private const float GrainDarkMul = 1.00f;
 
-        internal static Texture2D GrainTexture() => _grainTexture != null
-            ? _grainTexture
-            : (_grainTexture = GenerateGrainTexture(PanelFillColor, GrainTextureSize, GrainTextureSize));
+        internal static Texture2D GrainTexture()
+        {
+            if (_grainTexture == null)
+            {
+                _grainTexture = GenerateGrainTexture(PanelFillColor, GrainTextureSize, GrainTextureSize);
+                F8Bisect.Mark("grain texture baked " + GrainTextureSize + "x" + GrainTextureSize);
+            }
+
+            return _grainTexture;
+        }
 
         /// <summary>
         /// The fractal noise field itself *is* the cloud shape here, not a

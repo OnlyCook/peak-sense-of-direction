@@ -150,7 +150,6 @@ namespace SenseOfDirection
         public readonly ConfigEntry<bool> EnableIndicatorTestHarness;
         public readonly ConfigEntry<bool> EnableZombieDebugEsp;
         public readonly ConfigEntry<bool> EnableGhostFreeCamKeyHintPreview;
-        public readonly ConfigEntry<bool> PreviewRenderHand;
 
         public PluginConfig(ConfigFile config)
         {
@@ -786,11 +785,6 @@ namespace SenseOfDirection
             EnableGhostFreeCamKeyHintPreview = config.Bind(
                 "Debug", "enable-ghost-free-cam-key-hint-preview", false,
                 "Dev/QA aid: always shows the ghost free-cam key hint badge/label (toggle-key still flips it between its 'go into'/'leave' text), even while alive, to check its look without dying first. Not a real feature; leave off for normal play.");
-
-            // TEMP (F8/DX12 crash investigation): default false only for the alpha build
-            PreviewRenderHand = config.Bind(
-                "Debug", "preview-render-hand", false,
-                "Renders the live 3D ping hand in the F8 preview. Pressing F9 with the F8 menu open toggles it.");
         }
     }
 }

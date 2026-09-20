@@ -30,6 +30,13 @@ namespace SenseOfDirection.Ui
             d.LogEnvironment(stageCamera, handCamera);
         }
 
+        internal static string MemoryLine()
+        {
+            var sb = new StringBuilder();
+            AppendMemory(sb, "");
+            return sb.ToString();
+        }
+
         internal static void Note(string message)
         {
             var sb = new StringBuilder(message).Append(" | ");
@@ -39,9 +46,17 @@ namespace SenseOfDirection.Ui
 
         private int _frame;
 
-        private static void Log(string message) => Plugin.Instance.Log.LogInfo("[F8-DIAG] " + message);
+        private static void Log(string message)
+        {
+            Plugin.Instance.Log.LogInfo("[F8-DIAG] " + message);
+            F8Bisect.ToFile("[F8-DIAG] " + message);
+        }
 
-        private static void Warn(string message) => Plugin.Instance.Log.LogWarning("[F8-DIAG] " + message);
+        private static void Warn(string message)
+        {
+            Plugin.Instance.Log.LogWarning("[F8-DIAG] " + message);
+            F8Bisect.ToFile("[F8-DIAG] WARN " + message);
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct MemoryStatusEx

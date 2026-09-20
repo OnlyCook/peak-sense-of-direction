@@ -450,17 +450,22 @@ namespace SenseOfDirection.Ui
             scene._frameSize = frameSize;
 
             scene.BuildStageCanvas();
+            F8Bisect.Mark("preview: stage canvas + render camera + render texture built");
             scene.BuildBackground();
+            F8Bisect.Mark("preview: background built");
             scene.BuildCamera();
+            F8Bisect.Mark("preview: projection camera built");
 
             // Between the screenshot and every widget, in that order - which is the
             // order the stage's children are created in, so this is just where it
             // falls. In game the hand is in the world and the HUD is over it; here
             // the hand is one layer of the picture, and the HUD is over that.
             scene.BuildPingMarker();
+            F8Bisect.Mark("preview: ping hand built");
 
             scene._indicators = IndicatorManager.CreateDetached(scene._stage, scene._camera);
             scene._compass = CompassManager.CreateDetached(scene._stage, scene._camera, () => scene._indicators.Anchors);
+            F8Bisect.Mark("preview: indicator + compass managers built");
 
             // Before BuildWidgets, so the skeleton is an earlier sibling than the
             // labels and draws under them - a label sits above a head, so the two
@@ -471,14 +476,16 @@ namespace SenseOfDirection.Ui
             scene._skeleton = new PlayerSkeletonEsp(scene._stage);
 
             scene.BuildWidgets();
+            F8Bisect.Mark("preview: widgets built");
 
             scene.BuildSurface();
+            F8Bisect.Mark("preview: surface built");
             scene.BuildLoupe();
+            F8Bisect.Mark("preview: loupe built");
 
             // The stage lives outside the menu's hierarchy, so it doesn't get
             // switched off with it - OnEnable/OnDisable do that by hand, and this is
             // the initial sync. See SyncStageActive.
-            scene._handWanted = Plugin.Instance.Cfg.PreviewRenderHand.Value;
             scene.SyncStageActive();
             PreviewDiagnostics.Attach(frameGo, scene._renderCamera, scene._pingMarker != null ? scene._pingMarker.HandCamera : null);
             return scene;
@@ -599,7 +606,7 @@ namespace SenseOfDirection.Ui
             // TEMP DIAGNOSTIC
             if (++_reallocLogs <= 20)
             {
-                Plugin.Instance.Log.LogInfo(
+                F8Bisect.Raw(
                     $"[F8-DIAG] PreviewScene: reallocating stage RenderTexture {(_renderTexture == null ? "(first build)" : $"{_renderTexture.width}x{_renderTexture.height} -> ")}{width}x{height} " +
                     $"(Screen.height={Screen.height}, SystemInfo.graphicsDeviceType={SystemInfo.graphicsDeviceType}, " +
                     $"Mono heap={System.GC.GetTotalMemory(false) / (1024 * 1024)}MB, " +
@@ -1415,72 +1422,29 @@ namespace SenseOfDirection.Ui
             catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
         }
 
-        // staged start for the F8/DX12 crash investigation: each camera's first render is spread over separate, individually logged frames
-        private const int StageStartFrame = 2;
-        private const int HandStartFrame = 14;
-        private const float HandPersistDelaySeconds = 5f;
-
-        private int _stagingFrame;
-        private bool _handWanted;
         private bool _handApplied;
-        private float _persistHandAt;
 
-        private void UpdateStaging(PluginConfig cfg)
+        internal void StartStageCamera()
         {
-            _stagingFrame++;
-
-            if (_stagingFrame == StageStartFrame)
-            {
-                PreviewDiagnostics.Note("enabling stage camera");
-                _renderCamera.enabled = true;
-            }
-
-            if (!KeyRebindControl.IsCapturing && Input.GetKeyDown(KeyCode.F9))
-            {
-                _handWanted = !_handWanted;
-                PreviewDiagnostics.Note("F9: hand " + (_handWanted ? "ON" : "OFF"));
-                if (_handWanted)
-                {
-                    // only remembered once it has survived a few seconds, so a crash on enabling can't lock the next launch into crashing too
-                    _persistHandAt = Time.unscaledTime + HandPersistDelaySeconds;
-                }
-                else
-                {
-                    _persistHandAt = 0f;
-                    cfg.PreviewRenderHand.Value = false;
-                }
-            }
-
-            if (_persistHandAt > 0f && _handWanted && Time.unscaledTime >= _persistHandAt)
-            {
-                _persistHandAt = 0f;
-                cfg.PreviewRenderHand.Value = true;
-            }
+            _renderCamera.enabled = true;
         }
 
-        private void ApplyHand()
+        internal void StartHandCamera()
         {
-            bool on = _handWanted && _stagingFrame >= HandStartFrame;
-            if (_pingMarker == null || on == _handApplied)
+            if (_pingMarker == null)
             {
                 return;
             }
 
-            PreviewDiagnostics.Note("hand camera " + (on ? "ON" : "OFF"));
-            _handApplied = on;
-            if (on)
-            {
-                _pingMarker.EnsureTexture((int)StageSize.x, (int)StageSize.y);
-            }
-            _pingMarker.SetRendering(on);
+            _handApplied = true;
+            _pingMarker.EnsureTexture((int)StageSize.x, (int)StageSize.y);
+            _pingMarker.SetRendering(true);
         }
 
         private void UpdateImpl()
         {
             NativeAssets.TryFindAll();
-            UpdateStaging(Plugin.Instance.Cfg);
             EnsureRenderTexture();
-            ApplyHand();
             UpdateLoupe();
             RebuildIfNeeded();
 
