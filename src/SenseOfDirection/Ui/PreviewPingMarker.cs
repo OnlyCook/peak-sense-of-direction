@@ -146,6 +146,7 @@ namespace SenseOfDirection.Ui
 
             marker._surface = go.GetComponent<RawImage>();
             marker._surface.raycastTarget = false;
+            marker._surface.enabled = false;
 
             try
             {
@@ -489,8 +490,14 @@ namespace SenseOfDirection.Ui
             };
 
             _camera.targetTexture = _texture;
-            _camera.enabled = true;
             _surface.texture = _texture;
+        }
+
+        // the camera and its overlay image only run while the hand is wanted; with it off the stage's own screenshot shows through
+        internal void SetRendering(bool on)
+        {
+            _camera.enabled = on && _texture != null;
+            _surface.enabled = on;
         }
 
         /// <summary>

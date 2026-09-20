@@ -478,6 +478,7 @@ namespace SenseOfDirection.Ui
             // The stage lives outside the menu's hierarchy, so it doesn't get
             // switched off with it - OnEnable/OnDisable do that by hand, and this is
             // the initial sync. See SyncStageActive.
+            scene._handWanted = Plugin.Instance.Cfg.PreviewRenderHand.Value;
             scene.SyncStageActive();
             PreviewDiagnostics.Attach(frameGo, scene._renderCamera, scene._pingMarker != null ? scene._pingMarker.HandCamera : null);
             return scene;
@@ -546,6 +547,9 @@ namespace SenseOfDirection.Ui
             _renderCamera.farClipPlane = 20f;
             _renderCamera.clearFlags = CameraClearFlags.SolidColor;
 
+            // switched on a couple of frames after the menu is built, see UpdateImpl
+            _renderCamera.enabled = false;
+
             // flat ui into an ARGB32 texture: an HDR intermediate (32-bit float per channel
             // under this game's URP asset) or MSAA buffers at up to 4k are pure waste here
             _renderCamera.allowHDR = false;
@@ -576,13 +580,13 @@ namespace SenseOfDirection.Ui
 
         private void EnsureRenderTexture()
         {
-            int height = Mathf.Clamp(Screen.height, 540, 2160);
-            int width = Mathf.RoundToInt(height * StageSize.x / StageSize.y);
+            int width = (int)StageSize.x;
+            int height = (int)StageSize.y;
 
             // The hand renders into its own texture at the same resolution - it's a
             // layer of the same picture, so it has to be as sharp as the rest of it
             // under the magnifier.
-            if (_pingMarker != null)
+            if (_pingMarker != null && _handApplied)
             {
                 _pingMarker.EnsureTexture(width, height);
             }
@@ -1411,10 +1415,72 @@ namespace SenseOfDirection.Ui
             catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
         }
 
+        // staged start for the F8/DX12 crash investigation: each camera's first render is spread over separate, individually logged frames
+        private const int StageStartFrame = 2;
+        private const int HandStartFrame = 14;
+        private const float HandPersistDelaySeconds = 5f;
+
+        private int _stagingFrame;
+        private bool _handWanted;
+        private bool _handApplied;
+        private float _persistHandAt;
+
+        private void UpdateStaging(PluginConfig cfg)
+        {
+            _stagingFrame++;
+
+            if (_stagingFrame == StageStartFrame)
+            {
+                PreviewDiagnostics.Note("enabling stage camera");
+                _renderCamera.enabled = true;
+            }
+
+            if (!KeyRebindControl.IsCapturing && Input.GetKeyDown(KeyCode.F9))
+            {
+                _handWanted = !_handWanted;
+                PreviewDiagnostics.Note("F9: hand " + (_handWanted ? "ON" : "OFF"));
+                if (_handWanted)
+                {
+                    // only remembered once it has survived a few seconds, so a crash on enabling can't lock the next launch into crashing too
+                    _persistHandAt = Time.unscaledTime + HandPersistDelaySeconds;
+                }
+                else
+                {
+                    _persistHandAt = 0f;
+                    cfg.PreviewRenderHand.Value = false;
+                }
+            }
+
+            if (_persistHandAt > 0f && _handWanted && Time.unscaledTime >= _persistHandAt)
+            {
+                _persistHandAt = 0f;
+                cfg.PreviewRenderHand.Value = true;
+            }
+        }
+
+        private void ApplyHand()
+        {
+            bool on = _handWanted && _stagingFrame >= HandStartFrame;
+            if (_pingMarker == null || on == _handApplied)
+            {
+                return;
+            }
+
+            PreviewDiagnostics.Note("hand camera " + (on ? "ON" : "OFF"));
+            _handApplied = on;
+            if (on)
+            {
+                _pingMarker.EnsureTexture((int)StageSize.x, (int)StageSize.y);
+            }
+            _pingMarker.SetRendering(on);
+        }
+
         private void UpdateImpl()
         {
             NativeAssets.TryFindAll();
+            UpdateStaging(Plugin.Instance.Cfg);
             EnsureRenderTexture();
+            ApplyHand();
             UpdateLoupe();
             RebuildIfNeeded();
 

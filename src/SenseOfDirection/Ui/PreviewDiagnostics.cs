@@ -30,6 +30,15 @@ namespace SenseOfDirection.Ui
             d.LogEnvironment(stageCamera, handCamera);
         }
 
+        internal static void Note(string message)
+        {
+            var sb = new StringBuilder(message).Append(" | ");
+            AppendMemory(sb, "now");
+            Log(sb.ToString());
+        }
+
+        private int _frame;
+
         private static void Log(string message) => Plugin.Instance.Log.LogInfo("[F8-DIAG] " + message);
 
         private static void Warn(string message) => Plugin.Instance.Log.LogWarning("[F8-DIAG] " + message);
@@ -149,6 +158,17 @@ namespace SenseOfDirection.Ui
             AppendCamera(sb, "hand camera", handCamera);
             AppendCamera(sb, "game main camera", Camera.main);
 
+            try
+            {
+                HDROutputSettings hdr = HDROutputSettings.main;
+                sb.Append("\n  hdrOutput: available=").Append(hdr.available).Append(" | active=").Append(hdr.active)
+                  .Append(" | gamut=").Append(hdr.displayColorGamut).Append(" | format=").Append(hdr.graphicsFormat);
+            }
+            catch (Exception)
+            {
+                sb.Append("\n  hdrOutput: <unavailable>");
+            }
+
             sb.Append("\n  cameras in scene=").Append(Camera.allCamerasCount);
             AppendMemory(sb.Append("\n  "), "baseline");
             Log(sb.ToString());
@@ -185,6 +205,13 @@ namespace SenseOfDirection.Ui
         private void Update()
         {
             float dt = Time.unscaledDeltaTime;
+            _frame++;
+            if (_frame <= 40)
+            {
+                var fsb = new StringBuilder("update #").Append(_frame).Append(" dt=").Append((int)(dt * 1000f)).Append("ms ");
+                AppendMemory(fsb, "");
+                Log(fsb.ToString());
+            }
             _activeTime += dt;
 
             long workingSet;
