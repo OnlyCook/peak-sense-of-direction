@@ -100,13 +100,8 @@ namespace SenseOfDirection.Ui
         /// </summary>
         private const float DescriptionHeight = 132f;
 
-<<<<<<< Updated upstream
         /// <summary>How many of the longest descriptions <see cref="MeasureMaxDescriptionHeight"/> measures.</summary>
         private const int MeasuredDescriptionCount = 12;
-=======
-        /// <summary>How many of the longest descriptions <see cref="MeasureMaxDescriptionHeight"/> actually measures.</summary>
-        private const int MeasuredDescriptionCount = 6;
->>>>>>> Stashed changes
 
         /// <summary>Height of the "default: ..." sub-line under the description text.</summary>
         private const float DefaultValueLineHeight = 20f;
@@ -1106,14 +1101,8 @@ namespace SenseOfDirection.Ui
         /// <summary>The tallest any setting's description wraps to, at the description box's own width/font - see <see cref="RelayoutDescriptionBlock"/>.</summary>
         private float MeasureMaxDescriptionHeight()
         {
-<<<<<<< Updated upstream
             // Only the longest few: the tallest wrapped description is one of them, and it keeps this cheap even if
             // some glyph wasn't covered by GlyphPreloader.
-=======
-            // Only the longest few are measured, not all ~80: measuring makes TMP add every glyph of every
-            // string to the font's dynamic atlas in one frame, which for CJK text is thousands of glyphs at once.
-            // The tallest wrapped description is one of the longest strings, so this finds the same maximum.
->>>>>>> Stashed changes
             var tooltips = new List<string>();
             foreach (PreviewTab tab in _tabs)
             {
