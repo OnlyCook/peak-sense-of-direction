@@ -215,20 +215,23 @@ namespace SenseOfDirection.Ui
                 return;
             }
 
-            F8Bisect.Header();
-            F8Bisect.Mark("F8 pressed");
-
             // The menu only makes sense inside a run: it borrows the game's own
             // settings widgets (only loaded with the game UI) and its preview
             // reads unitsToMeters/native icons off live game state.
-            if (Character.localCharacter == null)
+            if (Character.localCharacter == null || !NativeSettingCells.TryFindPrefab())
             {
                 Plugin.Instance.Log.LogWarning("Preview menu: the game's UI isn't ready yet - not opening.");
                 return;
             }
 
             IsOpen = true;
+
+            ShowDim();
             StartCoroutine(OpenWhenReady());
+
+            // Read by ShowDim to decide fade-vs-snap, so it's only flipped once the
+            // decision for *this* open has been made.
+            _hasOpenedBefore = true;
         }
 
         /// <summary>
@@ -262,33 +265,30 @@ namespace SenseOfDirection.Ui
         /// </summary>
         private IEnumerator OpenWhenReady()
         {
-            // TEMP TEST HARNESS: even the game-UI lookup, the dim and the loading screen are stages, so a crash anywhere from the keypress on is pinned down
-            bool prefabFound = false;
-            yield return F8Bisect.Stage("game-ui-lookup", () => prefabFound = NativeSettingCells.TryFindPrefab(), 1);
-            if (!prefabFound)
-            {
-                Plugin.Instance.Log.LogWarning("Preview menu: the game's UI isn't ready yet - not opening.");
-                Close();
-                yield break;
-            }
-
-            yield return F8Bisect.Stage("dim", ShowDim);
-
-            // Read by ShowDim to decide fade-vs-snap, so it's only flipped once the
-            // decision for *this* open has been made.
-            _hasOpenedBefore = true;
-
             // Cold: nothing is built yet, and building it is the expensive part.
             bool cold = _root == null;
 
             if (cold)
             {
-                // the loading screen is optional here: if it fails or was skipped the build below just runs without it
-                yield return F8Bisect.Stage("loading-screen", () =>
+                // Guarded for the same reason BuildBehindLoadingScreen is: a
+                // throw inside a coroutine kills the coroutine silently, and
+                // this one is what's responsible for ever taking the menu back
+                // down again. Failing here means we never got as far as
+                // showing anything, so just abort the open cleanly.
+                if (!Common.Safe.Run("PreviewMenu.EnsureLoadingUi", () =>
+                    {
+                        EnsureLoadingUi();
+                        _loadingRoot.SetActive(true);
+                    }))
                 {
-                    EnsureLoadingUi();
-                    _loadingRoot.SetActive(true);
-                }, 1);
+                    Close();
+                    yield break;
+                }
+
+                // The loading screen has to get one frame to itself, or the heavy
+                // build below runs before it has ever been drawn and it's never
+                // seen at all.
+                yield return null;
 
                 if (!IsOpen)
                 {
@@ -296,16 +296,7 @@ namespace SenseOfDirection.Ui
                 }
             }
 
-            if (cold)
-            {
-                yield return BuildStaged();
-                if (!_stagedBuildOk)
-                {
-                    Close();
-                    yield break;
-                }
-            }
-            else if (!BuildBehindLoadingScreen())
+            if (!BuildBehindLoadingScreen())
             {
                 Close();
                 yield break;
@@ -361,6 +352,11 @@ namespace SenseOfDirection.Ui
         {
             try
             {
+                if (_root == null)
+                {
+                    BuildUi();
+                }
+
                 _canvasGroup.alpha = 0f;
                 _canvasGroup.blocksRaycasts = false;
 
@@ -631,15 +627,7 @@ namespace SenseOfDirection.Ui
             });
         }
 
-        private RectTransform _panelRect;
-        private float _contentTop;
-        private float _columnTop;
-        private float _columnBottom;
-        private float _leftCentreX;
-        private float _rightCentreX;
-        private float _leftTop;
-
-        private void CreateRoot()
+        private void BuildUi()
         {
             BuildTabs();
 
@@ -675,149 +663,58 @@ namespace SenseOfDirection.Ui
             // How the menu is hidden while it settles behind the loading screen -
             // transparent but still running. See OpenWhenReady.
             _canvasGroup = _root.AddComponent<CanvasGroup>();
-            _canvasGroup.alpha = 0f;
-            _canvasGroup.blocksRaycasts = false;
 
             var windowGo = new GameObject("Window");
             windowGo.transform.SetParent(_root.transform, false);
             _window = windowGo.AddComponent<PreviewMenuWindow>();
-        }
 
-        private void CreatePanel()
-        {
             // No dim of its own - it shares one with the loading screen, see EnsureDimUi.
             _panel = JaggedPanel.Create((RectTransform)_root.transform, "Panel", new Vector2(PanelWidth, PanelHeight));
-            _panelRect = (RectTransform)_panel.transform;
+            var panelRect = (RectTransform)_panel.transform;
 
-            // The height match guarantees the panel's height always fits; only an unusually narrow screen could lack the width, so shrink uniformly then.
-            float canvasWidthUnits = (float)Screen.width / Screen.height * 1080f;
+            // The height match above guarantees the panel's 1010px height always
+            // fits a canvas that's a constant 1080 reference pixels tall. Width
+            // isn't covered by that: it still varies with aspect, and while
+            // anything 16:9 or wider only ever has *more* of it than the panel
+            // needs, an unusually narrow screen (e.g. a portrait monitor) could
+            // have less. Shrinking the whole panel uniformly - rather than
+            // reflowing it - is a no-op at every aspect this panel was actually
+            // designed for, and only kicks in for that narrow edge case.
+            float canvasWidthUnits = (float)Screen.width / Screen.height * scaler.referenceResolution.y;
             float fitScale = Mathf.Min(1f, (canvasWidthUnits - PanelPadding * 2f) / PanelWidth);
             if (fitScale < 1f)
             {
-                _panelRect.localScale = new Vector3(fitScale, fitScale, 1f);
+                panelRect.localScale = new Vector3(fitScale, fitScale, 1f);
             }
 
-            _contentTop = PanelHeight * 0.5f - PanelPadding;
+            float contentTop = PanelHeight * 0.5f - PanelPadding;
 
-            // Both columns start under the tabs and run down to just above the footer; the left column's block is centred in that height.
-            _columnTop = _contentTop - TitleHeight - TabsHeight - TabsBottomGap;
-            _columnBottom = -PanelHeight * 0.5f + PanelPadding + FooterHeight;
+            BuildTitle(panelRect, contentTop);
+            _tabsRow = BuildTabsRow(panelRect, contentTop - TitleHeight);
 
-            _leftCentreX = -PanelWidth * 0.5f + PanelPadding + PreviewWidth * 0.5f;
-            _rightCentreX = PanelWidth * 0.5f - PanelPadding - SettingsWidth * 0.5f;
+            // Both columns start under the tabs and run down to just above the
+            // footer. The settings list fills that whole height; the left column's
+            // content (the 16:9 preview with its description under it) is shorter
+            // than it, so it's centred in it rather than hung from the top - which
+            // left all of the slack pooled underneath as dead space.
+            float columnTop = contentTop - TitleHeight - TabsHeight - TabsBottomGap;
+            float columnBottom = -PanelHeight * 0.5f + PanelPadding + FooterHeight;
+
+            float leftCentreX = -PanelWidth * 0.5f + PanelPadding + PreviewWidth * 0.5f;
+            float rightCentreX = PanelWidth * 0.5f - PanelPadding - SettingsWidth * 0.5f;
 
             float leftBlockHeight = PreviewHeight + PreviewDescriptionGap + DescriptionHeight;
-            float leftSlack = Mathf.Max(0f, (_columnTop - _columnBottom) - leftBlockHeight);
-            _leftTop = _columnTop - leftSlack * 0.5f;
-        }
+            float leftSlack = Mathf.Max(0f, (columnTop - columnBottom) - leftBlockHeight);
+            float leftTop = columnTop - leftSlack * 0.5f;
 
-        private void CreateTitleAndTabs()
-        {
-            BuildTitle(_panelRect, _contentTop);
-            _tabsRow = BuildTabsRow(_panelRect, _contentTop - TitleHeight);
-        }
-
-        private void CreatePreview()
-        {
             _scene = PreviewScene.Create(
-                _panelRect,
+                panelRect,
                 new Vector2(PreviewWidth, PreviewHeight),
-                new Vector2(_leftCentreX, _leftTop - PreviewHeight * 0.5f));
-        }
+                new Vector2(leftCentreX, leftTop - PreviewHeight * 0.5f));
 
-        private void CreateDescription()
-        {
-            BuildDescription(_panelRect, _leftCentreX, _leftTop - PreviewHeight - PreviewDescriptionGap);
-        }
-
-        private void CreateSettingsList()
-        {
-            BuildSettingsScroll(_panelRect, _rightCentreX, _columnTop, _columnBottom);
-        }
-
-        private void CreateFooter()
-        {
-            BuildFooter(_panelRect);
-        }
-
-        // TEMP TEST HARNESS (nvidia/dx12 f8 crash): the whole first-open build, one stage at a time - see F8Bisect
-        private const int RowsPerStage = 3;
-        private bool _stagedBuildOk;
-
-        private IEnumerator BuildStaged()
-        {
-            _stagedBuildOk = false;
-            yield return F8Bisect.Stage("root", CreateRoot);
-            if (_root == null)
-            {
-                F8Bisect.Log("root stage did not produce a menu - aborting the test");
-                yield break;
-            }
-
-            yield return F8Bisect.Stage("panel", CreatePanel);
-            if (_panelRect == null)
-            {
-                F8Bisect.Log("panel stage did not produce a panel - aborting the test");
-                yield break;
-            }
-
-            yield return F8Bisect.Stage("title-and-tabs", CreateTitleAndTabs);
-            yield return F8Bisect.Stage("preview-scene", CreatePreview);
-            yield return F8Bisect.Stage("description", CreateDescription);
-            yield return F8Bisect.Stage("settings-list", CreateSettingsList);
-            yield return F8Bisect.Stage("footer", CreateFooter);
-
-            yield return F8Bisect.Stage("activate", () =>
-            {
-                _root.SetActive(true);
-                _window.SetRegistered(true);
-                RefreshLocalizedChrome();
-            });
-
-            if (_settingsContent != null)
-            {
-                // every tab's rows, a few at a time, so each kind of setting widget gets built on its own
-                for (int tab = 0; tab < _tabs.Count; tab++)
-                {
-                    int tabIndex = tab;
-                    BeginTab(tabIndex);
-
-                    List<ConfigEntryBase> entries = _tabs[tabIndex].Entries;
-                    for (int start = 0; start < entries.Count; start += RowsPerStage)
-                    {
-                        int from = start;
-                        int to = Mathf.Min(start + RowsPerStage, entries.Count);
-                        var names = new List<string>();
-                        for (int e = from; e < to; e++)
-                        {
-                            names.Add(entries[e].Definition.Key);
-                        }
-
-                        yield return F8Bisect.Stage("rows tab" + tabIndex + " [" + string.Join(", ", names.ToArray()) + "]", () =>
-                        {
-                            for (int e = from; e < to; e++)
-                            {
-                                AddRow(entries[e]);
-                            }
-                        }, 1);
-                    }
-                }
-
-                BeginTab(0);
-                foreach (ConfigEntryBase entry in _tabs[0].Entries)
-                {
-                    AddRow(entry);
-                }
-            }
-
-            if (_scene != null)
-            {
-                yield return F8Bisect.Stage("preview-stage-camera", _scene.StartStageCamera, 3);
-                yield return F8Bisect.Stage("preview-hand-camera", _scene.StartHandCamera, 3);
-            }
-
-            F8Bisect.Finished();
-            _stagedBuildOk = true;
+            BuildDescription(panelRect, leftCentreX, leftTop - PreviewHeight - PreviewDescriptionGap);
+            BuildSettingsScroll(panelRect, rightCentreX, columnTop, columnBottom);
+            BuildFooter(panelRect);
         }
 
         /// <summary>
@@ -1274,7 +1171,7 @@ namespace SenseOfDirection.Ui
         /// <see cref="ShowTab"/> already rebuilds each row's own name/
         /// description fresh on every open, so those two never went stale. The
         /// menu's surrounding chrome (title, tab labels, footer, the preview
-        /// scene's item-ping names) is built exactly once, in <see cref="BuildStaged"/>,
+        /// scene's item-ping names) is built exactly once, in <see cref="BuildUi"/>,
         /// the very first time the menu is opened in a session - which used to
         /// mean whatever language happened to be active at that one moment
         /// (not necessarily the player's actual one, if this mod's Awake runs
@@ -1330,16 +1227,6 @@ namespace SenseOfDirection.Ui
         /// <summary>Tears down the previous tab's rows and spawns the selected one's. Cheap enough to do wholesale - a tab is a dozen rows at most, and only on an explicit click.</summary>
         private void ShowTab(int index)
         {
-            BeginTab(index);
-
-            foreach (ConfigEntryBase entry in _tabs[_selectedTab].Entries)
-            {
-                AddRow(entry);
-            }
-        }
-
-        private void BeginTab(int index)
-        {
             _selectedTab = Mathf.Clamp(index, 0, _tabs.Count - 1);
 
             for (int i = 0; i < _tabButtons.Count; i++)
@@ -1355,33 +1242,33 @@ namespace SenseOfDirection.Ui
             }
             _boundSettings.Clear();
             SetDescription(null, null);
-        }
 
-        private void AddRow(ConfigEntryBase entry)
-        {
-            // A keybind has no native widget to borrow, so it gets our own
-            // click-to-rebind row - and no IConfigBoundSetting, because there's
-            // no Zorro Setting behind it to bind. See NativeSettingCells.
-            if (entry is ConfigEntry<KeyCode> keyEntry)
+            foreach (ConfigEntryBase entry in _tabs[_selectedTab].Entries)
             {
-                SizeRow(NativeSettingCells.CreateKeyBindRow(_settingsContent, keyEntry, SetDescription));
-                return;
-            }
+                // A keybind has no native widget to borrow, so it gets our own
+                // click-to-rebind row - and no IConfigBoundSetting, because there's
+                // no Zorro Setting behind it to bind. See NativeSettingCells.
+                if (entry is ConfigEntry<KeyCode> keyEntry)
+                {
+                    SizeRow(NativeSettingCells.CreateKeyBindRow(_settingsContent, keyEntry, SetDescription));
+                    continue;
+                }
 
-            IConfigBoundSetting bound = ConfigSettingFactory.Create(entry, _handler);
-            if (bound == null)
-            {
-                return;
-            }
+                IConfigBoundSetting bound = ConfigSettingFactory.Create(entry, _handler);
+                if (bound == null)
+                {
+                    continue;
+                }
 
-            GameObject row = NativeSettingCells.CreateRow(_settingsContent, bound, _handler, SetDescription, (RectTransform)_root.transform);
-            if (row == null)
-            {
-                return;
-            }
+                GameObject row = NativeSettingCells.CreateRow(_settingsContent, bound, _handler, SetDescription, (RectTransform)_root.transform);
+                if (row == null)
+                {
+                    continue;
+                }
 
-            SizeRow(row);
-            _boundSettings.Add(bound);
+                SizeRow(row);
+                _boundSettings.Add(bound);
+            }
         }
 
         /// <summary>Rows are sized here rather than by the layout group - see SettingRowHeight.</summary>

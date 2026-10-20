@@ -139,7 +139,6 @@ namespace SenseOfDirection
             });
 
             Logger.LogInfo($"{PluginInfo.Name} {PluginInfo.Version} loaded.");
-            Ui.F8Bisect.Mark("plugin loaded");
         }
 
         /// <summary>

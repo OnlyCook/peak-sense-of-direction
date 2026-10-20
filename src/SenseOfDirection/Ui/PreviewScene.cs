@@ -450,22 +450,17 @@ namespace SenseOfDirection.Ui
             scene._frameSize = frameSize;
 
             scene.BuildStageCanvas();
-            F8Bisect.Mark("preview: stage canvas + render camera + render texture built");
             scene.BuildBackground();
-            F8Bisect.Mark("preview: background built");
             scene.BuildCamera();
-            F8Bisect.Mark("preview: projection camera built");
 
             // Between the screenshot and every widget, in that order - which is the
             // order the stage's children are created in, so this is just where it
             // falls. In game the hand is in the world and the HUD is over it; here
             // the hand is one layer of the picture, and the HUD is over that.
             scene.BuildPingMarker();
-            F8Bisect.Mark("preview: ping hand built");
 
             scene._indicators = IndicatorManager.CreateDetached(scene._stage, scene._camera);
             scene._compass = CompassManager.CreateDetached(scene._stage, scene._camera, () => scene._indicators.Anchors);
-            F8Bisect.Mark("preview: indicator + compass managers built");
 
             // Before BuildWidgets, so the skeleton is an earlier sibling than the
             // labels and draws under them - a label sits above a head, so the two
@@ -476,18 +471,14 @@ namespace SenseOfDirection.Ui
             scene._skeleton = new PlayerSkeletonEsp(scene._stage);
 
             scene.BuildWidgets();
-            F8Bisect.Mark("preview: widgets built");
 
             scene.BuildSurface();
-            F8Bisect.Mark("preview: surface built");
             scene.BuildLoupe();
-            F8Bisect.Mark("preview: loupe built");
 
             // The stage lives outside the menu's hierarchy, so it doesn't get
             // switched off with it - OnEnable/OnDisable do that by hand, and this is
             // the initial sync. See SyncStageActive.
             scene.SyncStageActive();
-            PreviewDiagnostics.Attach(frameGo, scene._renderCamera, scene._pingMarker != null ? scene._pingMarker.HandCamera : null);
             return scene;
         }
 
@@ -554,14 +545,6 @@ namespace SenseOfDirection.Ui
             _renderCamera.farClipPlane = 20f;
             _renderCamera.clearFlags = CameraClearFlags.SolidColor;
 
-            // switched on a couple of frames after the menu is built, see UpdateImpl
-            _renderCamera.enabled = false;
-
-            // flat ui into an ARGB32 texture: an HDR intermediate (32-bit float per channel
-            // under this game's URP asset) or MSAA buffers at up to 4k are pure waste here
-            _renderCamera.allowHDR = false;
-            _renderCamera.allowMSAA = false;
-
             // Opaque, not transparent: alpha-blended UI rendered onto a transparent
             // clear leaves the *alpha* channel of every antialiased edge wrong, and
             // the frame shows this texture over the panel, where that would read as
@@ -583,17 +566,15 @@ namespace SenseOfDirection.Ui
         /// stage pixel and a screen pixel are the same size, which is the whole
         /// claim the magnifier makes.
         /// </summary>
-        private static int _reallocLogs;
-
         private void EnsureRenderTexture()
         {
-            int width = (int)StageSize.x;
-            int height = (int)StageSize.y;
+            int height = Mathf.Clamp(Screen.height, 540, 2160);
+            int width = Mathf.RoundToInt(height * StageSize.x / StageSize.y);
 
             // The hand renders into its own texture at the same resolution - it's a
             // layer of the same picture, so it has to be as sharp as the rest of it
             // under the magnifier.
-            if (_pingMarker != null && _handApplied)
+            if (_pingMarker != null)
             {
                 _pingMarker.EnsureTexture(width, height);
             }
@@ -601,16 +582,6 @@ namespace SenseOfDirection.Ui
             if (_renderTexture != null && _renderTexture.width == width && _renderTexture.height == height)
             {
                 return;
-            }
-
-            // TEMP DIAGNOSTIC
-            if (++_reallocLogs <= 20)
-            {
-                F8Bisect.Raw(
-                    $"[F8-DIAG] PreviewScene: reallocating stage RenderTexture {(_renderTexture == null ? "(first build)" : $"{_renderTexture.width}x{_renderTexture.height} -> ")}{width}x{height} " +
-                    $"(Screen.height={Screen.height}, SystemInfo.graphicsDeviceType={SystemInfo.graphicsDeviceType}, " +
-                    $"Mono heap={System.GC.GetTotalMemory(false) / (1024 * 1024)}MB, " +
-                    $"Unity reserved={UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong() / (1024 * 1024)}MB)");
             }
 
             if (_renderTexture != null)
@@ -1420,25 +1391,6 @@ namespace SenseOfDirection.Ui
             if (_ctxUpdateImpl.Disabled) return;
             try { UpdateImpl(); _ctxUpdateImpl.Succeeded(); }
             catch (System.Exception e) { _ctxUpdateImpl.Failed(e); }
-        }
-
-        private bool _handApplied;
-
-        internal void StartStageCamera()
-        {
-            _renderCamera.enabled = true;
-        }
-
-        internal void StartHandCamera()
-        {
-            if (_pingMarker == null)
-            {
-                return;
-            }
-
-            _handApplied = true;
-            _pingMarker.EnsureTexture((int)StageSize.x, (int)StageSize.y);
-            _pingMarker.SetRendering(true);
         }
 
         private void UpdateImpl()

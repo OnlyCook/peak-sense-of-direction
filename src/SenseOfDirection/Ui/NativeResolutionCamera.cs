@@ -13,9 +13,6 @@ namespace SenseOfDirection.Ui
         private static float _savedRenderScale;
         private static bool _overrodeThisRender;
 
-        // TEMP DIAGNOSTIC (see pr/issue about the dx12 f8 memory-crash reports)
-        private static int _overrideCount;
-
         internal static void Register(Camera camera)
         {
             if (camera == null)
@@ -66,14 +63,6 @@ namespace SenseOfDirection.Ui
                 _savedRenderScale = urp.renderScale;
                 urp.renderScale = 1f;
                 _overrodeThisRender = true;
-
-                _overrideCount++;
-                if (_overrideCount <= 5 || _overrideCount % 600 == 0)
-                {
-                    F8Bisect.Raw(
-                        $"[F8-DIAG] NativeResolutionCamera: overrode renderScale {_savedRenderScale} -> 1 for '{camera.name}' " +
-                        $"(override #{_overrideCount} this session, graphicsDeviceType={SystemInfo.graphicsDeviceType})");
-                }
             }
         }
 
