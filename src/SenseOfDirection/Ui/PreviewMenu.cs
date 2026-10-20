@@ -100,6 +100,9 @@ namespace SenseOfDirection.Ui
         /// </summary>
         private const float DescriptionHeight = 132f;
 
+        /// <summary>How many of the longest descriptions <see cref="MeasureMaxDescriptionHeight"/> measures.</summary>
+        private const int MeasuredDescriptionCount = 12;
+
         /// <summary>Height of the "default: ..." sub-line under the description text.</summary>
         private const float DefaultValueLineHeight = 20f;
 
@@ -529,6 +532,32 @@ namespace SenseOfDirection.Ui
             }
         }
 
+        /// <summary>Every string the menu can display in the current language, for <see cref="GlyphPreloader"/>.</summary>
+        private IEnumerable<string> MenuTexts()
+        {
+            foreach (string text in PreviewMenuLocalization.Current.All())
+            {
+                yield return text;
+            }
+
+            foreach (PreviewTab tab in _tabs)
+            {
+                foreach (ConfigEntryBase entry in tab.Entries)
+                {
+                    yield return ConfigSettingNaming.DisplayName(entry);
+                    yield return ConfigSettingNaming.Tooltip(entry);
+
+                    if (entry.SettingType.IsEnum && entry.SettingType != typeof(KeyCode))
+                    {
+                        foreach (object value in System.Enum.GetValues(entry.SettingType))
+                        {
+                            yield return ConfigSettingNaming.EnumDisplayName((System.Enum)value);
+                        }
+                    }
+                }
+            }
+        }
+
         private void BuildTabs()
         {
             PluginConfig cfg = Plugin.Instance.Cfg;
@@ -630,6 +659,9 @@ namespace SenseOfDirection.Ui
         private void BuildUi()
         {
             BuildTabs();
+
+            // Before any text exists - see GlyphPreloader.
+            GlyphPreloader.Preload(MenuTexts());
 
             _root = new GameObject("SoD.PreviewMenu.Root", typeof(RectTransform));
             _root.transform.SetParent(transform, false);
@@ -1069,22 +1101,30 @@ namespace SenseOfDirection.Ui
         /// <summary>The tallest any setting's description wraps to, at the description box's own width/font - see <see cref="RelayoutDescriptionBlock"/>.</summary>
         private float MeasureMaxDescriptionHeight()
         {
-            float max = 0f;
+            // Only the longest few: the tallest wrapped description is one of them, and it keeps this cheap even if
+            // some glyph wasn't covered by GlyphPreloader.
+            var tooltips = new List<string>();
             foreach (PreviewTab tab in _tabs)
             {
                 foreach (ConfigEntryBase entry in tab.Entries)
                 {
                     string tooltip = ConfigSettingNaming.Tooltip(entry);
-                    if (string.IsNullOrEmpty(tooltip))
+                    if (!string.IsNullOrEmpty(tooltip))
                     {
-                        continue;
+                        tooltips.Add(tooltip);
                     }
+                }
+            }
 
-                    Vector2 size = _descriptionText.GetPreferredValues(tooltip, PreviewWidth, 0f);
-                    if (size.y > max)
-                    {
-                        max = size.y;
-                    }
+            tooltips.Sort((a, b) => b.Length.CompareTo(a.Length));
+
+            float max = 0f;
+            for (int i = 0; i < tooltips.Count && i < MeasuredDescriptionCount; i++)
+            {
+                Vector2 size = _descriptionText.GetPreferredValues(tooltips[i], PreviewWidth, 0f);
+                if (size.y > max)
+                {
+                    max = size.y;
                 }
             }
 

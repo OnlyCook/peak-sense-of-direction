@@ -50,6 +50,24 @@ namespace SenseOfDirection.Ui
             /// </summary>
             public readonly string LuggageName;
 
+            internal IEnumerable<string> All()
+            {
+                yield return QuickSetup;
+                yield return TabPlayerLabels;
+                yield return TabPings;
+                yield return TabItemPings;
+                yield return TabCampfire;
+                yield return TabCompass;
+                yield return TabGeneral;
+                yield return DescriptionPlaceholder;
+                yield return Loading;
+                yield return FooterClose;
+                yield return FooterChangesSaveInstantly;
+                yield return PressAKey;
+                yield return DefaultValuePrefix;
+                yield return LuggageName;
+            }
+
             public Strings(
                 string quickSetup, string tabPlayerLabels, string tabPings, string tabItemPings,
                 string tabCampfire, string tabCompass, string tabGeneral, string descriptionPlaceholder,

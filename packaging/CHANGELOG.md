@@ -1,3 +1,7 @@
+## 1.1.6
+
+- Fixed the Quick Setup menu crashing the game on some systems (seen with NVIDIA graphics cards on DX12 and Chinese as the game's language) by no longer loading the menu's text characters into the game's font all at once, which used up a lot of memory in a single frame. Big thanks to XanderLfz for helping me figure this one out!
+
 ## 1.1.5
 
 - Made it that item pings of cooked items get the appropriately tinted icon instead of always using the regular (uncooked) version.
