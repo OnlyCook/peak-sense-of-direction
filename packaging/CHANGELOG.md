@@ -1,3 +1,7 @@
+## 1.1.7
+
+- Made the campfire indicator compatible with [True Final Ascent](https://thunderstore.io/c/peak/p/CptPICHU/TrueFinalAscent/): it now correctly points at the campfires of its extra biomes.
+
 ## 1.1.6
 
 - Fixed the Quick Setup menu crashing the game on some systems (seen with NVIDIA graphics cards on DX12 and Chinese as the game's language) by no longer loading the menu's text characters into the game's font all at once, which used up a lot of memory in a single frame. Big thanks to XanderLfz for helping me figure this one out!

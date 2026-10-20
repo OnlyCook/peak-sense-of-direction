@@ -56,6 +56,14 @@ namespace SenseOfDirection.Common
                 return null;
             }
 
+            // True Final Ascent chains extra biomes inside vanilla segments, so
+            // vanilla's per-segment answer is stale for every chained stage -
+            // see Compatibility.TrueFinalAscentCompat.
+            if (Compatibility.TrueFinalAscentCompat.TryGetStage(out Campfire stageCampfire, out _))
+            {
+                return stageCampfire;
+            }
+
             try
             {
                 return MapHandler.CurrentCampfire;
@@ -82,6 +90,14 @@ namespace SenseOfDirection.Common
         /// </summary>
         internal static bool AnyUnlitCampfireRemains()
         {
+            // The segment walk below can't see True Final Ascent's chained
+            // stage campfires, so it'd call the run over after the vanilla
+            // ones; its own stage chain already answers this.
+            if (Compatibility.TrueFinalAscentCompat.TryGetStage(out _, out bool finalClimb))
+            {
+                return !finalClimb;
+            }
+
             if (Time.unscaledTime - _unlitScanTime < UnlitScanIntervalSeconds)
             {
                 return _unlitScanResult;
@@ -186,6 +202,14 @@ namespace SenseOfDirection.Common
             if (!MapHandler.ExistsAndInitialized)
             {
                 return false;
+            }
+
+            // Under True Final Ascent The Kiln is no longer the last stretch -
+            // Gloom and The Citadel are chained in after it, two more campfires
+            // included - so its stage chain decides instead of the segment.
+            if (Compatibility.TrueFinalAscentCompat.TryGetStage(out _, out bool finalClimb))
+            {
+                return finalClimb;
             }
 
             try
