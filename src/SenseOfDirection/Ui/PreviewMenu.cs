@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using SenseOfDirection.Labels;
+using SenseOfDirection.Ui.Search;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -55,6 +56,28 @@ namespace SenseOfDirection.Ui
         private const float PanelPadding = 34f;
         private const float TitleHeight = 44f;
         private const float TabsHeight = 52f;
+
+        /// <summary>Width of each text tab button. Trimmed from 230 so the square search button fits in the same row.</summary>
+        private const float TabWidth = 222f;
+
+        /// <summary>The search tab's text box, sitting above the settings list while that tab is open.</summary>
+        private const float SearchBarHeight = 50f;
+
+        /// <summary>Between the search box and the settings list under it.</summary>
+        private const float SearchBarGap = 12f;
+
+        private const float SearchIconSize = 24f;
+        private const float SearchClearSize = 20f;
+
+        /// <summary>Moves the search box's typed text and placeholder down to sit on the box's optical centre (negative = down).</summary>
+        private const float SearchTextNudge = 3f;
+
+        /// <summary>
+        /// Most rows the search tab ever shows at once. Each row is a real game
+        /// settings cell, and spawning dozens of them in one frame is a
+        /// noticeable stutter.
+        /// </summary>
+        private const int MaxSearchResults = 30;
 
         /// <summary>Breathing room under the tabs. Without it both columns start flush against the tab buttons, the one place in the panel where nothing had any margin at all.</summary>
         private const float TabsBottomGap = 20f;
@@ -180,6 +203,46 @@ namespace SenseOfDirection.Ui
         private readonly ConfigSettingHandler _handler = new ConfigSettingHandler();
         private readonly List<PreviewTab> _tabs = new List<PreviewTab>();
         private readonly List<TabButton> _tabButtons = new List<TabButton>();
+
+        private Image _searchTabBackground;
+        private Image _searchTabIcon;
+        private GameObject _searchBar;
+        private TMP_InputField _searchInput;
+        private TMP_Text _searchPlaceholder;
+        private GameObject _searchClearButton;
+        private TMP_Text _noMatchesText;
+        private float _settingsCentreX;
+        private float _settingsTop;
+        private float _settingsBottom;
+
+        /// <summary>Every searchable setting (each once, in tab order) and what it can be found by.</summary>
+        private readonly List<SearchEntry> _searchEntries = new List<SearchEntry>();
+
+        /// <summary>
+        /// Rows already spawned while the search tab has been open, so a setting
+        /// that drops out of the results and comes back is shown again rather
+        /// than rebuilt. Rows are only ever spawned for actual results.
+        /// </summary>
+        private readonly Dictionary<ConfigEntryBase, GameObject> _searchRowCache = new Dictionary<ConfigEntryBase, GameObject>();
+
+        private struct SearchEntry
+        {
+            internal ConfigEntryBase Entry;
+            internal string Blob;
+        }
+
+        private TMP_SelectionCaret _searchCaret;
+
+        /// <summary>The search tab sits after every real tab, so its index is one past the last of them.</summary>
+        private bool IsSearchTab => _selectedTab == _tabs.Count;
+
+        /// <summary>
+        /// True while the search box has keyboard focus, so this mod's own
+        /// hotkeys (luggage ping, label toggle, ...) don't fire on letters typed
+        /// into it.
+        /// </summary>
+        internal static bool IsTypingInSearch =>
+            _instance != null && _instance.IsOpen && _instance._searchInput != null && _instance._searchInput.isFocused;
 
         /// <summary>The rows currently spawned for the selected tab - rebuilt wholesale on every tab switch.</summary>
         private readonly List<IConfigBoundSetting> _boundSettings = new List<IConfigBoundSetting>();
@@ -501,7 +564,7 @@ namespace SenseOfDirection.Ui
             }
 
             KeyCode key = cfg.PreviewMenuKey.Value;
-            if (key != KeyCode.None && Input.GetKeyDown(key))
+            if (key != KeyCode.None && !IsTypingInSearch && Input.GetKeyDown(key))
             {
                 Toggle();
                 return;
@@ -514,6 +577,7 @@ namespace SenseOfDirection.Ui
 
             TickDimFade();
             TickScrollFades();
+            KeepSearchCaretOnTop();
 
             // The toggle key itself is not read here: PreviewScene watches it, so
             // that Toggle and Hold - which are one state machine, not two keypresses
@@ -539,6 +603,14 @@ namespace SenseOfDirection.Ui
             {
                 yield return text;
             }
+
+            // Whatever gets typed into the search box.
+            var ascii = new System.Text.StringBuilder();
+            for (char c = '!'; c <= '~'; c++)
+            {
+                ascii.Append(c);
+            }
+            yield return ascii.ToString();
 
             foreach (PreviewTab tab in _tabs)
             {
@@ -622,7 +694,7 @@ namespace SenseOfDirection.Ui
 
             _tabs.Add(new PreviewTab
             {
-                Name = strings.TabCompass,
+                Name = strings.TabCompassUi,
                 Entries = new List<ConfigEntryBase>
                 {
                     cfg.EnableCompass, cfg.CompassDisplayMode, cfg.CompassWidthPixels, cfg.CompassFovDegrees, cfg.CompassIconSizePixels,
@@ -630,13 +702,27 @@ namespace SenseOfDirection.Ui
                     cfg.CompassElevationThresholdMeters, cfg.CompassShowNames, cfg.CompassShowDistances,
                     cfg.CompassShowDegreeNumbers, cfg.CompassLineColor, cfg.CompassLineThicknessMultiplier,
                     cfg.CompassClampIconsToEdge,
-                    // Pirate's Compass tail: the tape-gating setting first (it
-                    // belongs with the compass settings above it), then the
-                    // luggage indicator's own three, so the two mechanics don't
-                    // read as one interleaved block.
+                },
+            });
+
+            // Compass items, split off from the tape settings above so neither
+            // tab turns into one long scroll: shore and campfire compasses, the
+            // Pirate's Compass's own settings, then luggage loot.
+            _tabs.Add(new PreviewTab
+            {
+                Name = strings.TabCompassItem,
+                Entries = new List<ConfigEntryBase>
+                {
+                    cfg.ShoreCompassCount, cfg.ShorePirateCompassCount,
+                    cfg.EnableCompassAtCampfires, cfg.CampfireCompassOnlyWhenNeeded,
+                    // The Pirate's Compass's own settings: the tape-gating
+                    // setting first, then the luggage indicator's.
                     cfg.PirateCompassDisplayMode,
                     cfg.EnablePirateCompassLuggageIndicator, cfg.PirateCompassLuggageDisplayMode, cfg.PirateCompassLuggagePlacement,
                     cfg.PirateCompassClownLuggageOnly,
+                    // Luggage loot last (maintainer's call).
+                    cfg.EnableCompassFromLuggage, cfg.CompassFromLuggageChancePercent,
+                    cfg.EnablePirateCompassFromLuggage, cfg.PirateCompassFromLuggageChancePercent,
                 },
             });
 
@@ -866,6 +952,8 @@ namespace SenseOfDirection.Ui
                 _tabButtons.Add(CreateTabButton(row, _tabs[i].Name, i));
             }
 
+            CreateSearchTabButton(row);
+
             return row;
         }
 
@@ -876,7 +964,7 @@ namespace SenseOfDirection.Ui
             rect.SetParent(parent, false);
 
             var layoutElement = go.AddComponent<LayoutElement>();
-            layoutElement.preferredWidth = 230f;
+            layoutElement.preferredWidth = TabWidth;
             layoutElement.preferredHeight = TabsHeight - 8f;
 
             var background = go.GetComponent<Image>();
@@ -896,9 +984,280 @@ namespace SenseOfDirection.Ui
             return new TabButton { Background = background, Label = label };
         }
 
+        /// <summary>Square button at the end of the tab row that opens the search tab - same chip as the text tabs, with a magnifying glass instead of a label.</summary>
+        private void CreateSearchTabButton(RectTransform parent)
+        {
+            var go = new GameObject("Tab.Search", typeof(RectTransform), typeof(Image), typeof(Button));
+            var rect = (RectTransform)go.transform;
+            rect.SetParent(parent, false);
+
+            // The row's layout group stretches every button to the row's full
+            // height (TabsHeight), so that's the width that makes this square.
+            var layoutElement = go.AddComponent<LayoutElement>();
+            layoutElement.minWidth = TabsHeight;
+            layoutElement.preferredWidth = TabsHeight;
+            layoutElement.flexibleWidth = 0f;
+            layoutElement.preferredHeight = TabsHeight - 8f;
+
+            _searchTabBackground = go.GetComponent<Image>();
+            _searchTabBackground.sprite = PanelChrome.BadgeSprite();
+            _searchTabBackground.type = Image.Type.Sliced;
+
+            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            var iconRect = (RectTransform)iconGo.transform;
+            iconRect.SetParent(rect, false);
+            iconRect.sizeDelta = new Vector2(SearchIconSize, SearchIconSize);
+            _searchTabIcon = iconGo.GetComponent<Image>();
+            _searchTabIcon.sprite = PanelChrome.SearchIconSprite();
+            _searchTabIcon.raycastTarget = false;
+            _searchTabIcon.color = PanelChrome.ChipTextColor;
+
+            go.GetComponent<Button>().onClick.AddListener(() => ShowTab(_tabs.Count));
+        }
+
+        /// <summary>
+        /// The search tab's text box: magnifying glass on the left, clear button
+        /// on the right. Lives above the settings list and is only shown while
+        /// the search tab is open (see <see cref="ApplySettingsLayout"/>).
+        /// </summary>
+        private void BuildSearchBar(RectTransform panel, float centreX, float top)
+        {
+            _searchBar = new GameObject("SearchBar", typeof(RectTransform), typeof(Image));
+            var bar = (RectTransform)_searchBar.transform;
+            bar.SetParent(panel, false);
+            bar.sizeDelta = new Vector2(SettingsWidth, SearchBarHeight);
+            bar.anchoredPosition = new Vector2(centreX, top - SearchBarHeight * 0.5f);
+
+            var background = _searchBar.GetComponent<Image>();
+            background.sprite = PanelChrome.BadgeSprite();
+            background.type = Image.Type.Sliced;
+
+            var iconGo = new GameObject("SearchIcon", typeof(RectTransform), typeof(Image));
+            var iconRect = (RectTransform)iconGo.transform;
+            iconRect.SetParent(bar, false);
+            iconRect.anchorMin = iconRect.anchorMax = new Vector2(0f, 0.5f);
+            iconRect.pivot = new Vector2(0f, 0.5f);
+            iconRect.sizeDelta = new Vector2(SearchIconSize, SearchIconSize);
+            iconRect.anchoredPosition = new Vector2(16f, 0f);
+            var icon = iconGo.GetComponent<Image>();
+            icon.sprite = PanelChrome.SearchIconSprite();
+            icon.color = PanelChrome.ChipTextColor;
+            icon.raycastTarget = false;
+
+            var areaGo = new GameObject("TextArea", typeof(RectTransform), typeof(RectMask2D));
+            var area = (RectTransform)areaGo.transform;
+            area.SetParent(bar, false);
+            area.anchorMin = Vector2.zero;
+            area.anchorMax = Vector2.one;
+            area.offsetMin = new Vector2(16f + SearchIconSize + 12f, 4f + SearchTextNudge);
+            area.offsetMax = new Vector2(-(16f + SearchClearSize + 12f), -4f + SearchTextNudge);
+
+            _searchPlaceholder = CreateText(area, "Placeholder", PreviewMenuLocalization.Current.SearchPlaceholder,
+                20f, PanelChrome.PlaceholderTextColor, TextAlignmentOptions.Left, applyOutlineMaterial: false);
+            StretchFull((RectTransform)_searchPlaceholder.transform);
+
+            TMP_Text text = CreateText(area, "Text", string.Empty, 20f, PanelChrome.ChipTextColor,
+                TextAlignmentOptions.Left, applyOutlineMaterial: false);
+            StretchFull((RectTransform)text.transform);
+
+            _searchInput = _searchBar.AddComponent<TMP_InputField>();
+            _searchInput.textViewport = area;
+            _searchInput.textComponent = text;
+            _searchInput.placeholder = _searchPlaceholder;
+            if (NativeAssets.Font != null)
+            {
+                _searchInput.fontAsset = NativeAssets.Font;
+            }
+            _searchInput.pointSize = 20f;
+            _searchInput.lineType = TMP_InputField.LineType.SingleLine;
+            _searchInput.characterLimit = 48;
+            _searchInput.richText = false;
+            _searchInput.restoreOriginalTextOnEscape = false;
+            _searchInput.transition = Selectable.Transition.None;
+            _searchInput.navigation = new Navigation { mode = Navigation.Mode.None };
+            _searchInput.customCaretColor = true;
+            _searchInput.caretColor = PanelChrome.ChipTextColor;
+            _searchInput.caretWidth = 2;
+            _searchInput.selectionColor = new Color(1f, 0.82f, 0.22f, 0.4f);
+            _searchInput.onValueChanged.AddListener(_ => ApplySearchFilter());
+
+            _searchClearButton = new GameObject("ClearButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            var clearRect = (RectTransform)_searchClearButton.transform;
+            clearRect.SetParent(bar, false);
+            clearRect.anchorMin = clearRect.anchorMax = new Vector2(1f, 0.5f);
+            clearRect.pivot = new Vector2(1f, 0.5f);
+            clearRect.sizeDelta = new Vector2(SearchClearSize, SearchClearSize);
+            clearRect.anchoredPosition = new Vector2(-16f, 0f);
+
+            var clearImage = _searchClearButton.GetComponent<Image>();
+            clearImage.sprite = PanelChrome.ClearIconSprite();
+            clearImage.color = Color.white; // the button's tint does the shading
+
+            var clearButton = _searchClearButton.GetComponent<Button>();
+            clearButton.targetGraphic = clearImage;
+            ColorBlock colors = clearButton.colors;
+            colors.normalColor = new Color(PanelChrome.ChipTextColor.r, PanelChrome.ChipTextColor.g, PanelChrome.ChipTextColor.b, 0.6f);
+            colors.highlightedColor = PanelChrome.ChipTextColor;
+            colors.pressedColor = PanelChrome.SelectedFillColor;
+            colors.selectedColor = colors.normalColor;
+            colors.fadeDuration = 0.06f;
+            clearButton.colors = colors;
+            clearButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            clearButton.onClick.AddListener(() =>
+            {
+                _searchInput.text = string.Empty;
+                FocusSearch();
+            });
+
+            _searchClearButton.SetActive(false);
+            _searchBar.SetActive(false);
+        }
+
+        private void FocusSearch()
+        {
+            if (_searchInput == null)
+            {
+                return;
+            }
+            _searchInput.Select();
+            _searchInput.ActivateInputField();
+        }
+
+        /// <summary>
+        /// TMP_InputField creates its caret lazily and slots it in right before
+        /// the text component, which left it under the placeholder - drawn
+        /// behind the placeholder's letters. Moved to the top of the text area
+        /// once it exists. Run every frame while the search tab is open (just a
+        /// cached-reference check once it's been done).
+        /// </summary>
+        private void KeepSearchCaretOnTop()
+        {
+            if (_searchInput == null || !IsSearchTab)
+            {
+                return;
+            }
+
+            if (_searchCaret == null)
+            {
+                _searchCaret = _searchInput.textViewport.GetComponentInChildren<TMP_SelectionCaret>(true);
+                if (_searchCaret == null)
+                {
+                    return;
+                }
+            }
+
+            Transform caret = _searchCaret.transform;
+            if (caret.GetSiblingIndex() != caret.parent.childCount - 1)
+            {
+                caret.SetAsLastSibling();
+            }
+        }
+
+        private static void StretchFull(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>The settings list fills its whole column, minus the search box's band while the search tab is open.</summary>
+        private void ApplySettingsLayout()
+        {
+            bool search = IsSearchTab;
+            if (_searchBar != null)
+            {
+                _searchBar.SetActive(search);
+            }
+
+            float top = search ? _settingsTop - SearchBarHeight - SearchBarGap : _settingsTop;
+            float height = top - _settingsBottom;
+            _settingsViewport.sizeDelta = new Vector2(SettingsWidth, height);
+            _settingsViewport.anchoredPosition = new Vector2(_settingsCentreX, _settingsBottom + height * 0.5f);
+
+            if (!search && _noMatchesText != null)
+            {
+                _noMatchesText.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// Shows the first <see cref="MaxSearchResults"/> settings matching the
+        /// query, spawning a row only the first time a setting turns up in the
+        /// results. Nothing is shown until something has been typed - the
+        /// prompt line takes its place.
+        /// </summary>
+        private void ApplySearchFilter()
+        {
+            if (!IsSearchTab || _searchInput == null)
+            {
+                return;
+            }
+
+            string raw = _searchInput.text ?? string.Empty;
+            _searchClearButton.SetActive(raw.Length > 0);
+
+            string query = SettingSearch.Normalize(raw);
+            var shownRows = new HashSet<GameObject>();
+
+            if (query.Length > 0)
+            {
+                foreach (SearchEntry searchEntry in _searchEntries)
+                {
+                    if (shownRows.Count >= MaxSearchResults)
+                    {
+                        break;
+                    }
+
+                    if (!SettingSearch.Matches(searchEntry.Blob, query))
+                    {
+                        continue;
+                    }
+
+                    if (!_searchRowCache.TryGetValue(searchEntry.Entry, out GameObject row))
+                    {
+                        row = SpawnRow(searchEntry.Entry);
+                        _searchRowCache[searchEntry.Entry] = row;
+                    }
+
+                    if (row == null)
+                    {
+                        continue;
+                    }
+
+                    // Cached rows were spawned in whatever order they first
+                    // matched; keep the list itself in tab order.
+                    row.transform.SetSiblingIndex(shownRows.Count);
+                    if (!row.activeSelf)
+                    {
+                        row.SetActive(true);
+                    }
+                    shownRows.Add(row);
+                }
+            }
+
+            foreach (GameObject row in _searchRowCache.Values)
+            {
+                if (row != null && !shownRows.Contains(row) && row.activeSelf)
+                {
+                    row.SetActive(false);
+                }
+            }
+
+            PreviewMenuLocalization.Strings strings = PreviewMenuLocalization.Current;
+            bool empty = shownRows.Count == 0;
+            _noMatchesText.text = query.Length == 0 ? strings.SearchPrompt : strings.SearchNoMatches;
+            _noMatchesText.gameObject.SetActive(empty);
+            _settingsScroll.verticalNormalizedPosition = 1f;
+        }
+
         private void BuildSettingsScroll(RectTransform panel, float centreX, float top, float bottom)
         {
             float height = top - bottom;
+            _settingsCentreX = centreX;
+            _settingsTop = top;
+            _settingsBottom = bottom;
+            BuildSearchBar(panel, centreX, top);
 
             // A rounded, slightly darkened plate the rows sit on, so the list reads
             // as its own surface within the panel rather than as text floating on
@@ -955,6 +1314,15 @@ namespace SenseOfDirection.Ui
             // drawn over the rows they're fading out rather than under them.
             _scrollFadeTop = CreateScrollFade(viewport, "ScrollFadeTop", top: true);
             _scrollFadeBottom = CreateScrollFade(viewport, "ScrollFadeBottom", top: false);
+
+            _noMatchesText = CreateText(viewport, "NoMatches", string.Empty, 20f, PanelChrome.PlaceholderTextColor, TextAlignmentOptions.Center);
+            var noMatchesRect = (RectTransform)_noMatchesText.transform;
+            noMatchesRect.anchorMin = new Vector2(0f, 1f);
+            noMatchesRect.anchorMax = new Vector2(1f, 1f);
+            noMatchesRect.pivot = new Vector2(0.5f, 1f);
+            noMatchesRect.sizeDelta = new Vector2(-40f, 40f);
+            noMatchesRect.anchoredPosition = new Vector2(0f, -30f);
+            _noMatchesText.gameObject.SetActive(false);
         }
 
         /// <summary>
@@ -1238,7 +1606,7 @@ namespace SenseOfDirection.Ui
             string[] tabNames =
             {
                 strings.TabPlayerLabels, strings.TabPings, strings.TabItemPings,
-                strings.TabCampfire, strings.TabCompass, strings.TabGeneral,
+                strings.TabCampfire, strings.TabCompassUi, strings.TabCompassItem, strings.TabGeneral,
             };
             for (int i = 0; i < _tabButtons.Count && i < tabNames.Length; i++)
             {
@@ -1247,6 +1615,11 @@ namespace SenseOfDirection.Ui
                 {
                     _tabs[i].Name = tabNames[i];
                 }
+            }
+
+            if (_searchPlaceholder != null)
+            {
+                _searchPlaceholder.text = strings.SearchPlaceholder;
             }
 
             if (_footerCloseText != null)
@@ -1264,10 +1637,15 @@ namespace SenseOfDirection.Ui
             _scene?.RefreshLocalizedNames();
         }
 
-        /// <summary>Tears down the previous tab's rows and spawns the selected one's. Cheap enough to do wholesale - a tab is a dozen rows at most, and only on an explicit click.</summary>
+        /// <summary>
+        /// Tears down the previous tab's rows and spawns the selected one's.
+        /// Cheap enough to do wholesale - a tab is a dozen rows at most, and only
+        /// on an explicit click. The search tab (index <c>_tabs.Count</c>) spawns
+        /// only spawns rows for actual results (see <see cref="ApplySearchFilter"/>).
+        /// </summary>
         private void ShowTab(int index)
         {
-            _selectedTab = Mathf.Clamp(index, 0, _tabs.Count - 1);
+            _selectedTab = Mathf.Clamp(index, 0, _tabs.Count);
 
             for (int i = 0; i < _tabButtons.Count; i++)
             {
@@ -1276,39 +1654,76 @@ namespace SenseOfDirection.Ui
                 _tabButtons[i].Label.color = selected ? PanelChrome.SelectedTextColor : PanelChrome.ChipTextColor;
             }
 
+            if (_searchTabBackground != null)
+            {
+                _searchTabBackground.color = IsSearchTab ? PanelChrome.SelectedFillColor : Color.white;
+                _searchTabIcon.color = IsSearchTab ? PanelChrome.SelectedTextColor : PanelChrome.ChipTextColor;
+            }
+
             for (int i = _settingsContent.childCount - 1; i >= 0; i--)
             {
                 Destroy(_settingsContent.GetChild(i).gameObject);
             }
             _boundSettings.Clear();
+            _searchEntries.Clear();
+            _searchRowCache.Clear();
             SetDescription(null, null);
+            ApplySettingsLayout();
 
-            foreach (ConfigEntryBase entry in _tabs[_selectedTab].Entries)
+            if (!IsSearchTab)
             {
-                // A keybind has no native widget to borrow, so it gets our own
-                // click-to-rebind row - and no IConfigBoundSetting, because there's
-                // no Zorro Setting behind it to bind. See NativeSettingCells.
-                if (entry is ConfigEntry<KeyCode> keyEntry)
+                foreach (ConfigEntryBase entry in _tabs[_selectedTab].Entries)
                 {
-                    SizeRow(NativeSettingCells.CreateKeyBindRow(_settingsContent, keyEntry, SetDescription));
-                    continue;
+                    SpawnRow(entry);
                 }
-
-                IConfigBoundSetting bound = ConfigSettingFactory.Create(entry, _handler);
-                if (bound == null)
-                {
-                    continue;
-                }
-
-                GameObject row = NativeSettingCells.CreateRow(_settingsContent, bound, _handler, SetDescription, (RectTransform)_root.transform);
-                if (row == null)
-                {
-                    continue;
-                }
-
-                SizeRow(row);
-                _boundSettings.Add(bound);
+                return;
             }
+
+            // Every setting, in tab order, each once - only the text it can be
+            // found by; rows are spawned on demand in ApplySearchFilter.
+            var seen = new HashSet<ConfigEntryBase>();
+            foreach (PreviewTab tab in _tabs)
+            {
+                foreach (ConfigEntryBase entry in tab.Entries)
+                {
+                    if (seen.Add(entry))
+                    {
+                        _searchEntries.Add(new SearchEntry { Entry = entry, Blob = SettingSearch.Blob(entry) });
+                    }
+                }
+            }
+
+            ApplySearchFilter();
+            FocusSearch();
+        }
+
+        private GameObject SpawnRow(ConfigEntryBase entry)
+        {
+            // A keybind has no native widget to borrow, so it gets our own
+            // click-to-rebind row - and no IConfigBoundSetting, because there's
+            // no Zorro Setting behind it to bind. See NativeSettingCells.
+            if (entry is ConfigEntry<KeyCode> keyEntry)
+            {
+                GameObject keyRow = NativeSettingCells.CreateKeyBindRow(_settingsContent, keyEntry, SetDescription);
+                SizeRow(keyRow);
+                return keyRow;
+            }
+
+            IConfigBoundSetting bound = ConfigSettingFactory.Create(entry, _handler);
+            if (bound == null)
+            {
+                return null;
+            }
+
+            GameObject row = NativeSettingCells.CreateRow(_settingsContent, bound, _handler, SetDescription, (RectTransform)_root.transform);
+            if (row == null)
+            {
+                return null;
+            }
+
+            SizeRow(row);
+            _boundSettings.Add(bound);
+            return row;
         }
 
         /// <summary>Rows are sized here rather than by the layout group - see SettingRowHeight.</summary>

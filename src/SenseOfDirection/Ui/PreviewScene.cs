@@ -1132,7 +1132,7 @@ namespace SenseOfDirection.Ui
                 return false;
             }
 
-            bool keyDownNow = !KeyRebindControl.IsCapturing && Input.GetKey(cfg.PlayerLabelToggleKey.Value);
+            bool keyDownNow = !KeyRebindControl.IsCapturing && !PreviewMenu.IsTypingInSearch && Input.GetKey(cfg.PlayerLabelToggleKey.Value);
 
             switch (cfg.PlayerLabelDisplayMode.Value)
             {

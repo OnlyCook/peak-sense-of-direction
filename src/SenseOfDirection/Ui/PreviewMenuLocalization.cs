@@ -26,7 +26,8 @@ namespace SenseOfDirection.Ui
             public readonly string TabPings;
             public readonly string TabItemPings;
             public readonly string TabCampfire;
-            public readonly string TabCompass;
+            public readonly string TabCompassUi;
+            public readonly string TabCompassItem;
             public readonly string TabGeneral;
             public readonly string DescriptionPlaceholder;
             public readonly string Loading;
@@ -50,6 +51,10 @@ namespace SenseOfDirection.Ui
             /// </summary>
             public readonly string LuggageName;
 
+            public readonly string SearchPlaceholder;
+            public readonly string SearchNoMatches;
+            public readonly string SearchPrompt;
+
             internal IEnumerable<string> All()
             {
                 yield return QuickSetup;
@@ -57,7 +62,8 @@ namespace SenseOfDirection.Ui
                 yield return TabPings;
                 yield return TabItemPings;
                 yield return TabCampfire;
-                yield return TabCompass;
+                yield return TabCompassUi;
+                yield return TabCompassItem;
                 yield return TabGeneral;
                 yield return DescriptionPlaceholder;
                 yield return Loading;
@@ -66,20 +72,24 @@ namespace SenseOfDirection.Ui
                 yield return PressAKey;
                 yield return DefaultValuePrefix;
                 yield return LuggageName;
+                yield return SearchPlaceholder;
+                yield return SearchNoMatches;
+                yield return SearchPrompt;
             }
 
             public Strings(
                 string quickSetup, string tabPlayerLabels, string tabPings, string tabItemPings,
-                string tabCampfire, string tabCompass, string tabGeneral, string descriptionPlaceholder,
+                string tabCampfire, string tabCompassUi, string tabCompassItem, string tabGeneral, string descriptionPlaceholder,
                 string loading, string footerClose, string footerChangesSaveInstantly, string pressAKey,
-                string defaultValuePrefix, string luggageName)
+                string defaultValuePrefix, string luggageName, string searchPlaceholder, string searchNoMatches, string searchPrompt)
             {
                 QuickSetup = quickSetup;
                 TabPlayerLabels = tabPlayerLabels;
                 TabPings = tabPings;
                 TabItemPings = tabItemPings;
                 TabCampfire = tabCampfire;
-                TabCompass = tabCompass;
+                TabCompassUi = tabCompassUi;
+                TabCompassItem = tabCompassItem;
                 TabGeneral = tabGeneral;
                 DescriptionPlaceholder = descriptionPlaceholder;
                 Loading = loading;
@@ -88,6 +98,9 @@ namespace SenseOfDirection.Ui
                 PressAKey = pressAKey;
                 DefaultValuePrefix = defaultValuePrefix;
                 LuggageName = luggageName;
+                SearchPlaceholder = searchPlaceholder;
+                SearchNoMatches = searchNoMatches;
+                SearchPrompt = searchPrompt;
             }
         }
 
@@ -100,16 +113,17 @@ namespace SenseOfDirection.Ui
             foreach (string[] row in Localization.LocalizationResource.ReadRows("chrome"))
             {
                 // Language, QuickSetup, TabPlayerLabels, TabPings, TabItemPings, TabCampfire,
-                // TabCompass, TabGeneral, DescriptionPlaceholder, Loading, FooterClose,
-                // FooterChangesSaveInstantly, PressAKey, DefaultValuePrefix, LuggageName
-                if (row.Length != 15 || !System.Enum.TryParse(row[0], out LocalizedText.Language language))
+                // TabCompassUi, TabCompassItem, TabGeneral, DescriptionPlaceholder, Loading, FooterClose,
+                // FooterChangesSaveInstantly, PressAKey, DefaultValuePrefix, LuggageName,
+                // SearchPlaceholder, SearchNoMatches, SearchPrompt
+                if (row.Length != 19 || !System.Enum.TryParse(row[0], out LocalizedText.Language language))
                 {
                     continue;
                 }
 
                 table[language] = new Strings(
                     row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8],
-                    row[9], row[10], row[11], row[12], row[13], row[14]);
+                    row[9], row[10], row[11], row[12], row[13], row[14], row[15], row[16], row[17], row[18]);
             }
 
             return table;

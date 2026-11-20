@@ -99,6 +99,8 @@ namespace SenseOfDirection.Ui
         private static readonly Dictionary<(int size, int radius), Sprite> _maskSprites = new();
         private static readonly Dictionary<(int width, int height, int radius), Sprite> _scrollFadeSprites = new();
         private static Sprite _badgeSprite;
+        private static Sprite _searchIconSprite;
+        private static Sprite _clearIconSprite;
         private static Texture2D _grainTexture;
 
         /// <summary>
@@ -273,6 +275,65 @@ namespace SenseOfDirection.Ui
         internal static Sprite BadgeSprite() => _badgeSprite != null
             ? _badgeSprite
             : (_badgeSprite = MakeRoundedSprite(32, radius: 10f, borderThickness: 3f, fill: ChipFillColor, border: BadgeBorderColor));
+
+        private const int IconTextureSize = 64;
+
+        /// <summary>White magnifying glass (ring + handle) for the search tab button and search bar - tinted via <c>Image.color</c>.</summary>
+        internal static Sprite SearchIconSprite() => _searchIconSprite != null
+            ? _searchIconSprite
+            : (_searchIconSprite = MakeStrokeIcon((fx, fy) =>
+            {
+                // Ring centred up-left, handle running off it toward the bottom right.
+                const float cx = 26f, cy = 38f, radius = 17f, ringHalfWidth = 3.6f;
+                float ring = Mathf.Abs(Mathf.Sqrt((fx - cx) * (fx - cx) + (fy - cy) * (fy - cy)) - radius) - ringHalfWidth;
+                float edge = radius * 0.7071f;
+                float handle = SegmentDistance(fx, fy, cx + edge + 1.5f, cy - edge - 1.5f, 54f, 10f) - 4.6f;
+                return Mathf.Min(ring, handle);
+            }));
+
+        /// <summary>White "X" for the search bar's clear button.</summary>
+        internal static Sprite ClearIconSprite() => _clearIconSprite != null
+            ? _clearIconSprite
+            : (_clearIconSprite = MakeStrokeIcon((fx, fy) =>
+            {
+                const float lo = 14f, hi = 50f, halfWidth = 4.2f;
+                return Mathf.Min(
+                    SegmentDistance(fx, fy, lo, lo, hi, hi),
+                    SegmentDistance(fx, fy, lo, hi, hi, lo)) - halfWidth;
+            }));
+
+        private static float SegmentDistance(float px, float py, float ax, float ay, float bx, float by)
+        {
+            float abx = bx - ax, aby = by - ay;
+            float t = Mathf.Clamp01(((px - ax) * abx + (py - ay) * aby) / (abx * abx + aby * aby));
+            float dx = px - (ax + abx * t), dy = py - (ay + aby * t);
+            return Mathf.Sqrt(dx * dx + dy * dy);
+        }
+
+        /// <summary>Bakes a white icon from a signed distance function (negative = inside), with a ~1px anti-aliased edge.</summary>
+        private static Sprite MakeStrokeIcon(System.Func<float, float, float> signedDistance)
+        {
+            int size = IconTextureSize;
+            var tex = new Texture2D(size, size, TextureFormat.ARGB32, false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float alpha = Mathf.Clamp01(0.5f - signedDistance(x + 0.5f, y + 0.5f));
+                    pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+                }
+            }
+
+            tex.SetPixels32(pixels);
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        }
 
         /// <summary>A 9-sliceable rounded rect with its border baked into the pixels (so border and fill can differ within one Image).</summary>
         internal static Sprite MakeRoundedSprite(int size, float radius, float borderThickness, Color fill, Color border)

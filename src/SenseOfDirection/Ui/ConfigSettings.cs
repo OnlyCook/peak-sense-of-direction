@@ -187,6 +187,66 @@ namespace SenseOfDirection.Ui
     }
 
     /// <summary>
+    /// Backs a <c>ConfigEntry&lt;int&gt;</c> with the same slider + number-box
+    /// cell as <see cref="ConfigFloatSetting"/> - the game has no integer
+    /// widget - snapping every value to a whole number via <see cref="Clamp"/>,
+    /// which <c>SetValue</c> runs on every change from the slider or box.
+    /// </summary>
+    internal class ConfigIntSetting : FloatSetting, IConfigBoundSetting
+    {
+        private readonly ConfigEntry<int> _entry;
+        private readonly ISettingHandler _handler;
+
+        public string DisplayName { get; }
+        public string Tooltip { get; }
+        public string DefaultValueText { get; private set; }
+        public Setting Setting => this;
+
+        internal ConfigIntSetting(ConfigEntry<int> entry, ISettingHandler handler)
+        {
+            _entry = entry;
+            _handler = handler;
+            DisplayName = ConfigSettingNaming.DisplayName(entry);
+            Tooltip = ConfigSettingNaming.Tooltip(entry);
+
+            float2 range = GetMinMaxValue();
+            MinValue = range.x;
+            MaxValue = range.y;
+            Value = Clamp(entry.Value);
+            DefaultValueText = Expose((int)entry.DefaultValue);
+        }
+
+        public override void ApplyValue() => _entry.Value = Mathf.RoundToInt(Value);
+
+        public override void Save(ISettingsSaveLoad saver)
+        {
+        }
+
+        public override void Load(ISettingsSaveLoad loader) => RefreshFromConfig();
+
+        protected override float GetDefaultValue() => (int)_entry.DefaultValue;
+
+        protected override float2 GetMinMaxValue()
+        {
+            if (_entry.Description?.AcceptableValues is AcceptableValueRange<int> range)
+            {
+                return new float2(range.MinValue, range.MaxValue);
+            }
+
+            int value = (int)_entry.DefaultValue;
+            return new float2(0f, Mathf.Max(1, value * 2));
+        }
+
+        public override float Clamp(float value) => Mathf.Round(Mathf.Clamp(value, MinValue, MaxValue));
+
+        public override string Expose(float result) => Mathf.RoundToInt(result).ToString();
+
+        public void ResetToDefault() => SetValue(GetDefaultValue(), _handler, fromUI: false);
+
+        public void RefreshFromConfig() => SetValue(_entry.Value, _handler, fromUI: false);
+    }
+
+    /// <summary>
     /// Backs a <c>ConfigEntry&lt;bool&gt;</c> with the game's own OFF/ON
     /// dropdown - vanilla has no checkbox widget, every boolean setting in PEAK
     /// is an <see cref="OffOnSetting"/>, so this matches by construction.
@@ -340,6 +400,8 @@ namespace SenseOfDirection.Ui
                     return new ConfigFloatSetting(floatEntry, handler);
                 case ConfigEntry<bool> boolEntry:
                     return new ConfigBoolSetting(boolEntry, handler);
+                case ConfigEntry<int> intEntry:
+                    return new ConfigIntSetting(intEntry, handler);
             }
 
             Type type = entry.SettingType;

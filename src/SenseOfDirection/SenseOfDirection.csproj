@@ -63,6 +63,14 @@
     </ItemGroup>
   </Target>
 
+  <!-- Toneless hanzi -> pinyin table (gzipped "<hanzi><ascii pinyin>" lines,
+       copied from peak-item-spawner), so Chinese players can search the quick
+       setup panel by pinyin. Only read when the game language is Chinese - see
+       Ui/Search/PinyinIndex.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Pinyin/pinyin.bin" LogicalName="SenseOfDirection.pinyin.bin" />
+  </ItemGroup>
+
   <!-- The preview menu's localization tables (config setting names/descriptions,
        enum dropdown text, menu chrome) are authored as tab-separated data
        (Localization/*.tsv, human-editable, one row per language) rather than
