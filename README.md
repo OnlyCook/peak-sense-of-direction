@@ -32,7 +32,7 @@ Fully localized in all 15 languages the game ships with: English, Français, Ita
 
 > Open with **`F8`** at any time.
 
-Every visual setting laid out over a live preview of what it actually does, fully translated with explanations, updating in real time as you change it. No dependencies needed. Most (but not all) settings are editable here, if something seems missing check the mod's config directly, ghost free-cam and compass spawning options in particular are there only.
+Every visual setting laid out over a live preview of what it actually does, fully translated with explanations, updating in real time as you change it. No dependencies needed. Most (but not all) settings are editable here, if something seems missing check the mod's config directly, ghost free-cam options in particular are there only.
 
 <img width="1920" height="1080" alt="quick-setup" src="https://github.com/OnlyCook/peak-sense-of-direction/blob/main/packaging/quick-setup.png?raw=true" />
 
@@ -45,7 +45,7 @@ Press **`B`** while dead to fly around freely instead of being stuck spectating 
 ## Notes
 
 - Only the ghost pings and ghost free-cam features need the host and (ideally) every client to have the mod installed for the full effect, host's config decides whether they're enabled at all.
-- All settings in the *Compass-Items* section (mod config only) are host-only and host-authoritative.
+- All settings in the *Compass-Items* section (*Compass Item* tab in the quick setup panel) are host-only and host-authoritative.
 - Translations were done by AI, so if something is off in your language you are free to contact me (see below).
 
 ## Feedback & bug reports
@@ -72,7 +72,7 @@ If you have [PEAKLib.ModConfig](https://thunderstore.io/c/peak/p/PEAKModding/Mod
 - **Item-Pings**: master switch, highlight duration, grouping, creature pings, native icons, name mode, distance, and off-screen indicator, plus separate detection radii and hit/ray assist for landing pings on hard-to-hit items.
 - **Compass**: master switch, whether a compass item is required, width/offset/FOV, icon size, elevation threshold, degree numbers, names/distances, line color, thickness, keep player label color.
 - **Pirate-Compass**: luggage indicator toggle, how close to hand the compass has to be for it (held / in your inventory / anywhere on you, separately from the compass tape's own display mode), name/distance display, off-screen indicator, Clown Luggage only tracking.
-- **Compass-Items**: host-only extra compasses, one placed on the ground next to the backpack at every campfire (on by default, optionally limited to co-op runs that actually need it), an extra chance for an opened luggage to also contain a regular Compass or a Pirate's Compass (both off by default).
+- **Compass-Items**: host-only extra compasses: how many regular (default 1, like vanilla) and Pirate's Compasses (default 0) lie on the shore at the start of a run, one placed on the ground next to the backpack at every campfire (on by default, optionally limited to co-op runs that actually need it), an extra chance for an opened luggage to also contain a regular Compass or a Pirate's Compass (both off by default).
 - **Luggage-Ping**: master switch, key (default **`T`**), radius, duration, cooldown (optional).
 - **Ghost-Free-Cam**: master switch, leash distance / unlimited range, toggle key (default **`B`**), move speed and sprint multiplier, crosshair, key hint, secondary ascend/descend keybinds, and hiding every ghost from your own view.
 - **Debug**: verbose logging, plus a couple of QA-only toggles. Please keep logging on when reporting issues.

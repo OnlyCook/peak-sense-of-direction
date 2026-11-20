@@ -221,7 +221,7 @@ namespace SenseOfDirection.GhostFreeCam
             // engage/disengage logic once actually a ghost.
             if (cfg.EnableGhostFreeCamKeyHintPreview.Value)
             {
-                if (Input.GetKeyDown(cfg.GhostFreeCamToggleKey.Value))
+                if (!Ui.PreviewMenu.IsTypingInSearch && Input.GetKeyDown(cfg.GhostFreeCamToggleKey.Value))
                 {
                     _debugPreviewActive = !_debugPreviewActive;
                 }
@@ -255,7 +255,7 @@ namespace SenseOfDirection.GhostFreeCam
                 LogDiagnostics(local);
             }
 
-            if (Input.GetKeyDown(cfg.GhostFreeCamToggleKey.Value))
+            if (!Ui.PreviewMenu.IsTypingInSearch && Input.GetKeyDown(cfg.GhostFreeCamToggleKey.Value))
             {
                 _active = !_active;
             }

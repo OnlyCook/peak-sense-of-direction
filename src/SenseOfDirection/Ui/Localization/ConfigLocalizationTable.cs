@@ -83,5 +83,18 @@ namespace SenseOfDirection.Ui.Localization
 
             return perLanguage.TryGetValue(LocalizedText.Language.English, out result);
         }
+
+        /// <summary>The English display name for a section/key regardless of the current language - lets the panel's search also match English names in any language.</summary>
+        internal static bool TryGetEnglishName(string section, string key, out string name)
+        {
+            name = null;
+            if (_registry.Entries.TryGetValue((section, key), out var perLanguage) &&
+                perLanguage.TryGetValue(LocalizedText.Language.English, out ConfigLocalizationEntry entry))
+            {
+                name = entry.Name;
+                return true;
+            }
+            return false;
+        }
     }
 }

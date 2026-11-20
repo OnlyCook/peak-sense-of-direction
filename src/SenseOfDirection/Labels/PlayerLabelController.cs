@@ -414,7 +414,7 @@ namespace SenseOfDirection.Labels
                     // not Input.GetKeyDown: Unity's legacy Input Manager can silently miss
                     // a key-down edge when another key (e.g. WASD) is already held that
                     // frame, so we do the edge detection ourselves off plain GetKey
-                    bool keyDownNow = Input.GetKey(cfg.PlayerLabelToggleKey.Value);
+                    bool keyDownNow = !Ui.PreviewMenu.IsTypingInSearch && Input.GetKey(cfg.PlayerLabelToggleKey.Value);
                     if (keyDownNow && !_toggleKeyWasDown)
                     {
                         _toggleVisible = !_toggleVisible;
@@ -424,7 +424,7 @@ namespace SenseOfDirection.Labels
                 }
 
                 case LabelDisplayMode.Hold:
-                    if (Input.GetKey(cfg.PlayerLabelToggleKey.Value))
+                    if (!Ui.PreviewMenu.IsTypingInSearch && Input.GetKey(cfg.PlayerLabelToggleKey.Value))
                     {
                         // set on every held frame, so a quick tap is already covered
                         _holdReleaseUntil = Time.time + cfg.HoldShownDuration.Value;

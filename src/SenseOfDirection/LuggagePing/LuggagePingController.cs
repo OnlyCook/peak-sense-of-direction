@@ -91,7 +91,8 @@ namespace SenseOfDirection.LuggagePing
             KeyCode key = cfg.LuggagePingKey.Value;
             bool physicallyDown = key != KeyCode.None && Input.GetKey(key);
 
-            if (KeyRebindControl.IsCapturing)
+            // Same suppression while typing in the quick setup panel's search box.
+            if (KeyRebindControl.IsCapturing || Ui.PreviewMenu.IsTypingInSearch)
             {
                 _keyWasDown = physicallyDown;
                 _suppressUntilKeyUp = true;
