@@ -69,6 +69,7 @@ namespace SenseOfDirection
             Wire("PointPingerPatches", () => PointPingerPatches.Apply(_harmony, Logger));
             Wire("GhostFreeCamPatches", () => GhostFreeCamPatches.Apply(_harmony, Logger));
             Wire("PauseSuppressPatch", () => Ui.PauseSuppressPatch.Apply(_harmony, Logger));
+            Wire("FloatSettingFormatPatch", () => Ui.FloatSettingFormatPatch.Apply(_harmony, Logger));
             Wire("LuggageCompassSpawner", () => CompassItems.LuggageCompassSpawner.Apply(_harmony, Logger));
             Wire("ShoreCompassSpawner", () => CompassItems.ShoreCompassSpawner.Apply(_harmony, Logger));
             Wire("PingableRegistryPatches", () => PingableRegistryPatches.Apply(_harmony, Logger));
