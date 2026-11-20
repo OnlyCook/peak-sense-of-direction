@@ -1,3 +1,12 @@
+## 1.2.0
+
+- Added new `Compass-Items/shore-compass-count` setting (host only; 1 by default like vanilla) to choose how many Compasses lie on the shore at the start of a run. Thanks to CreeperBlue22 for the suggestion!
+- Added new `Compass-Items/shore-pirate-compass-count` setting (host only; 0 by default) to also place Pirate's Compasses on the shore at the start of a run.
+- Added a search tab to the Quick Setup panel to quickly find any setting by its name. Works in every language, and Chinese players can also search using pinyin.
+- Split the Quick Setup panel's *Compass* tab into *Compass UI* and *Compass Item*, since there were too many compass settings in one place. All *Compass-Items* settings (like the campfire and luggage compasses) are now in the Quick Setup panel too, so there's no need to open the config for them anymore.
+- Fixed the campfire compass setting's description wrongly saying the compass appears when the campfire is lit (since it's already waiting there when you arrive).
+- Fixed decimal settings in the Quick Setup panel only showing whole numbers (caused by a recent game update).
+
 ## 1.1.7
 
 - Made the campfire indicator compatible with [True Final Ascent](https://thunderstore.io/c/peak/p/CptPICHU/TrueFinalAscent/): it now correctly points at the campfires of its extra biomes.
